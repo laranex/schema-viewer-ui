@@ -56,7 +56,7 @@
   },
   "scripts": {
     "dev": "vite --config vite.viewer.config.ts",
-    "build": "rm -rf dist && vite build --config vite.lib.config.ts && vite build --config vite.viewer.config.ts && node scripts/viewer-html.mjs && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && vite build --config vite.lib.config.ts && vite build --config vite.viewer.config.ts && vite build --config vite.offline.config.ts && node scripts/viewer-html.mjs && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm test && npm run build && npm run contract:check && npm run test:package",

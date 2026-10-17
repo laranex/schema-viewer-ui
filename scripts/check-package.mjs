@@ -48,6 +48,8 @@ try {
         const exported = dbml.export(fixture);
         if (EXPORTERS.length !== 4 || !exported.content.includes('Ref ') || !Array.isArray(exported.warnings)) throw new Error('export');
         if (exportFileName(fixture, 'dbml') !== 'schema-mysql.dbml') throw new Error('export file name');
+        const { offlineHtml } = await import('laranex-schema-viewer-ui');
+        if (typeof offlineHtml !== 'function') throw new Error('offlineHtml');
         const schema = require('laranex-schema-viewer-ui/schema.json');
         if (!schema.$id || FORMAT !== 'laranex-schema') throw new Error('schema export');
         require.resolve('laranex-schema-viewer-ui/viewer/app.js');
@@ -70,7 +72,7 @@ try {
             fail(`${file.path} does not match the manifest`);
         }
     }
-    for (const icon of ['favicon.svg', 'favicon.ico']) {
+    for (const icon of ['favicon.svg', 'favicon.ico', 'offline.js']) {
         if (!manifest.files.some((f) => f.path === icon)) {
             fail(`the manifest does not list ${icon}`);
         }

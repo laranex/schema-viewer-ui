@@ -6,6 +6,7 @@ import { Browse, tableSubtitle, type BrowseMode } from './Browse';
 import { ComparePanel } from './Compare';
 import { ChangesPanel, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
 import { DownloadDialog, type ImageArea } from './DownloadDialog';
+import { offlineHtml, type OfflineBundle } from './offline';
 import { boundsOf, clip, colorsOf, fontFaces, save, toCanvas, toPngBlob, toSvg, type EdgeEnd, type ImageModel } from './exportImage';
 import {
     cardHeight,
@@ -66,6 +67,9 @@ export type SchemaViewerProps = {
     className?: string;
     // Replaces the ELK layout, for tests and custom placement.
     layout?: (request: LayoutRequest) => Promise<Positions>;
+    // Where "This page as HTML" gets the single-file viewer from (see fetchOfflineBundle); unset hides it. The
+    // standalone bundle sets it.
+    offlineBundle?: (() => Promise<OfflineBundle>) | null;
 };
 
 type Selection = { kind: 'table' | 'edge' | 'inferred'; id: string } | null;
@@ -145,6 +149,7 @@ function Viewer({
     downloadHref,
     className,
     layout = autoLayout,
+    offlineBundle = null,
 }: SchemaViewerProps) {
     const flow = useReactFlow();
     const store = useStoreApi();
@@ -973,6 +978,15 @@ function Viewer({
         }
         return `Downloaded ${name}.`;
     };
+    // The whole viewer as one offline HTML file, with every connection, opening on the connection in view.
+    const downloadOffline = async (): Promise<string> => {
+        if (!offlineBundle) {
+            throw new Error('This page cannot build the offline viewer.');
+        }
+        const html = offlineHtml(await offlineBundle(), { document: doc, changes: changes ?? null, defaultConnection: connection || null });
+        save(new Blob([html], { type: 'text/html;charset=utf-8' }), 'schema-viewer.html');
+        return 'Downloaded schema-viewer.html. Open it in any browser, offline.';
+    };
     const downloadDocument = () => {
         if (downloadHref) {
             const a = document.createElement('a');
@@ -1513,7 +1527,7 @@ function Viewer({
                 initialConnection={downloadConnection}
                 shownTables={visible.filter(({ table }) => positions[table.id]).length}
                 onImage={exportImage}
-                onOffline={null}
+                onOffline={offlineBundle ? downloadOffline : null}
                 onWholeDocument={downloadHref === null ? null : downloadDocument}
                 downloads={downloads ?? []}
             />

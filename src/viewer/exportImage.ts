@@ -366,7 +366,8 @@ export const toPngBlob = (canvas: HTMLCanvasElement) =>
 // The weights the image draws, by family.
 const USED_FACES = new Set(['IBM Plex Mono|400', 'IBM Plex Mono|500', 'IBM Plex Mono|600', 'IBM Plex Mono|700', 'IBM Plex Sans|400', 'IBM Plex Sans|600']);
 
-async function dataUrl(url: string): Promise<string> {
+// A same-origin file as a data URL.
+export async function dataUrl(url: string, mediaType = 'font/woff2'): Promise<string> {
     const response = await fetch(url, { credentials: 'same-origin' });
     if (!response.ok) {
         throw new Error(`Could not read ${url} (HTTP ${response.status}).`);
@@ -376,7 +377,7 @@ async function dataUrl(url: string): Promise<string> {
     for (let i = 0; i < bytes.length; i += 0x8000) {
         binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
     }
-    return `data:font/woff2;base64,${btoa(binary)}`;
+    return `data:${mediaType};base64,${btoa(binary)}`;
 }
 
 let faces: Promise<string> | null = null;

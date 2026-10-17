@@ -86,6 +86,46 @@ test.describe('Download dialog', () => {
         await expect(page.locator('.canvas')).toBeFocused();
     });
 
+    test('saves the page as one offline HTML file that works from file:// with no network', async ({ page, browserName, isMobile }, testInfo) => {
+        test.skip(browserName === 'webkit', 'WebKit is not run against file:// pages here, as in Laranex Laravel Schema Viewer.');
+        await page.goto('/f/combined-multi-connection/#connection=connection%3Aanalytics');
+        await loaded(page);
+        const dialog = await openDialog(page, isMobile);
+        const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: /This page as HTML/ }).click()]);
+        expect(download.suggestedFilename()).toBe('schema-viewer.html');
+        const file = testInfo.outputPath('schema-viewer.html');
+        await download.saveAs(file);
+        const html = await text(download);
+        expect(html).toContain('script-src \'sha256-');
+        expect(html.length).toBeLessThan(4_000_000);
+
+        // A fresh page with every network request refused: everything must come from the file itself.
+        const offline = await page.context().newPage();
+        const requests: string[] = [];
+        const problems: string[] = [];
+        offline.on('request', (r) => requests.push(r.url()));
+        offline.on('console', (m) => m.type() === 'error' && problems.push(m.text()));
+        offline.on('pageerror', (e) => problems.push(e.message));
+        await offline.route(/^https?:/, (route) => route.abort());
+        await offline.goto(`file://${file}`);
+        await loaded(offline);
+        await expect(offline.locator('.react-flow__node-table')).toHaveCount(2);
+        await expect(offline.locator('.react-flow__node-external')).toHaveCount(1);
+        expect(requests.filter((u) => !/^(file|data|blob):/.test(u))).toEqual([]);
+        expect(problems).toEqual([]);
+
+        // Offline, the dialog still makes every file from the embedded document, and the page exports itself again.
+        const again = await openDialog(offline, isMobile);
+        const [whole] = await Promise.all([offline.waitForEvent('download'), again.getByRole('button', { name: /JSON document/ }).click()]);
+        expect(JSON.parse(await text(whole)).connections).toHaveLength(3);
+        await again.locator('label.download__format', { hasText: 'DBML' }).click();
+        const [dbml] = await Promise.all([offline.waitForEvent('download'), again.getByRole('button', { name: 'Download schema-analytics.dbml' }).click()]);
+        expect(await text(dbml)).toContain('Table events');
+        const [copy] = await Promise.all([offline.waitForEvent('download'), again.getByRole('button', { name: /This page as HTML/ }).click()]);
+        expect(await text(copy)).toBe(html);
+        expect(requests.filter((u) => !/^(file|data|blob):/.test(u))).toEqual([]);
+    });
+
     for (const theme of ['light', 'dark'] as const) {
         test(`has no serious accessibility violations in the ${theme} theme`, async ({ page, isMobile }) => {
             await page.emulateMedia({ colorScheme: theme });

@@ -12,6 +12,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { ViewerConfig } from '../contract/viewer-config';
 import { validateDocument } from '../contract/validate';
 import { SchemaViewer } from '../viewer/SchemaViewer';
+import { bundleFromPage, fetchOfflineBundle } from '../viewer/offline';
 
 // The standalone viewer: Laravel, Python and Node.js hosts serve dist/viewer/ as static files and hand it a
 // laranex-schema document in one of three ways, tried in this order:
@@ -85,6 +86,13 @@ function Message({ title, text, details }: { title: string; text: string; detail
     );
 }
 
+// The offline viewer is built from this page's own script and stylesheet when it is itself an offline export, else from
+// offline.js, app.css and favicon.svg beside app.js.
+const offlineBundle = () => {
+    const own = bundleFromPage();
+    return own ? Promise.resolve(own) : fetchOfflineBundle(new URL(/* @vite-ignore */ '.', import.meta.url));
+};
+
 const roots = new WeakMap<HTMLElement, Root>();
 
 export async function mount(element: HTMLElement, url: string | null = element.dataset.snapshotUrl ?? null): Promise<void> {
@@ -101,6 +109,7 @@ export async function mount(element: HTMLElement, url: string | null = element.d
                     editor={source.config.editor}
                     defaultConnection={source.config.defaultConnection}
                     downloadHref={source.downloadHref}
+                    offlineBundle={offlineBundle}
                 />
             ) : 'missing' in source ? (
                 <Message title="No snapshot yet" text={`Build one first: ${source.missing}`} />
