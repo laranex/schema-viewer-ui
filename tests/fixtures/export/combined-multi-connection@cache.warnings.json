@@ -1,0 +1,26 @@
+{
+  "mermaid": [
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:cache",
+        "label": "cache"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of cache: 1 index."
+    }
+  ],
+  "dbml": [],
+  "markdown": [],
+  "json": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "relationship",
+        "id": "App\\Models\\Session::user",
+        "label": "user"
+      },
+      "message": "Relationship App\\Models\\Session::user reaches connection app; a document of these connections cannot hold it, so it is left out."
+    }
+  ]
+}

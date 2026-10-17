@@ -1,0 +1,125 @@
+Project mysql {
+  Note: 'Synthetic blog used by the contract fixtures.'
+}
+
+Table categories {
+  id "bigint unsigned" [pk, increment, not null]
+  parent_id "bigint unsigned" [not null]
+  name varchar(255) [not null]
+
+  indexes {
+    parent_id [name: 'categories_parent_id_index']
+  }
+}
+
+Table comments {
+  id "bigint unsigned" [pk, increment, not null]
+  user_id "bigint unsigned" [not null]
+  commentable_type varchar(255) [not null]
+  commentable_id "bigint unsigned" [not null]
+  body text [not null]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (commentable_type, commentable_id) [name: 'comments_commentable_type_commentable_id_index']
+  }
+}
+
+Table countries {
+  id "bigint unsigned" [pk, increment, not null]
+  code char(2) [not null, unique]
+}
+
+Table jobs {
+  id "bigint unsigned" [pk, increment, not null]
+  queue varchar(255) [not null]
+  payload longtext [not null]
+
+  indexes {
+    queue [name: 'jobs_queue_index']
+  }
+}
+
+Table oauth_clients {
+  id "bigint unsigned" [pk, increment, not null]
+  user_id "bigint unsigned" [not null]
+  name varchar(255) [not null]
+
+  indexes {
+    user_id [name: 'oauth_clients_user_id_index']
+  }
+}
+
+Table posts {
+  id "bigint unsigned" [pk, increment, not null]
+  user_id "bigint unsigned" [not null]
+  editor_id "bigint unsigned"
+  category_id "bigint unsigned"
+  title varchar(255) [not null, note: 'Shown in feeds; keep it short.']
+  status "enum('draft','published')" [not null, default: `'draft'`]
+  published_at timestamp [default: `CURRENT_TIMESTAMP`]
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    user_id [name: 'posts_user_id_index']
+    category_id [name: 'posts_category_id_index']
+    (status, published_at) [name: 'posts_status_published_at_index']
+  }
+  Note: 'Articles, drafts included.'
+}
+
+Table role_user {
+  user_id "bigint unsigned" [not null]
+  role_id "bigint unsigned" [not null]
+  assigned_at timestamp
+
+  indexes {
+    (user_id, role_id) [pk]
+    role_id [name: 'role_user_role_id_index']
+  }
+}
+
+Table roles {
+  id "bigint unsigned" [pk, increment, not null]
+  name varchar(255) [not null]
+}
+
+Table taggables {
+  tag_id "bigint unsigned" [not null]
+  taggable_type varchar(255) [not null]
+  taggable_id "bigint unsigned" [not null]
+
+  indexes {
+    tag_id [name: 'taggables_tag_id_index']
+    (taggable_type, taggable_id) [name: 'taggables_taggable_type_taggable_id_index']
+  }
+}
+
+Table tags {
+  id "bigint unsigned" [pk, increment, not null]
+  name varchar(255) [not null]
+}
+
+Table users {
+  id "bigint unsigned" [pk, increment, not null]
+  country_id "bigint unsigned" [not null]
+  email varchar(255) [not null, unique]
+  remember_token varchar(100)
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    country_id [name: 'users_country_id_index']
+  }
+}
+
+Ref categories_parent_id_foreign: categories.parent_id > categories.id [delete: set null]
+Ref comments_user_id_foreign: comments.user_id > users.id [delete: cascade]
+Ref posts_user_id_foreign: posts.user_id > users.id [delete: cascade]
+Ref posts_category_id_foreign: posts.category_id > categories.id [delete: set null]
+Ref role_user_user_id_foreign: role_user.user_id > users.id [delete: cascade]
+Ref role_user_role_id_foreign: role_user.role_id > roles.id [delete: cascade]
+Ref taggables_tag_id_foreign: taggables.tag_id > tags.id [delete: cascade]
+Ref users_country_id_foreign: users.country_id > countries.id

@@ -44,6 +44,10 @@ try {
         if (canonicalJson(storeComparisons(store.input.document, store.input.comparisons)) !== canonicalJson(store.expected.document)) throw new Error('stored comparisons differ');
         const gate = JSON.parse(readFileSync(require.resolve('laranex-schema-viewer-ui/contract/conformance/gate/requested-wildcard.json'), 'utf8'));
         if (canonicalJson(gateDocument(gate.input.document, gate.input)) !== canonicalJson(gate.expected)) throw new Error('gate report differs');
+        const { EXPORTERS, dbml, exportFileName } = await import('laranex-schema-viewer-ui/export');
+        const exported = dbml.export(fixture);
+        if (EXPORTERS.length !== 4 || !exported.content.includes('Ref ') || !Array.isArray(exported.warnings)) throw new Error('export');
+        if (exportFileName(fixture, 'dbml') !== 'schema-mysql.dbml') throw new Error('export file name');
         const schema = require('laranex-schema-viewer-ui/schema.json');
         if (!schema.$id || FORMAT !== 'laranex-schema') throw new Error('schema export');
         require.resolve('laranex-schema-viewer-ui/viewer/app.js');

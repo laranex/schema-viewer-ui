@@ -1,0 +1,55 @@
+{
+  "mermaid": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:analytics",
+        "label": "analytics"
+      },
+      "message": "The database inspection of analytics is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:analytics",
+        "label": "analytics"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of analytics: 1 index, 1 comment or note, 1 referential action set."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:analytics",
+        "label": "analytics"
+      },
+      "message": "The database inspection of analytics is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:analytics",
+        "label": "analytics"
+      },
+      "message": "The database inspection of analytics is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    }
+  ],
+  "json": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "relationship",
+        "id": "App\\Models\\Analytics\\Visitor::account",
+        "label": "account"
+      },
+      "message": "Relationship App\\Models\\Analytics\\Visitor::account reaches connection app; a document of these connections cannot hold it, so it is left out."
+    }
+  ]
+}

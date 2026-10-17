@@ -1,0 +1,27 @@
+erDiagram
+    app_public_teams {
+        bigint id PK
+        varchar name
+    }
+    app_public_users {
+        bigint id PK
+        bigint team_id FK
+        varchar email
+    }
+    analytics_events {
+        bigint id PK
+        bigint user_id FK
+        varchar name
+    }
+    analytics_users {
+        bigint id PK
+        bigint app_user_id
+        varchar segment
+    }
+    cache_sessions {
+        varchar id PK
+        bigint user_id
+        text payload
+    }
+    app_public_teams |o--o{ app_public_users : "team_id"
+    analytics_users ||--o{ analytics_events : "user_id"

@@ -1,0 +1,45 @@
+{
+  "mermaid": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: public.users → public_users."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    }
+  ],
+  "json": []
+}

@@ -1,0 +1,11 @@
+erDiagram
+    public_teams {
+        bigint id PK
+        varchar name
+    }
+    public_users {
+        bigint id PK
+        bigint team_id FK
+        varchar email
+    }
+    public_teams |o--o{ public_users : "team_id"

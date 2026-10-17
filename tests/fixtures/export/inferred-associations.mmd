@@ -1,0 +1,71 @@
+erDiagram
+    public_accounts {
+        bigint id PK
+    }
+    public_friendships {
+        bigint user_id PK, FK
+        bigint friend_id PK, FK
+    }
+    public_import_rows {
+        bigint id PK
+        bigint user_id FK
+    }
+    public_invoices {
+        bigint id PK
+        bigint account_id FK
+    }
+    public_messages {
+        bigint id PK
+        bigint sender_id FK
+        bigint recipient_id FK
+    }
+    public_order_lines {
+        bigint id PK
+        text order_region FK
+        integer order_number FK
+    }
+    public_orders {
+        bigint id PK
+        text region
+        integer number
+    }
+    public_passports {
+        bigint id PK
+        bigint user_id FK, UK
+    }
+    public_post_tags {
+        bigint post_id PK, FK
+        bigint tag_id PK, FK
+    }
+    public_posts {
+        bigint id PK
+        bigint author_id FK
+    }
+    public_profiles {
+        bigint id PK
+        bigint user_id FK, UK
+    }
+    public_tags {
+        bigint id PK
+    }
+    public_teams {
+        bigint id PK
+    }
+    public_users {
+        bigint id PK
+        bigint team_id
+        bigint manager_id FK
+    }
+    public_users ||--o{ public_friendships : "user_id"
+    public_users ||--o{ public_friendships : "friend_id"
+    public_users ||--o{ public_import_rows : "user_id"
+    public_accounts ||--o{ public_invoices : "account_id"
+    public_users ||--o{ public_messages : "sender_id"
+    public_users ||--o{ public_messages : "recipient_id"
+    public_orders ||--o{ public_order_lines : "order_region, order_number"
+    public_users ||--o| public_passports : "user_id"
+    public_posts ||--o{ public_post_tags : "post_id"
+    public_tags ||--o{ public_post_tags : "tag_id"
+    public_users ||--o{ public_posts : "author_id"
+    public_users ||--o| public_profiles : "user_id"
+    public_users ||--o{ public_users : "manager_id"

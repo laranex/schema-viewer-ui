@@ -1,0 +1,188 @@
+{
+  "mermaid": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:edge cases",
+        "label": "edge cases"
+      },
+      "message": "The database inspection of edge cases is incomplete (indexPredicates: partial); the file holds only what was read."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "table",
+        "id": "edge:odd",
+        "label": "my schema.order \"items\" <b>"
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; columns of my schema.order \"items\" <b> renamed: na|me → na_me, back`tick → back_tick, 2fa_secret → _2fa_secret."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "foreignKey",
+        "id": "edge:children:fk:children_parent_codes_fkey",
+        "label": "public.children"
+      },
+      "message": "Composite foreign key children_parent_codes_fkey on public.children is one relationship labelled with its columns; Mermaid cannot pair them with code_a, code_b."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: public.children → public_children, my schema.order \"items\" <b> → my_schema_order__items___b_, public.parents → public_parents."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:edge cases",
+        "label": "edge cases"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of edge cases: 7 indexes, 2 check constraints, 3 column defaults, 1 generated column, 1 enum value list, 3 comments and notes, 3 referential action sets."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:edge cases",
+        "label": "edge cases"
+      },
+      "message": "The database inspection of edge cases is incomplete (indexPredicates: partial); the file holds only what was read."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "edge:children:index:children_parent_id_key",
+        "label": "public.children"
+      },
+      "message": "The unique index children_parent_id_key on public.children.parent_id is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "table",
+        "id": "edge:odd",
+        "label": "my schema.order \"items\" <b>"
+      },
+      "message": "SQL text on my schema.order \"items\" <b> contains a backtick, which DBML cannot hold; it is written as a quote: concat('a', `b`)"
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "column",
+        "id": "edge:odd",
+        "label": "my schema.order \"items\" <b>.2fa_secret"
+      },
+      "message": "DBML has no column collation; my schema.order \"items\" <b>.2fa_secret uses C."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "column",
+        "id": "edge:odd",
+        "label": "my schema.order \"items\" <b>.total"
+      },
+      "message": "my schema.order \"items\" <b>.total is a generated (stored) column; DBML cannot state its expression: price * quantity"
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "edge:odd:index:odd_title_prefix_idx",
+        "label": "my schema.order \"items\" <b>"
+      },
+      "message": "Index odd_title_prefix_idx on my schema.order \"items\" <b> loses title's order desc, nulls last, prefix length 10, collation C, operator class text_pattern_ops: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "edge:odd:index:odd_title_gin_idx",
+        "label": "my schema.order \"items\" <b>"
+      },
+      "message": "Index odd_title_gin_idx on my schema.order \"items\" <b> loses the method gin: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "edge:odd:index:odd_live_title_idx",
+        "label": "my schema.order \"items\" <b>"
+      },
+      "message": "Index odd_live_title_idx on my schema.order \"items\" <b> loses the predicate WHERE (quantity > 0); the included columns (price): DBML cannot state them."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "index",
+        "id": "edge:odd:index:odd_opaque_idx",
+        "label": "my schema.order \"items\" <b>"
+      },
+      "message": "Index odd_opaque_idx on my schema.order \"items\" <b> is on an expression whose text was not reported; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "edge:odd:index:odd_mixed_idx",
+        "label": "my schema.order \"items\" <b>"
+      },
+      "message": "Index odd_mixed_idx on my schema.order \"items\" <b> loses the dialect options (postgresql): DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "constraint",
+        "id": "edge:parents:constraint:parents_codes_key",
+        "label": "public.parents"
+      },
+      "message": "The unique constraint parents_codes_key on public.parents is written as a unique index; DBML has no unique constraints apart from indexes."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "constraint",
+        "id": "edge:parents:constraint:parents_opaque_check",
+        "label": "public.parents"
+      },
+      "message": "The check constraint parents_opaque_check on public.parents has no reported expression; it is left out."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "foreignKey",
+        "id": "edge:children:fk:children_parent_id_fkey",
+        "label": "public.children"
+      },
+      "message": "DBML cannot state that foreign key children_parent_id_fkey on public.children is deferrable, initially deferred."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "edge:children:fk:children_parent_id_fkey2",
+        "label": "public.children"
+      },
+      "message": "Foreign key children_parent_id_fkey2 on public.children has the same columns as children_parent_id_fkey; DBML allows one Ref per pair of endpoints, so it is left out."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:edge cases",
+        "label": "edge cases"
+      },
+      "message": "The database inspection of edge cases is incomplete (indexPredicates: partial); the file holds only what was read."
+    }
+  ]
+}

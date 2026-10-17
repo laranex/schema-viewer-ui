@@ -1,0 +1,19 @@
+Table public.customers {
+  id bigint [pk, increment, not null]
+  email "character varying(255)" [not null]
+  active boolean [not null, default: `true`]
+  score "double precision" [not null]
+  created_at "timestamp with time zone" [not null]
+  bio text
+}
+
+Table public.orders {
+  id bigint [pk, not null]
+  customer_id bigint [not null]
+
+  indexes {
+    customer_id [name: 'orders_customer_id_idx']
+  }
+}
+
+Ref orders_customer_id_fkey: public.orders.customer_id > public.customers.id [delete: restrict]

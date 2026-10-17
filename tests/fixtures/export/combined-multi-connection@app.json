@@ -1,0 +1,389 @@
+{
+  "comparisons": [],
+  "connections": [
+    {
+      "coverage": {
+        "database": {
+          "complete": true,
+          "features": {
+            "checkConstraints": "not_applicable",
+            "columnTypes": "complete",
+            "columns": "complete",
+            "comments": "complete",
+            "defaults": "complete",
+            "foreignKeys": "complete",
+            "includedColumns": "not_applicable",
+            "indexExpressions": "complete",
+            "indexPredicates": "not_applicable",
+            "indexes": "complete",
+            "models": "not_applicable",
+            "primaryKeys": "complete",
+            "referentialActions": "complete",
+            "relationships": "not_applicable",
+            "tables": "complete",
+            "uniqueConstraints": "complete"
+          },
+          "schemas": [
+            "public"
+          ]
+        },
+        "declared": {
+          "complete": true,
+          "features": {
+            "models": "complete",
+            "relationships": "complete",
+            "tables": "not_applicable"
+          },
+          "schemas": null
+        }
+      },
+      "defaultSchema": "public",
+      "driver": "postgresql",
+      "id": "connection:app",
+      "name": "app",
+      "tables": [
+        {
+          "columns": [
+            {
+              "autoIncrement": true,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "id",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "name",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "character varying(255)",
+              "typeName": "varchar"
+            }
+          ],
+          "comment": null,
+          "constraints": [],
+          "foreignKeys": [],
+          "id": "app:public.teams",
+          "indexes": [
+            {
+              "backs": {
+                "constraint": null,
+                "kind": "primary_key"
+              },
+              "expression": false,
+              "id": "app:public.teams:index:teams_pkey",
+              "included": [],
+              "method": null,
+              "name": "teams_pkey",
+              "partial": false,
+              "parts": [
+                {
+                  "collation": null,
+                  "column": "id",
+                  "expression": null,
+                  "length": null,
+                  "nulls": null,
+                  "opclass": null,
+                  "order": null
+                }
+              ],
+              "predicate": null,
+              "provenance": [
+                "database"
+              ],
+              "unique": true
+            }
+          ],
+          "name": "teams",
+          "note": null,
+          "owner": {
+            "kind": "application",
+            "package": null
+          },
+          "primaryKey": [
+            "id"
+          ],
+          "provenance": [
+            "database"
+          ],
+          "schema": "public"
+        },
+        {
+          "columns": [
+            {
+              "autoIncrement": true,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "id",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "team_id",
+              "note": null,
+              "nullable": true,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "drift": [
+                {
+                  "database": "character varying(320)",
+                  "declared": "string",
+                  "field": "type"
+                }
+              ],
+              "enum": null,
+              "generated": null,
+              "name": "email",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database",
+                "declared"
+              ],
+              "timezone": null,
+              "type": "character varying(320)",
+              "typeName": "varchar"
+            }
+          ],
+          "comment": null,
+          "constraints": [],
+          "foreignKeys": [
+            {
+              "columns": [
+                "team_id"
+              ],
+              "deferrable": null,
+              "foreignColumns": [
+                "id"
+              ],
+              "foreignTable": "app:public.teams",
+              "id": "app:public.users:fk:users_team_id_foreign",
+              "initially": null,
+              "name": "users_team_id_foreign",
+              "onDelete": "SET NULL",
+              "onUpdate": null,
+              "provenance": [
+                "database"
+              ]
+            }
+          ],
+          "id": "app:public.users",
+          "indexes": [
+            {
+              "backs": {
+                "constraint": null,
+                "kind": "primary_key"
+              },
+              "expression": false,
+              "id": "app:public.users:index:users_pkey",
+              "included": [],
+              "method": null,
+              "name": "users_pkey",
+              "partial": false,
+              "parts": [
+                {
+                  "collation": null,
+                  "column": "id",
+                  "expression": null,
+                  "length": null,
+                  "nulls": null,
+                  "opclass": null,
+                  "order": null
+                }
+              ],
+              "predicate": null,
+              "provenance": [
+                "database"
+              ],
+              "unique": true
+            }
+          ],
+          "name": "users",
+          "note": null,
+          "owner": {
+            "kind": "application",
+            "package": null
+          },
+          "primaryKey": [
+            "id"
+          ],
+          "provenance": [
+            "database"
+          ],
+          "schema": "public"
+        }
+      ]
+    }
+  ],
+  "derivedLinks": [],
+  "diagnostics": [
+    {
+      "category": "drift",
+      "certainty": "certain",
+      "id": "nb7e59e58d6e3ba10",
+      "kind": "column_drift",
+      "message": "The database stores public.users.email as character varying(320); the model casts it as string.",
+      "severity": "info",
+      "subject": {
+        "columns": [
+          "email"
+        ],
+        "id": "app:public.users",
+        "label": "app · public.users.email",
+        "type": "column"
+      }
+    }
+  ],
+  "format": "laranex-schema",
+  "generator": {
+    "name": "laravel-schema-viewer",
+    "orm": "eloquent"
+  },
+  "inferredAssociations": [],
+  "links": [
+    {
+      "id": "l539634d66413746d",
+      "from": {
+        "table": "app:public.users",
+        "columns": [
+          "team_id"
+        ]
+      },
+      "to": {
+        "table": "app:public.teams",
+        "columns": [
+          "id"
+        ]
+      },
+      "foreignKey": "app:public.users:fk:users_team_id_foreign",
+      "relationships": [
+        "App\\Models\\User::team"
+      ],
+      "state": "both",
+      "polymorphic": false,
+      "note": null
+    }
+  ],
+  "migrations": [],
+  "models": [
+    {
+      "className": "App\\Models\\Team",
+      "id": "App\\Models\\Team",
+      "primaryKey": [
+        "id"
+      ],
+      "source": {
+        "file": "app/Models/Team.php",
+        "line": 9
+      },
+      "tables": [
+        "app:public.teams"
+      ]
+    },
+    {
+      "className": "App\\Models\\User",
+      "id": "App\\Models\\User",
+      "primaryKey": [
+        "id"
+      ],
+      "source": {
+        "file": "app/Models/User.php",
+        "line": 9
+      },
+      "tables": [
+        "app:public.users"
+      ]
+    }
+  ],
+  "note": "Synthetic application with three database connections.",
+  "relationships": [
+    {
+      "cardinality": "many-to-one",
+      "collection": false,
+      "constraints": [],
+      "id": "App\\Models\\User::team",
+      "inverse": null,
+      "join": null,
+      "keys": {
+        "from": {
+          "columns": [
+            "team_id"
+          ],
+          "table": "app:public.users"
+        },
+        "to": {
+          "columns": [
+            "id"
+          ],
+          "table": "app:public.teams"
+        }
+      },
+      "model": "App\\Models\\User",
+      "name": "team",
+      "note": null,
+      "pivot": null,
+      "polymorphic": null,
+      "readOnly": false,
+      "relatedModel": "App\\Models\\Team",
+      "relatedTable": "app:public.teams",
+      "source": {
+        "file": "app/Models/User.php",
+        "line": 18
+      },
+      "table": "app:public.users",
+      "through": null,
+      "type": "BelongsTo"
+    }
+  ],
+  "source": "combined",
+  "version": "2.0"
+}
