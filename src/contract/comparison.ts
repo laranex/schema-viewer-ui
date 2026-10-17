@@ -219,7 +219,9 @@ export function compareScopes(doc: Pick<SchemaDocument, 'source' | 'connections'
     const found: Found[] = [];
     const add = (objectType: ObjectType, key: string[], a: DifferenceRef | null, b: DifferenceRef | null, fields: FieldDifference[] = [], likely = false) => {
         const change: Change = a && b ? 'changed' : a ? 'missing' : 'extra';
-        if (change !== 'changed' || fields.length) {
+        if (change !== 'changed') {
+            found.push({ objectType, key, change, baseline: a, target: b, fields: [], likely: false });
+        } else if (fields.length) {
             found.push({ objectType, key, change, baseline: a, target: b, fields: fields.sort((x, y) => (x.field < y.field ? -1 : 1)), likely });
         }
     };
@@ -298,9 +300,11 @@ export function compareScopes(doc: Pick<SchemaDocument, 'source' | 'connections'
         const fsigOf = new Map([...fa.map((f) => [f, fsig(f, A)] as const), ...fb.map((f) => [f, fsig(f, B)] as const)]);
         const foreignKeys = pair<ForeignKey>(fa, fb, [(f) => fsigOf.get(f) ?? null, (f) => (f.name === null ? null : `name:${f.name}`)]);
         const fref = (t: Table, f: ForeignKey) => ref(t, f.id, `.${f.name ?? fsigOf.get(f)}`);
-        const action = (value: string | null, s: Side) => {
+        // MySQL and MariaDB treat RESTRICT as NO ACTION, so either side being one makes them equal.
+        const restrictIsNoAction = [A, B].some((x) => x.connection.driver === 'mysql' || x.connection.driver === 'mariadb');
+        const action = (value: string | null) => {
             const v = value ?? 'NO ACTION';
-            return v === 'RESTRICT' && (s.connection.driver === 'mysql' || s.connection.driver === 'mariadb') ? 'NO ACTION' : v;
+            return v === 'RESTRICT' && restrictIsNoAction ? 'NO ACTION' : v;
         };
         for (const { a, b, pass } of foreignKeys.pairs) {
             const f: FieldDifference[] = [];
@@ -319,7 +323,7 @@ export function compareScopes(doc: Pick<SchemaDocument, 'source' | 'connections'
                 }
             }
             for (const field of ['onDelete', 'onUpdate'] as const) {
-                if (action(a[field], A) !== action(b[field], B)) {
+                if (action(a[field]) !== action(b[field])) {
                     f.push({ field, baseline: a[field], target: b[field] });
                 }
             }
@@ -410,7 +414,9 @@ function columnFields(a: Column, b: Column, A: Side, B: Side, sameDriver: boolea
     if (a.nullable !== b.nullable) {
         fields.push({ field: 'nullable', baseline: a.nullable, target: b.nullable });
     }
-    const dflt = (c: Column, s: Side) => (c.default === null ? null : normalizeSql(c.default.value, s.scope.schema, s.connection.driver));
+    // Identity, sequence and auto-increment defaults are one kind of value, whatever the sequence or dialect.
+    const dflt = (c: Column, s: Side) =>
+        c.default?.kind === 'identity' || c.default?.kind === 'sequence' || (c.default === null && c.autoIncrement === true) ? 'auto' : c.default === null ? null : `=${normalizeSql(c.default.value, s.scope.schema, s.connection.driver)}`;
     if (dflt(a, A) !== dflt(b, B)) {
         fields.push({ field: 'default', baseline: a.default, target: b.default });
     }

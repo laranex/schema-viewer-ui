@@ -5,7 +5,9 @@ import { edgeShown, edgesFor, keyColumns, neighbors } from '../src/viewer/graph'
 import type { LayoutRequest } from '../src/viewer/layout';
 import { SchemaViewer } from '../src/viewer/SchemaViewer';
 import { THEME_KEY } from '../src/viewer/theme';
+import { readdirSync, readFileSync } from 'node:fs';
 import { VALID } from './fixtures/documents';
+import { root } from './helpers';
 
 // A deterministic grid instead of ELK, which needs a real browser.
 const grid = async ({ ids }: LayoutRequest) => Object.fromEntries(ids.map((id, i) => [id, { x: (i % 4) * 560, y: Math.floor(i / 4) * 400 }]));
@@ -55,6 +57,25 @@ describe('graph', () => {
 
     it('keeps link and polymorphic columns as key columns', () => {
         expect([...(keyColumns(doc).get('mysql:comments') ?? [])].sort()).toEqual(['commentable_id', 'commentable_type', 'id', 'user_id']);
+    });
+});
+
+describe('every valid fixture', () => {
+    for (const [name, build] of Object.entries(VALID)) {
+        it(`${name} renders every table`, async () => {
+            const doc = build();
+            const { container } = await show(doc);
+            const tables = doc.connections.reduce((n, c) => n + c.tables.length, 0);
+            await waitFor(() => expect(container.querySelectorAll('.react-flow__node:not(.region-node)').length).toBeGreaterThanOrEqual(Math.min(tables, 1)));
+        });
+    }
+
+    it('never computes comparisons, migration statuses or inferences itself', () => {
+        const sources = readdirSync(root('src/viewer')).concat(readdirSync(root('src/standalone')).map((f) => `../standalone/${f}`));
+        for (const file of sources.filter((f) => /\.tsx?$/.test(f))) {
+            const text = readFileSync(root('src/viewer', file), 'utf8');
+            expect(text, file).not.toMatch(/compareScopes|migrationState|migrationHistory|inferAssociations|contract\/(comparison|migration|inference)/);
+        }
     });
 });
 

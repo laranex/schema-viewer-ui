@@ -16,6 +16,7 @@ import {
     relationship,
     table,
 } from './builders';
+import { INTELLIGENCE } from './intelligence';
 
 // The synthetic valid fixtures, written to contract/fixtures/valid/<name>.json in canonical form.
 
@@ -856,4 +857,5 @@ export const VALID: Record<string, () => SchemaDocument> = {
     'combined-drift': combinedDrift,
     'combined-multi-connection': combinedMultiConnection,
     'declared-multi-connection': declaredMultiConnection,
+    ...INTELLIGENCE,
 };

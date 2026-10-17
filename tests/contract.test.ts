@@ -2,10 +2,13 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { assertDocument, buildGraph, canonicalJson, documentRevision, InvalidDocumentError, jsonSchema, UnsupportedDocumentError, validateDocument } from '../src/contract';
+import { assertDocument, buildGraph, canonicalJson, compareScopes, comparisonId, diagnosticId, documentRevision, inferAssociations, InvalidDocumentError, jsonSchema, migrationHistory, migrationState, UnsupportedDocumentError, validateDocument } from '../src/contract';
 import { sha256 } from '../src/contract/sha256';
 import { VALID } from './fixtures/documents';
+import { COMPARISON_CASES } from './fixtures/comparison-cases';
 import { GRAPH_CASES } from './fixtures/graph-cases';
+import { INFERENCE_CASES } from './fixtures/inference-cases';
+import { MIGRATION_CASES } from './fixtures/migration-cases';
 import { INVALID } from './fixtures/invalid';
 import { root } from './helpers';
 
@@ -42,6 +45,9 @@ describe('contract artifacts', () => {
     it('valid fixtures are current', () => artifacts('fixtures/valid', Object.fromEntries(Object.entries(VALID).map(([n, f]) => [n, f()]))));
     it('invalid fixtures are current', () => artifacts('fixtures/invalid', INVALID));
     it('graph conformance cases are current', () => artifacts('conformance/graph', GRAPH_CASES));
+    it('comparison conformance cases are current', () => artifacts('conformance/comparison', COMPARISON_CASES));
+    it('migration conformance cases are current', () => artifacts('conformance/migrations', MIGRATION_CASES));
+    it('inference conformance cases are current', () => artifacts('conformance/inference', INFERENCE_CASES));
 });
 
 describe('valid fixtures', () => {
@@ -53,9 +59,10 @@ describe('valid fixtures', () => {
             expect(validate(doc), JSON.stringify(validate.errors)).toBe(true);
         });
 
-        it(`${name} stores the links the graph builder produces`, () => {
+        it(`${name} stores the links the graph builder produces and the associations inference produces`, () => {
             const doc = build();
             expect({ links: doc.links, derivedLinks: doc.derivedLinks }).toEqual(buildGraph(doc));
+            expect(doc.inferredAssociations).toEqual(inferAssociations(doc));
         });
     }
 });
@@ -82,6 +89,42 @@ describe('graph conformance', () => {
             expect(buildGraph(c.input)).toEqual(c.expected);
         });
     }
+});
+
+describe('comparison conformance', () => {
+    for (const [name, c] of Object.entries(COMPARISON_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(compareScopes(c.input.document, c.input.baseline, c.input.target, { overrides: c.input.overrides, limit: c.input.limit })).toEqual(c.expected);
+        });
+    }
+});
+
+describe('migration conformance', () => {
+    for (const [name, c] of Object.entries(MIGRATION_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            const history = c.input.revisions === null ? null : migrationHistory(c.input.revisions);
+            expect({ history, ...migrationState(history, c.input.current) }).toEqual(c.expected);
+        });
+    }
+});
+
+describe('inference conformance', () => {
+    for (const [name, c] of Object.entries(INFERENCE_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(c.input.links).toEqual(buildGraph(c.input).links);
+            expect(inferAssociations(c.input)).toEqual(c.expected.inferredAssociations);
+        });
+    }
+});
+
+describe('id rules', () => {
+    const digest = (prefix: string, parts: unknown[]) => prefix + createHash('sha256').update(JSON.stringify(parts), 'utf8').digest('hex').slice(0, 16);
+    it('follow the compact-JSON SHA-256 rule', () => {
+        const scope = (schema: string | null) => ({ connection: 'connection:app', schema });
+        expect(comparisonId(scope('tenant_a'), scope(null))).toBe(digest('c', ['comparison', 'connection:app', 'tenant_a', 'connection:app', null]));
+        const d = { kind: 'k', subject: { type: 'column' as const, id: 't', columns: ['é'], label: null }, message: 'm/x' };
+        expect(diagnosticId(d)).toBe(digest('n', ['diagnostic', 'k', 'column', 't', ['é'], 'm/x']));
+    });
 });
 
 describe('serialization', () => {

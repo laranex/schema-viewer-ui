@@ -3,10 +3,11 @@
 //
 //   node node_modules/laranex-schema-viewer-ui/contract/check.mjs [--lenient] [--no-graph] [--no-canonical] FILE...
 //
-// By default a document must pass strict validation, store exactly the links the shared graph builder produces, and
-// be written in canonical form. Exits 1 when any file fails.
+// By default a document must pass strict validation (which also checks comparison ids, order and summaries, and
+// migration statuses), store exactly the links the shared graph builder produces and the inferred associations the
+// shared inference produces, and be written in canonical form. Exits 1 when any file fails.
 import { readFileSync } from 'node:fs';
-import { buildGraph, canonicalJson, validateDocument } from '../dist/lib/contract.js';
+import { buildGraph, canonicalJson, inferAssociations, validateDocument } from '../dist/lib/contract.js';
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith('--')));
@@ -36,6 +37,9 @@ for (const file of files) {
             }
             if (canonicalJson(expected.derivedLinks) !== canonicalJson(doc.derivedLinks)) {
                 problems.push('derivedLinks differ from the shared graph builder');
+            }
+            if (canonicalJson(inferAssociations(doc)) !== canonicalJson(doc.inferredAssociations)) {
+                problems.push('inferredAssociations differ from the shared inference');
             }
         }
         if (!flags.has('--no-canonical') && canonicalJson(doc) !== text) {

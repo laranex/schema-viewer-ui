@@ -171,4 +171,180 @@ export const INVALID: Record<string, InvalidCase> = {
         errors: ['Duplicate table id'],
         document: from('database-sqlite-indexes', (d) => d.connections[0].tables.push(structuredClone(t(d, 'notes')))),
     },
+    'comparison-wrong-id': {
+        description: 'A comparison whose id does not follow the id rule',
+        strict: false,
+        errors: ['Comparison id is not'],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].id = 'c0000000000000000')),
+    },
+    'comparison-same-scope': {
+        description: 'A comparison of a scope with itself',
+        strict: false,
+        errors: ['A comparison compares two different scopes'],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].target.schema = 'tenant_a')),
+    },
+    'comparison-unknown-connection': {
+        description: 'A comparison naming a connection the document does not have',
+        strict: false,
+        errors: ['Unknown comparison connection'],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].target.connection = 'connection:nowhere')),
+    },
+    'difference-wrong-id': {
+        description: 'A difference whose id does not follow the id rule',
+        strict: false,
+        errors: ['Difference id is not'],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].differences[0].id = 'x0000000000000000')),
+    },
+    'differences-unsorted': {
+        description: 'Differences out of order',
+        strict: false,
+        errors: ['Differences are sorted by object type, key and change'],
+        document: from('comparison-tenant-schemas', (d) => d.comparisons[0].differences.reverse()),
+    },
+    'difference-missing-with-target': {
+        description: 'A missing difference that also has a target side',
+        strict: false,
+        errors: ['A missing difference has only a baseline'],
+        document: from('comparison-tenant-schemas', (d) => {
+            const x = d.comparisons[0].differences.find((y: Mutable) => y.change === 'missing');
+            x.target = x.baseline;
+        }),
+    },
+    'difference-changed-without-fields': {
+        description: 'A changed difference that lists no field',
+        strict: false,
+        errors: ['Only a changed difference lists fields'],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].differences.find((y: Mutable) => y.change === 'changed').fields = [])),
+    },
+    'difference-key-names-schema': {
+        description: 'A difference key that contains a compared tenant schema name',
+        strict: false,
+        errors: ['A difference key never contains a compared schema name'],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].differences[0].key = ['tenant_a'])),
+    },
+    'difference-side-outside-scope': {
+        description: "A difference side naming a table of the other scope",
+        strict: false,
+        errors: ['A difference side names a table of its own scope'],
+        document: from('comparison-tenant-schemas', (d) => {
+            const x = d.comparisons[0].differences.find((y: Mutable) => y.change === 'changed' && y.objectType === 'column');
+            x.baseline.table = x.target.table;
+        }),
+    },
+    'difference-side-wrong-entity': {
+        description: "An index difference whose side names an id that is not one of its table's indexes",
+        strict: false,
+        errors: ["A difference side's id is its index's, of its table"],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].differences.find((y: Mutable) => y.objectType === 'index').baseline = { table: 'app:tenant_a.orders', id: 'app:tenant_a.orders:fk:orders_user_id_fkey', label: 'orders' })),
+    },
+    'comparison-omitted-but-complete': {
+        description: 'A comparison marked complete although it left differences out',
+        strict: false,
+        errors: ['A comparison with omitted differences is incomplete'],
+        document: from('comparison-incomplete', (d) => (d.comparisons[0].complete = true)),
+    },
+    'comparison-summary-mismatch': {
+        description: 'A summary that does not count the differences',
+        strict: false,
+        errors: ['Comparison summary does not count its differences and omitted ones'],
+        document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].summary.changed += 1)),
+    },
+    'migration-wrong-id': {
+        description: 'A migration track whose id does not follow the id rule',
+        strict: false,
+        errors: ['Migration track id is not'],
+        document: from('migrations-alembic', (d) => (d.migrations[0].id = 'm0000000000000000')),
+    },
+    'migration-wrong-heads': {
+        description: 'History heads that are not the revisions without children',
+        strict: false,
+        errors: ['History heads are the revisions no revision names as a parent'],
+        document: from('migrations-alembic', (d) => (d.migrations.find((m: Mutable) => m.schema === 'tenant_branches').history.heads = ['6f7a8b9c0d1e'])),
+    },
+    'migration-wrong-missing': {
+        description: 'A partial history that does not list its missing parent',
+        strict: false,
+        errors: ['History missing lists the parents not in revisions'],
+        document: from('migrations-alembic', (d) => (d.migrations.find((m: Mutable) => m.schema === 'tenant_partial').history.missing = [])),
+    },
+    'migration-wrong-status': {
+        description: 'A track behind its head reported up to date',
+        strict: false,
+        errors: ['Migration status, pending and unknownRevisions do not follow the status rules (expected behind)'],
+        document: from('migrations-alembic', (d) => {
+            const m = d.migrations.find((x: Mutable) => x.schema === 'tenant_behind');
+            m.status = 'up_to_date';
+            m.pending = [];
+        }),
+    },
+    'migration-unlisted-unknown-revision': {
+        description: 'A revision the history lacks, not listed in unknownRevisions',
+        strict: false,
+        errors: ['Migration status, pending and unknownRevisions do not follow the status rules (expected unknown)'],
+        document: from('migrations-alembic', (d) => (d.migrations.find((x: Mutable) => x.schema === 'tenant_unknown').unknownRevisions = [])),
+    },
+    'migration-revisions-without-version-table': {
+        description: 'Revisions recorded although the database has no version table',
+        strict: false,
+        errors: ['Without a version table no revision is recorded'],
+        document: from('migrations-alembic', (d) => (d.migrations.find((x: Mutable) => x.schema === 'tenant_current').versionTable = null)),
+    },
+    'migration-version-table-outside-scope': {
+        description: "A version table in another tenant's schema",
+        strict: false,
+        errors: ["The version table is a table of the track's scope"],
+        document: from('migrations-alembic', (d) => (d.migrations.find((x: Mutable) => x.schema === 'tenant_current').versionTable = 'app:tenant_behind.alembic_version')),
+    },
+    'migration-unknown-coverage-certain': {
+        description: 'A coverage row with an unknown answer reported as certain',
+        strict: false,
+        errors: ['A coverage row with an unknown answer is likely, not certain'],
+        document: from('migrations-alembic', (d) => (d.migrations.find((x: Mutable) => x.schema === 'tenant_current').coverage.find((r: Mutable) => r.name === 'legacy_import').certainty = 'certain')),
+    },
+    'migration-coverage-wrong-table': {
+        description: "A coverage row whose table has another name",
+        strict: false,
+        errors: ["A coverage row's table is a table of the track's scope with its name"],
+        document: from('migrations-alembic', (d) => (d.migrations.find((x: Mutable) => x.schema === 'tenant_current').coverage.find((r: Mutable) => r.name === 'users').table = 'app:tenant_current.audit_log')),
+    },
+    'inferred-wrong-id': {
+        description: 'An inferred association whose id does not follow the id rule',
+        strict: false,
+        errors: ['Inferred association id is not'],
+        document: from('inferred-associations', (d) => (d.inferredAssociations[0].id = 'i0000000000000000')),
+    },
+    'inferred-covered-foreign-key': {
+        description: "An inference over a foreign key a declared relationship covers",
+        strict: false,
+        errors: ['A declared relationship covers the inferred association'],
+        document: from('inferred-associations', (d) => {
+            const a = d.inferredAssociations.find((x: Mutable) => x.kind === 'foreign_key' && x.foreignKeys[0].includes('profiles'));
+            const fk = 'app:public.posts:fk:posts_author_id_fkey';
+            Object.assign(a, { foreignKeys: [fk], table: 'app:public.posts', model: 'model:app.models.Post', evidence: [{ kind: 'foreign_key', id: fk, confirmed: true }] });
+        }),
+    },
+    'inferred-kind-mismatch': {
+        description: 'A foreign-key inference with an association table',
+        strict: false,
+        errors: ['An association-table inference has via, two foreign keys and many-to-many'],
+        document: from('inferred-associations', (d) => (d.inferredAssociations.find((x: Mutable) => x.kind === 'foreign_key').via = 'app:public.post_tags')),
+    },
+    'inferred-model-not-mapping-table': {
+        description: "An inferred association whose model does not map its table",
+        strict: false,
+        errors: ["An inferred association's models map its tables"],
+        document: from('inferred-associations', (d) => (d.inferredAssociations[0].model = 'model:app.models.Tag')),
+    },
+    'inferred-unknown-foreign-key': {
+        description: 'An inferred association over a foreign key the document does not have',
+        strict: false,
+        errors: ["An inferred association's foreign key exists and has a link"],
+        document: from('inferred-associations', (d) => (d.inferredAssociations.find((x: Mutable) => x.kind === 'foreign_key').foreignKeys = ['app:public.users:fk:nope'])),
+    },
+    'inferred-wrong-links': {
+        description: "An inferred association listing a link that is not its foreign key's",
+        strict: false,
+        errors: ['An inferred association lists the links of its foreign keys'],
+        document: from('inferred-associations', (d) => (d.inferredAssociations.find((x: Mutable) => x.kind === 'foreign_key').links = [d.links.find((l: Mutable) => l.state === 'both').id])),
+    },
 };
