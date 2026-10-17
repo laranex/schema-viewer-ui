@@ -198,7 +198,7 @@ function scene(model: ImageModel, c: Colors): Shape[] {
             out.push({ type: 'path', d: `M ${n.x} ${y + ROW_HEIGHT} H ${n.x + n.width}`, stroke: c.line, width: 1 });
         });
         if (n.more > 0 && n.rows.length) {
-            out.push(text(n.x + 12, n.y + n.height - MORE_HEIGHT / 2 + 3, `+ ${n.more} columns`, { family: SANS, size: 10 }, c.muted));
+            out.push(text(n.x + 12, n.y + n.height - MORE_HEIGHT / 2 + 3, `+ ${n.more} more ${n.more === 1 ? 'column' : 'columns'}`, { family: SANS, size: 10 }, c.muted));
         }
     }
     for (const e of model.edges) {

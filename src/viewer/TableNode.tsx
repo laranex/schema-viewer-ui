@@ -147,7 +147,7 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                         </div>
                     );
                 })}
-            {hidden > 0 && rows.length > 0 && !picture && <div className="table-more">+ {hidden} more columns</div>}
+            {hidden > 0 && rows.length > 0 && !picture && <div className="table-more">+ {hidden} more {hidden === 1 ? 'column' : 'columns'}</div>}
             {hidden > 0 && rows.length > 0 && picture && <div className="table-more" aria-hidden="true" />}
         </article>
     );

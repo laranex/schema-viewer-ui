@@ -24,7 +24,7 @@ describe('image export', () => {
         expect(svg).not.toContain('<script>');
         expect(svg).toContain('author &amp; editor');
         expect(svg).toContain('stroke-dasharray="7 5"');
-        expect(svg).toContain('+ 2 columns');
+        expect(svg).toContain('+ 2 more columns');
     });
 
     it('keeps only what lies in the visible area', () => {
