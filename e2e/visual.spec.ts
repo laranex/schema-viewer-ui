@@ -36,14 +36,23 @@ for (const scheme of ['light', 'dark'] as const) {
                 await page.keyboard.press('Escape');
             }
             await page.getByRole('button', { name: 'Download' }).click();
-            await expect(page.getByRole('menu', { name: 'Download' })).toHaveScreenshot(`menu-download-${scheme}.png`, exact);
+            const download = page.getByRole('dialog', { name: 'Download' });
+            await expect(download.getByLabel(/^Preview of /)).toBeVisible();
+            await expect(download).toHaveScreenshot(`download-dialog-${scheme}.png`, exact);
             await page.keyboard.press('Escape');
+            await expect(download).toBeHidden();
             await expect(side(page).getByRole('tablist')).toHaveScreenshot(`tabs-${scheme}.png`, exact);
             await side(page).getByRole('tab', { name: 'Compare' }).click();
             await expect(side(page).locator('.cmp-scopes')).toHaveScreenshot(`compare-scopes-${scheme}.png`, exact);
             await expect(side(page).locator('.cmp-summary')).toHaveScreenshot(`compare-summary-${scheme}.png`, exact);
             await side(page).getByRole('tab', { name: 'Migrations' }).click();
             await expect(side(page).locator('.status-counts')).toHaveScreenshot(`migration-statuses-${scheme}.png`, exact);
+        });
+
+        test('line ends: crow’s feet, bars and the through arrow outside the cards', async ({ page }) => {
+            test.skip(!shots, 'Screenshot baselines are rendered on macOS.');
+            await open(page, '/f/viewer-cardinality/', scheme);
+            await expect(page.locator('.canvas')).toHaveScreenshot(`line-ends-${scheme}.png`, { ...exact, mask: [page.locator('.react-flow__minimap')] });
         });
 
         test('narrow panel tabs, and the phone header and sheet bar', async ({ page }) => {
