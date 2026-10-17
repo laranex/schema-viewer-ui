@@ -5,7 +5,7 @@ import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
 import { BRAND_PATH, BRAND_RECTS, BRAND_VIEWBOX } from './brand';
 import { Browse, tableSubtitle, type BrowseMode } from './Browse';
 import { ComparePanel, FILTER_PARAM, filtersFrom, type CompareFilters } from './Compare';
-import { ChangesPanel, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
+import { ChangesPanel, ColumnDetails, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, usesColumn, type DetailContext, type ExtensionRenderers } from './Details';
 import { boundsOf, clip, colorsOf, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
 import {
     cardHeight,
@@ -183,6 +183,29 @@ function Viewer({
         });
         return { counts, perConnection, tableOf: scope.tableOf };
     }, [doc, scope]);
+    // What a deep link names that the document does not have: it is ignored, and a toast says so (as Laravel's does).
+    const missing = useMemo(() => {
+        const out: string[] = [];
+        const check = (key: string, what: string, known: (id: string) => boolean) => {
+            const id = initialHash.get(key);
+            if (id && !known(id)) {
+                out.push(what);
+            }
+        };
+        check('connection', 'a connection', (id) => lookup.connections.has(id));
+        check('table', 'a table', (id) => lookup.tables.has(id));
+        check('focus', 'a table or line to focus on', (id) => lookup.tables.has(id) || edges.some((e) => e.id === id));
+        check('link', 'a line', (id) => edges.some((e) => e.id === id));
+        check('inferred', 'an inferred association', (id) => doc.inferredAssociations.some((a) => a.id === id));
+        check('comparison', 'a comparison', (id) => doc.comparisons.some((c) => c.id === id));
+        check('migration', 'a migration track', (id) => doc.migrations.some((t) => t.id === id));
+        return out;
+        // Only the link the viewer opened on.
+    }, []);
+    const known = (key: string, has: (id: string) => boolean) => {
+        const id = initialHash.get(key);
+        return id && has(id) ? id : null;
+    };
     const [connection, setConnection] = useState(() => {
         const known = (id: string | null | undefined) => (id && doc.connections.some((c) => c.id === id) ? id : null);
         const wanted = known(initialHash.get('connection')) ?? known(defaultConnection) ?? '';
@@ -198,13 +221,13 @@ function Viewer({
     const [grid, setGrid] = useState(true);
     const [hiddenOwners, setHiddenOwners] = useState<Set<Owner>>(() => new Set());
     const [focus, setFocus] = useState<{ id: string; depth: number } | null>(() => {
-        const id = initialHash.get('focus');
+        const id = known('focus', (x) => lookup.tables.has(x) || edges.some((e) => e.id === x));
         return id ? { id, depth: Math.max(1, Math.min(3, Number(initialHash.get('depth')) || 1)) } : null;
     });
     const [selection, setSelection] = useState<Selection>(() => {
-        const table = initialHash.get('table');
-        const link = initialHash.get('link');
-        const inferred = initialHash.get('inferred');
+        const table = known('table', (id) => lookup.tables.has(id));
+        const link = known('link', (id) => edges.some((e) => e.id === id));
+        const inferred = known('inferred', (id) => doc.inferredAssociations.some((a) => a.id === id));
         return table ? { kind: 'table', id: table } : link ? { kind: 'edge', id: link } : inferred ? { kind: 'inferred', id: inferred } : null;
     });
     // The comparison shown in Compare and marked on the diagram, the difference chosen in it, and the migration track.
@@ -221,9 +244,14 @@ function Viewer({
     const [overlay, setOverlay] = useState(true);
     const [showInferred, setShowInferred] = useState(true);
     const [browseMode, setBrowseMode] = useState<BrowseMode>('tables');
-    const [column, setColumn] = useState<string | null>(null);
+    // A column of the selected table: its details, and the lines that use it lit on the diagram (#column=…).
+    const [column, setColumn] = useState<string | null>(() => {
+        const table = selection?.kind === 'table' ? lookup.tables.get(selection.id) : undefined;
+        const name = initialHash.get('column');
+        return name && table?.columns.some((c) => c.name === name) ? name : null;
+    });
     // Tables picked together with Shift: dragged together, listed together.
-    const [group, setGroup] = useState<string[]>([]);
+    const [group, setGroup] = useState<string[]>(() => (selection?.kind === 'table' ? [selection.id] : []));
     const groupRef = useRef(group);
     groupRef.current = group;
     const [tab, setTab] = useState<Tab>(() => {
@@ -234,7 +262,7 @@ function Viewer({
         if (view === 'migrations' && doc.migrations.length) {
             return 'migrations';
         }
-        return initialHash.get('table') || initialHash.get('link') || initialHash.get('inferred') ? 'details' : 'browse';
+        return known('table', (id) => lookup.tables.has(id)) || known('link', (id) => edges.some((e) => e.id === id)) || known('inferred', (id) => doc.inferredAssociations.some((a) => a.id === id)) ? 'details' : 'browse';
     });
     const comparison = doc.comparisons.find((c) => c.id === comparisonId) ?? doc.comparisons[0];
     const marks = useMemo(() => (overlay ? comparisonMarks(comparison) : new Map<string, TableMark>()), [overlay, comparison]);
@@ -252,7 +280,7 @@ function Viewer({
     const [spacePan, setSpacePan] = useState(false);
     const [shortcuts, setShortcuts] = useState(false);
     const [touring, setTouring] = useState(false);
-    const [toast, setToast] = useState<string | null>(null);
+    const [toast, setToast] = useState<string | null>(() => (missing.length ? `This link points at ${missing.join(' and ')} ${missing.length > 1 ? 'that are' : 'that is'} not in this document. Showing the whole diagram.` : null));
     const [panelWidth, setPanelWidth] = useState<number | null>(null);
     const [menu, setMenu] = useState<string | null>(null);
     const menuProps = (name: string) => ({ open: menu === name, onOpenChange: (open: boolean) => setMenu(open ? name : null) });
@@ -260,7 +288,7 @@ function Viewer({
     // On a phone, a deep link to a table, line, association or view opens the sheet on its tab.
     useLayoutEffect(() => {
         const width = root.current?.getBoundingClientRect().width ?? 0;
-        if (width > 0 && width < NARROW && ['table', 'link', 'inferred', 'view'].some((key) => initialHash.get(key))) {
+        if (width > 0 && width < NARROW && !missing.length && ['table', 'link', 'inferred', 'view'].some((key) => initialHash.get(key))) {
             setSheetOpen(true);
         }
         // Only the link the viewer opened on counts.
@@ -274,12 +302,14 @@ function Viewer({
     }, [sheetOpen]);
 
     useEffect(() => {
-        if (!toast) {
+        // A toast waits for the diagram, so one shown while it is laid out is still read.
+        if (!toast || phase === 'arranging') {
             return;
         }
-        const timer = setTimeout(() => setToast(null), 1800);
+        // Long enough to read.
+        const timer = setTimeout(() => setToast(null), Math.max(1800, toast.length * 60));
         return () => clearTimeout(timer);
-    }, [toast]);
+    }, [toast, phase]);
 
     // The view in the URL hash, so it can be shared.
     useEffect(() => {
@@ -298,6 +328,9 @@ function Viewer({
         }
         if (selection) {
             params.set(SELECTION_PARAM[selection.kind], selection.id);
+            if (selection.kind === 'table' && column) {
+                params.set('column', column);
+            }
         }
         if (tab === 'compare' && comparison) {
             params.set('view', 'compare');
@@ -326,7 +359,7 @@ function Viewer({
         if (hash !== location.hash.slice(1)) {
             history.replaceState(null, '', `${location.pathname}${location.search}${hash ? `#${hash}` : ''}`);
         }
-    }, [deepLinks, connection, focus, selection, tab, comparison, differenceId, trackId, overlay, doc, compareFilters]);
+    }, [deepLinks, connection, focus, selection, column, tab, comparison, differenceId, trackId, overlay, doc, compareFilters]);
 
     // A folded card still shows the columns the marked comparison names, as it shows drifted ones.
     const rows = useMemo(
@@ -351,16 +384,44 @@ function Viewer({
         [tables, rows],
     );
 
+    // Focus starts from a table, or from a line's tables: its ends and the tables it goes through.
+    const seedsOf = useCallback(
+        (id: string) => {
+            const edge = lookup.tables.has(id) ? undefined : edges.find((e) => e.id === id);
+            return edge ? [edge.source, edge.target, ...(edge.derived?.via ?? [])] : [id];
+        },
+        [lookup, edges],
+    );
     // The tables shown: connection, ownership and focus.
     const visible = useMemo(() => {
-        const near = focus ? within(focus.id, edges, focus.depth) : null;
+        const near = focus ? within(seedsOf(focus.id), edges, focus.depth) : null;
         return tables.filter(({ table, connection: c }) => (!connection || c.id === connection) && !hiddenOwners.has(table.owner.kind) && (!near || near.has(table.id)));
-    }, [tables, connection, hiddenOwners, focus, edges]);
+    }, [tables, connection, hiddenOwners, focus, edges, seedsOf]);
     const visibleIds = useMemo(() => new Set(visible.map(({ table }) => table.id)), [visible]);
+    // Changes since the previous build, by the table they are about: the cards they mark and the connection they belong to.
+    const changedTables = useMemo(() => {
+        const out = new Map<string, 'new' | 'changed'>();
+        for (const c of changes ?? []) {
+            const table = c.subject ? scope.tableOfId(c.subject) : undefined;
+            if (table && c.change !== 'removed') {
+                out.set(table, c.change === 'added' && c.subject === table ? 'new' : (out.get(table) ?? 'changed'));
+            }
+        }
+        return out;
+    }, [changes, scope]);
+    const shownChanges = useMemo(
+        () =>
+            (changes ?? []).filter((c) => {
+                const table = connection && c.subject ? scope.tableOfId(c.subject) : undefined;
+                return !table || lookup.connectionOf.get(table) === connection;
+            }),
+        [changes, connection, scope, lookup],
+    );
     // The Diagnostics tab and counts follow the connection in view; those about the whole document always show.
     const diagnostics = useMemo(() => (connection ? doc.diagnostics.filter((d) => { const on = scope.connectionsOf(d); return on.length === 0 || on.includes(connection); }) : doc.diagnostics), [doc, scope, connection]);
-    // With one connection shown, the tables of other connections that its relationships reach: drawn as references,
-    // so a cross-connection relationship never silently disappears. Table id to connection id.
+    // With one connection shown, the tables of other connections that its relationships reach, or that a relationship
+    // in view goes through: drawn as references, so a cross-connection relationship never silently disappears. Table id
+    // to connection id.
     const externals = useMemo(() => {
         const out = new Map<string, string>();
         if (!connection) {
@@ -377,6 +438,15 @@ function Viewer({
                 const other = lookup.connectionOf.get(there);
                 if (visibleIds.has(here) && other !== undefined && other !== connection) {
                     out.set(there, other);
+                }
+            }
+            // A relationship through a table on another connection draws that table as a reference too.
+            if (e.derived && (visibleIds.has(e.source) || visibleIds.has(e.target))) {
+                for (const via of e.derived.via) {
+                    const other = lookup.connectionOf.get(via);
+                    if (other !== undefined && other !== connection) {
+                        out.set(via, other);
+                    }
                 }
             }
         }
@@ -450,6 +520,9 @@ function Viewer({
         if (group.length > 1) {
             return new Set(group);
         }
+        if (selection?.kind === 'table' && column) {
+            return new Set([selection.id, ...shownEdges.filter((e) => usesColumn(e, selection.id, column)).flatMap((e) => [e.source, e.target])]);
+        }
         if (selection?.kind === 'table') {
             return neighbors(selection.id, shownEdges);
         }
@@ -459,7 +532,7 @@ function Viewer({
         }
         const edge = selection && edges.find((e) => e.id === selection.id);
         return new Set(edge ? [edge.source, edge.target, ...(edge.derived?.via ?? [])] : []);
-    }, [selection, shownEdges, edges, group, doc]);
+    }, [selection, shownEdges, edges, group, doc, column]);
     // The links an inferred association rests on, while it is selected.
     const inferredSelected = useMemo(() => new Set(selection?.kind === 'inferred' ? (doc.inferredAssociations.find((a) => a.id === selection.id)?.links ?? []) : []), [selection, doc]);
 
@@ -473,7 +546,7 @@ function Viewer({
         };
         const linked =
             selection?.kind === 'table'
-                ? shownEdges.filter((e) => e.source === selection.id || e.target === selection.id)
+                ? shownEdges.filter((e) => (column ? usesColumn(e, selection.id, column) : e.source === selection.id || e.target === selection.id))
                 : selection?.kind === 'edge'
                   ? edges.filter((e) => e.id === selection.id)
                   : edges.filter((e) => inferredSelected.has(e.id));
@@ -537,6 +610,11 @@ function Viewer({
         setGroup([id]);
         setFocus((f) => ({ id, depth: f?.depth ?? 1 }));
     }, []);
+    const focusEdge = useCallback((id: string) => {
+        setSelection({ kind: 'edge', id });
+        setGroup([]);
+        setFocus((f) => ({ id, depth: f?.depth ?? 1 }));
+    }, []);
     // A table in another connection, a hidden group, or outside focus is shown before it is opened.
     const reveal = useCallback(
         (id: string) => {
@@ -550,11 +628,11 @@ function Viewer({
             if (hiddenOwners.has(entry.table.owner.kind)) {
                 setHiddenOwners((o) => new Set([...o].filter((x) => x !== entry.table.owner.kind)));
             }
-            if (focus && !within(focus.id, edges, focus.depth).has(id)) {
+            if (focus && !within(seedsOf(focus.id), edges, focus.depth).has(id)) {
                 setFocus(null);
             }
         },
-        [tables, connection, hiddenOwners, focus, edges],
+        [tables, connection, hiddenOwners, focus, edges, seedsOf],
     );
     const openTable = (id: string, columnName: string | null = null) => {
         reveal(id);
@@ -602,6 +680,14 @@ function Viewer({
     const combined = doc.source === 'combined';
     const picked = useMemo(() => new Set(group), [group]);
     const toggleCard = useCallback((id: string) => setCollapsed((c) => toggleIn(c, id)), []);
+    const selectColumn = useCallback(
+        (id: string, name: string) => {
+            rowClick.current = { id, name };
+            selectTable(id);
+            setColumn(name);
+        },
+        [selectTable],
+    );
     const empty = useMemo(() => new Set<string>(), []);
     const nodeData = useMemo(() => {
         const data = new Map<string, TableNodeType['data']>();
@@ -622,10 +708,12 @@ function Viewer({
                 onSelect: (id) => selectTable(id),
                 onFocus: focusOn,
                 onToggle: toggleCard,
+                onColumn: selectColumn,
+                changed: changedTables.get(table.id) ?? null,
             });
         }
         return data;
-    }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, marks, empty, selectTable, focusOn, toggleCard]);
+    }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, marks, empty, selectTable, focusOn, toggleCard, selectColumn, changedTables]);
 
     // Each connection's frame, around its cards where they are now, so it follows a dragged table.
     const frames = useMemo(
@@ -737,7 +825,8 @@ function Viewer({
                 .map((e) => {
                     const selected = (selection?.kind === 'edge' && selection.id === e.id) || inferredSelected.has(e.id);
                     const inferred = inferredOn(e) ? (inferredLinks.get(e.link?.id ?? '') ?? []) : [];
-                    const near = (selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id)) || (group.length > 1 && picked.has(e.source) && picked.has(e.target));
+                    const near =
+                        (selection?.kind === 'table' && (column ? usesColumn(e, selection.id, column) : e.source === selection.id || e.target === selection.id)) || (group.length > 1 && picked.has(e.source) && picked.has(e.target));
                     return {
                         id: e.id,
                         type: 'schema',
@@ -757,10 +846,11 @@ function Viewer({
                             route: dragging[e.source] || dragging[e.target] ? null : (routes.get(e.id) ?? null),
                             showLabel: labelled(e),
                             state: selected ? 'selected' : near ? 'related' : 'none',
+                            many: e.many,
                         },
                     };
                 }),
-        [shownEdges, positions, selection, dragging, routes, labelled, group, picked, inferredOn, inferredLinks, inferredSelected, lookup],
+        [shownEdges, positions, selection, column, dragging, routes, labelled, group, picked, inferredOn, inferredLinks, inferredSelected, lookup],
     );
 
     // React Flow reports selection as separate node and edge changes, and a box selection also picks the edges between
@@ -769,15 +859,19 @@ function Viewer({
     const selectionRef = useRef(selection);
     selectionRef.current = selection;
     const pending = useRef<{ added: string[]; removed: string[]; edge: string | null; scheduled: boolean }>({ added: [], removed: [], edge: null, scheduled: false });
+    const rowClick = useRef<{ id: string; name: string } | null>(null);
     const resolveSelection = useCallback(() => {
         const { added, removed, edge } = pending.current;
         pending.current = { added: [], removed: [], edge: null, scheduled: false };
         const g = groupRef.current;
         const next = [...g.filter((id) => !removed.includes(id)), ...added.filter((id) => !g.includes(id))];
+        // A click on a card's row picks the table and its column at once.
+        const row = rowClick.current;
+        rowClick.current = null;
         if (added.length || (removed.length && next.length)) {
             groupRef.current = next;
             setGroup(next);
-            setColumn(null);
+            setColumn(row && added[added.length - 1] === row.id ? row.name : null);
             setSelection({ kind: 'table', id: added[added.length - 1] ?? next[next.length - 1] });
             setTab('details');
         } else if (edge) {
@@ -983,7 +1077,7 @@ function Viewer({
         '-': () => zoomBy(1 / 1.2),
         c: () => (setFold((f) => FOLDS[(FOLDS.findIndex((x) => x.value === f) + 1) % FOLDS.length].value), setCollapsed(new Set()), setArrangeCount((n) => n + 1)),
         C: copyLink,
-        F: () => (focus ? setFocus(null) : selection?.kind === 'table' && focusOn(selection.id)),
+        F: () => (focus ? setFocus(null) : selection?.kind === 'table' ? focusOn(selection.id) : selection?.kind === 'edge' && focusEdge(selection.id)),
         n: () => setNotes((n) => !n),
         l: () => setAllLabels((l) => !l),
         '1': () => setKinds((k) => toggleIn(k, 'both')),
@@ -1082,7 +1176,7 @@ function Viewer({
         { value: 'browse', label: 'Browse', icon: 'tables' },
         { value: 'details', label: 'Details', icon: 'details' },
         { value: 'diagnostics', label: 'Diagnostics', icon: 'warning', count: diagnostics.length, tone: 'warning' },
-        ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', icon: 'changes' as const, count: changes.length }] : []),
+        ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', icon: 'changes' as const, count: shownChanges.length }] : []),
         ...(doc.comparisons.length
             ? [
                   {
@@ -1161,8 +1255,19 @@ function Viewer({
                             })}
                         </ul>
                     </>
+                ) : selectedTable && column && selectedTable.columns.some((c) => c.name === column) ? (
+                    <ColumnDetails
+                        ctx={ctx}
+                        table={selectedTable}
+                        column={column}
+                        edges={edges}
+                        onBack={() => setColumn(null)}
+                        onSelectEdge={selectEdge}
+                        onSelectTable={(id) => openTable(id)}
+                    />
                 ) : selectedTable ? (
                     <TableDetails
+                        onColumn={(name) => setColumn(name)}
                         ctx={ctx}
                         table={selectedTable}
                         edges={edges.filter((e) => e.source === selectedTable.id || e.target === selectedTable.id)}
@@ -1176,7 +1281,7 @@ function Viewer({
                         onMigration={showTrack}
                     />
                 ) : selectedEdge ? (
-                    <EdgeDetails edge={selectedEdge} ctx={ctx} onSelectTable={(id) => openTable(id)} onInferred={selectInferred} />
+                    <EdgeDetails edge={selectedEdge} ctx={ctx} onSelectTable={(id) => openTable(id)} onInferred={selectInferred} onFocus={() => focusEdge(selectedEdge.id)} />
                 ) : selectedInferred ? (
                     <InferredDetails association={selectedInferred} doc={doc} lookup={lookup} edges={edges} onSelectTable={(id) => openTable(id)} onSelectEdge={selectEdge} />
                 ) : (
@@ -1202,7 +1307,20 @@ function Viewer({
                     onSubject={{ comparison: (id) => showComparison(id, null), migration: showTrack, inferredAssociation: selectInferred }}
                 />
             )}
-            {tab === 'changes' && changes && <ChangesPanel changes={changes} />}
+            {tab === 'changes' && changes && (
+                <ChangesPanel
+                    changes={shownChanges}
+                    connection={connection ? (lookup.connections.get(connection)?.name ?? connection) : null}
+                    onSubject={(subject) => {
+                        const edge = edges.find((e) => e.id === subject);
+                        if (edge) {
+                            return () => (reveal(edge.source), selectEdge(edge));
+                        }
+                        const table = scope.tableOfId(subject);
+                        return table ? () => openTable(table) : null;
+                    }}
+                />
+            )}
             {tab === 'compare' && comparison && (
                 <ComparePanel
                     doc={doc}
@@ -1213,7 +1331,8 @@ function Viewer({
                     onOverlay={setOverlay}
                     onComparison={(id) => (setComparisonId(id), setDifferenceId(null))}
                     onDifference={setDifferenceId}
-                    onShowTable={(id, name) => openTable(id, name)}
+                    // The table's details list its differences; a column's details would not.
+                    onShowTable={(id) => openTable(id)}
                     filters={compareFilters}
                     onFilters={setCompareFilters}
                 />
@@ -1306,6 +1425,7 @@ function Viewer({
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onNodeDragStop={onNodeDragStop}
+                        onEdgeDoubleClick={(_, edge) => focusEdge(edge.id)}
                         colorMode={theme}
                         minZoom={0.05}
                         maxZoom={2.5}
@@ -1328,6 +1448,10 @@ function Viewer({
                             <button type="button" className="unfocus" onClick={() => setFocus(null)}>
                                 ← Show all tables
                             </button>
+                            <span className="focus-label" role="status">
+                                Focus on <strong>{lookup.tables.has(focus.id) ? lookup.label(focus.id) : (edges.find((e) => e.id === focus.id)?.label ?? focus.id)}</strong> · {visible.length}{' '}
+                                {visible.length === 1 ? 'table' : 'tables'}
+                            </span>
                             <label className="focus-depth">
                                 Depth
                                 <select value={focus.depth} onChange={(e) => setFocus({ ...focus, depth: Number(e.target.value) })}>

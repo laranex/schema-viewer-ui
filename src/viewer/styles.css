@@ -481,11 +481,27 @@
     width: 0;
     height: 0;
 }
-.lsv .marker.fk {
-    fill: var(--fk);
-}
 .lsv .marker.orm {
     fill: var(--accent);
+}
+.lsv .marker-stroke {
+    stroke-width: 1.6;
+    stroke-linecap: round;
+}
+.lsv .marker-stroke.fk {
+    stroke: var(--fk);
+}
+.lsv .marker-stroke.both {
+    stroke: var(--both);
+}
+.lsv .marker-stroke.orm {
+    stroke: var(--accent);
+}
+.lsv .marker-stroke.declared {
+    stroke: var(--declared);
+}
+.lsv .marker-stroke.inferred {
+    stroke: var(--inferred);
 }
 .lsv .table-handle {
     opacity: 0;
@@ -695,6 +711,17 @@
     color: var(--muted);
     flex: none;
 }
+.lsv .change-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.lsv .change-dot--changed {
+    background: transparent;
+    border: 2px solid var(--accent);
+}
 .lsv .card-note {
     display: inline-grid;
     place-items: center;
@@ -856,6 +883,9 @@
 }
 .lsv .table-title .collapse[aria-expanded='true'] .icon {
     transform: rotate(180deg);
+}
+.lsv .column:not(.placeholder) {
+    cursor: pointer;
 }
 .lsv .column {
     display: flex;
@@ -1158,10 +1188,15 @@
     position: absolute;
     top: 14px;
     left: 14px;
+    right: 14px;
+    pointer-events: none;
     display: flex;
     gap: 8px;
     align-items: center;
     z-index: 5;
+}
+.lsv .canvas-top > * {
+    pointer-events: auto;
 }
 .lsv .unfocus {
     border-radius: 999px;
@@ -1170,6 +1205,21 @@
     box-shadow: var(--shadow);
     border-color: color-mix(in srgb, var(--accent) 50%, transparent);
     color: var(--accent-ink);
+}
+.lsv .focus-label {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    box-shadow: var(--shadow);
+    max-width: 360px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lsv.narrow .focus-label {
+    display: none;
 }
 .lsv .focus-depth {
     display: flex;

@@ -103,7 +103,58 @@ test('grows a connection frame around a table dragged out of it, and keeps the p
     // Positions on the diagram, apart from any panning.
     const placed = () => card.evaluate((e) => (e as HTMLElement).style.transform);
     const dropped = await placed();
-    await card.getByRole('button', { name: /^Fold/ }).click();
+    // The card may sit at the edge of the view after the drag; the click itself is what matters.
+    await card.getByRole('button', { name: /^Fold/ }).dispatchEvent('click');
     await expect(card.locator('.column')).toHaveCount(0);
     expect(await placed()).toBe(dropped);
+});
+
+test('draws a table on another connection that a relationship goes through as a reference', async ({ page }) => {
+    await page.goto('/f/viewer-cross-connection-through/#connection=connection%3Aapp');
+    await loaded(page);
+    await page.locator('.canvas').focus();
+    // ORM-only lines off: only the through relationship still reaches cache.sessions.
+    await page.keyboard.press('3');
+    await expect(page.locator('.react-flow__node-external[data-id="cache:sessions"]')).toBeVisible();
+    await expect(page.locator('.react-flow__edge-path.edge--through')).toHaveCount(1);
+    await page.keyboard.press('4');
+    await expect(page.locator('.react-flow__node-external[data-id="cache:sessions"]')).toHaveCount(0);
+});
+
+test('says when a deep link points at something the document does not have', async ({ page }) => {
+    await page.goto('/f/combined-eloquent/#table=mysql%3Anope');
+    await loaded(page);
+    await expect(page.locator('.toast')).toContainText('This link points at a table that is not in this document. Showing the whole diagram.');
+});
+
+test('selects a column from its card row, lights the lines that use it, and focuses on a line', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Rows are small on a phone; the column is reached from Details there.');
+    await page.goto('/f/combined-eloquent/#table=mysql%3Aposts');
+    await loaded(page);
+    await page.locator('.react-flow__node[data-id="mysql:posts"] [data-column="user_id"]').click();
+    await expect(side(page).getByRole('heading', { name: /posts\.user_id/ })).toBeVisible();
+    await expect.poll(() => page.url()).toContain('column=user_id');
+    await expect(page.locator('.react-flow__node[data-id="mysql:users"] .table-card.related')).toBeVisible();
+    await side(page).locator('.detail-link').first().click();
+    await page.keyboard.press('Shift+F');
+    await expect(page.locator('.focus-label')).toContainText(/Focus on .+ · \d+ tables/);
+});
+
+test('lays out and draws a generated 200-table schema within the budget', async ({ page, browserName, isMobile }) => {
+    test.skip(browserName !== 'chromium' || isMobile, 'One browser is enough for the smoke test.');
+    const { large } = await import('../dev/large');
+    const body = JSON.stringify(large(200));
+    await page.route('**/f/database-sqlite-indexes/snapshot.json', (route) => route.fulfill({ contentType: 'application/json', body }));
+    const started = Date.now();
+    await page.goto('/f/database-sqlite-indexes/');
+    await expect(page.locator('.lsv')).toHaveAttribute('data-loaded', 'true', { timeout: 30_000 });
+    const elapsed = Date.now() - started;
+    await expect(page.locator('.react-flow__node-table').first()).toBeVisible();
+    // A generous budget for a loaded CI machine; it typically takes a few seconds.
+    expect(elapsed).toBeLessThan(20_000);
+    test.info().annotations.push({ type: 'layout', description: `200 tables in ${elapsed} ms` });
+    // Panning stays responsive: one frame after a pan, the viewport has moved.
+    await page.locator('.canvas').focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => page.evaluate(() => (document.querySelector('.react-flow__viewport') as HTMLElement).style.transform)).toContain('translate');
 });

@@ -7,8 +7,10 @@ The layout follows Laravel Schema Viewer's:
 - **Header**: the brand mark, the search box finds any table, column, model or relationship and opens it (<kbd>/</kbd>); then the
   connection, the Download menu (the JSON document, host files, and PNG or SVG images), the theme and Shortcuts.
 - **Diagram**: tables as cards, links as edges, a minimap in the corner. Drag the background to pan, scroll or pinch
-  to zoom, drag a card by its title to move it, fold a card with its chevron, double-click it to focus on its
-  neighbors.
+  to zoom, drag a card by its title to move it, fold a card with its chevron, double-click it (or a line) to focus on
+  its neighbors; the focus bar names what is focused and how many tables are shown. Click a column's row on a card (or
+  its name in Details) for the column's details: its facts, the indexes and foreign keys it is part of in both
+  directions, the lines that use it, lit on the diagram, and its diagnostics.
 - **Toolbar** (bottom): zoom, fit, the hand (pan) and select tools — click the active one again to switch —, and the
   Relationships, Tables and Show menus.
 - **Side panel** (right, resizable): **Browse** (Tables & Models, Relationships, Columns, each with a filter),
@@ -33,6 +35,10 @@ A document may hold several connections, each with its own driver. The viewer ne
   <kbd>[</kbd> <kbd>]</kbd>, or open `#connection=<id>`. Tables on other connections that its relationships reach stay
   on the diagram as dashed reference nodes marked "On connection …": they cannot be moved or folded, and clicking one
   opens that table on its own connection.
+- A relationship through a table on another connection draws that table as a reference node too.
+- **Changes** (from the host) follow the connection in view as well; each change whose subject is still in the
+  document has a Show it link, and cards new or changed since the previous build carry a dot (filled: new; ring:
+  changed).
 - **Diagnostics** follow the connection in view: with one connection shown, the tab, its count and the phone sheet's
   count list that connection's diagnostics and those about the whole document (marked "whole document").
 - With more than one connection, every table label names its connection, `analytics · public.users`: cards, Browse,
@@ -55,6 +61,13 @@ opens the sheet on its tab.
 | Dashed, orange | A foreign key only the ORM declares, not found in the database (combined documents) |
 | Dash-dot, violet, `FK · inferred` | A foreign key with an inferred association: a heuristic, no ORM relationship declared |
 
+Line ends follow Laravel Schema Viewer's: a crow's foot where the referencing columns can repeat, a single bar where
+they are unique (primary key, unique index or unique constraint), a double bar at the referenced table, and an arrow
+at the end of a relationship through other tables.
+
+A line's details name the index that serves its foreign key (one whose leading columns are the key's) or say there is
+none, and list the diagnostics about the line, its foreign key and its relationships.
+
 Each kind has its own layer toggle (keys <kbd>1</kbd>–<kbd>4</kbd>; <kbd>5</kbd> for the inferred marks). The viewer draws the links the document stores;
 it never infers a constraint from a relationship.
 
@@ -68,7 +81,7 @@ it never infers a constraint from a relationship.
 | <kbd>+</kbd> <kbd>−</kbd> | Zoom |
 | <kbd>Space</kbd> | Hold to pan anywhere |
 | <kbd>Shift</kbd> click / drag | Pick several tables; drag one to move them all |
-| <kbd>Shift</kbd> <kbd>F</kbd> | Focus on the selection, or leave focus |
+| <kbd>Shift</kbd> <kbd>F</kbd> | Focus on the selected table or line, or leave focus |
 | <kbd>C</kbd> | Key columns, all columns, or table names |
 | <kbd>N</kbd> | Notes on cards |
 | <kbd>L</kbd> | Relationship names everywhere or on the selection |
@@ -97,7 +110,8 @@ kept (`encodeURI`) and `{line}` defaults to 1. Templates with a `javascript:`, `
 
 ## Deep links
 
-The URL hash keeps the view: `#table=<id>`, `#link=<id>`, `#inferred=<id>`, `#focus=<id>&depth=2`, `#connection=<id>`,
+The URL hash keeps the view: `#table=<id>` (with `&column=<name>` for a column), `#link=<id>`, `#inferred=<id>`, `#focus=<table or line id>&depth=2`, `#connection=<id>`,
 `#view=compare&comparison=<id>&difference=<id>` (with the Compare filters `object`, `change`, `severity`, `certainty`) and `#view=migrations&migration=<id>`. An unknown connection id opens every connection; a `#table=` on another connection than
-`#connection=` opens the table's own connection. Press
+`#connection=` opens the table's own connection. A link to a table, line, connection, comparison or migration track the document
+does not have opens the whole diagram with a note saying so. Press
 <kbd>Shift</kbd> <kbd>C</kbd> to copy it.

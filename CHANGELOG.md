@@ -80,6 +80,16 @@ All notable changes to this project are documented here. The format follows
 - Deep links `#view=compare&comparison=…&difference=…`, `#view=migrations&migration=…` and `#inferred=…`; shortcuts
   <kbd>X</kbd> (Compare), <kbd>M</kbd> (Migrations) and <kbd>5</kbd>; diagnostics about a comparison, migration track
   or inferred association link to it.
+- Laravel Schema Viewer's line ends: crow's foot or single bar at the referencing end by the columns' uniqueness, a
+  double bar at the referenced table, an arrow for relationships through other tables.
+- Column details (click a card row or a column name in Details; `#column=`): facts, indexes, foreign keys in both
+  directions, the lines that use it, lit on the diagram, and diagnostics.
+- Focus on a line (double-click it, <kbd>Shift</kbd> <kbd>F</kbd>, or Focus in its details; `#focus=<line id>`), and a
+  focus bar naming what is focused and the number of tables shown.
+- Line details: the index that serves the foreign key (or "none") and the diagnostics about the line.
+- Changes: each change opens its subject, the list and count follow the connection in view, and cards new or changed
+  since the previous build carry a dot.
+- A deep link to something the document does not have opens the whole diagram with a toast saying so.
 
 ### Fixed
 
@@ -96,6 +106,8 @@ All notable changes to this project are documented here. The format follows
 - The Compare filters are kept in deep links (`#object=…&change=…&severity=…&certainty=…`).
 - On a phone, a deep link to a table, line, association or view opens the bottom sheet on its tab.
 - Menu hints wrap instead of being cut off at the menu's edge.
+- With one connection shown, a relationship through a table on another connection draws that table as a reference
+  node.
 - Diagnostics follow the connection in view: with one connection shown, the Diagnostics tab, its count and the phone
   sheet's count cover that connection and the whole document (labelled "whole document"), with a note of how many are
   on other connections. A diagnostic's connection comes from its subject (table, column, index, foreign key,

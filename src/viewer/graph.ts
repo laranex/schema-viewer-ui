@@ -23,6 +23,8 @@ export type GraphEdge = {
     crossConnection: boolean;
     link: Link | null;
     derived: DerivedLink | null;
+    // The referencing end may hold the same key more than once: a crow's foot, else a single bar (Laravel's markers).
+    many: boolean;
 };
 
 // Card geometry, shared by the cards' CSS, the layout and the edge routes.
@@ -80,7 +82,7 @@ export function lookup(doc: SchemaDocument): Lookup {
 
 // What a diagnostic is about: its table, when it has one, and the connections it concerns. No connection means the whole
 // document (subject "document", or an id the document does not have); a comparison concerns both of its sides.
-export type DiagnosticScope = { tableOf: (d: Diagnostic) => string | undefined; connectionsOf: (d: Diagnostic) => string[] };
+export type DiagnosticScope = { tableOf: (d: Diagnostic) => string | undefined; connectionsOf: (d: Diagnostic) => string[]; tableOfId: (id: string) => string | undefined };
 
 export function diagnosticScope(doc: SchemaDocument, l: Lookup): DiagnosticScope {
     const owner = new Map<string, string>();
@@ -91,16 +93,11 @@ export function diagnosticScope(doc: SchemaDocument, l: Lookup): DiagnosticScope
     }
     const links = new Map(doc.links.map((k) => [k.id, k.from.table]));
     const inferred = new Map(doc.inferredAssociations.map((a) => [a.id, a.table]));
-    const tableOf = (d: Diagnostic): string | undefined => {
-        const id = d.subject.id;
-        if (id === null) {
-            return undefined;
-        }
-        if (l.tables.has(id)) {
-            return id;
-        }
-        return owner.get(id) ?? l.relationships.get(id)?.table ?? links.get(id) ?? inferred.get(id) ?? l.models.get(id)?.tables.find((t) => l.tables.has(t));
-    };
+    // The table any entity id belongs to: a table, its index, foreign key or constraint, a relationship, link, model or
+    // inferred association.
+    const tableOfId = (id: string): string | undefined =>
+        l.tables.has(id) ? id : (owner.get(id) ?? l.relationships.get(id)?.table ?? links.get(id) ?? inferred.get(id) ?? l.models.get(id)?.tables.find((t) => l.tables.has(t)));
+    const tableOf = (d: Diagnostic): string | undefined => (d.subject.id === null ? undefined : tableOfId(d.subject.id));
     const comparisons = new Map(doc.comparisons.map((c) => [c.id, [...new Set([c.baseline.connection, c.target.connection])]]));
     const tracks = new Map(doc.migrations.map((t) => [t.id, t.connection]));
     const connectionsOf = (d: Diagnostic): string[] => {
@@ -122,7 +119,21 @@ export function diagnosticScope(doc: SchemaDocument, l: Lookup): DiagnosticScope
         const c = table === undefined ? undefined : l.connectionOf.get(table);
         return c ? [c] : [];
     };
-    return { tableOf, connectionsOf };
+    return { tableOf, connectionsOf, tableOfId };
+}
+
+// Whether these columns are unique in the table on their own: its primary key, or a unique index (whole, columns only)
+// or unique constraint on exactly them, in any order.
+export function isUnique(table: Table | undefined, columns: string[]): boolean {
+    if (!table || !columns.length) {
+        return false;
+    }
+    const same = (other: (string | null)[]) => other.length === columns.length && columns.every((c) => other.includes(c));
+    return (
+        same(table.primaryKey) ||
+        table.indexes.some((i) => i.unique && !i.partial && !i.expression && same(i.parts.map((p) => p.column))) ||
+        table.constraints.some((c) => c.kind === 'unique' && same(c.columns))
+    );
 }
 
 export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdge[] {
@@ -144,6 +155,7 @@ export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdg
             crossConnection: l.connectionOf.get(link.from.table) !== l.connectionOf.get(link.to.table),
             link,
             derived: null,
+            many: !isUnique(l.tables.get(link.from.table), link.from.columns),
         };
     });
     for (const derived of doc.derivedLinks) {
@@ -160,6 +172,7 @@ export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdg
             crossConnection: l.connectionOf.get(derived.from) !== l.connectionOf.get(derived.to),
             link: null,
             derived,
+            many: true,
         });
     }
     return edges;
@@ -176,10 +189,11 @@ export function neighbors(id: string, edges: GraphEdge[]): Set<string> {
     return within(id, edges, 1);
 }
 
-// The table and every table up to depth edges away.
-export function within(id: string, edges: GraphEdge[], depth: number): Set<string> {
-    const seen = new Set([id]);
-    let frontier = [id];
+// The tables within depth links of the seeds: one table, or a line's tables (its ends and the tables it goes through).
+export function within(seed: string | string[], edges: GraphEdge[], depth: number): Set<string> {
+    const seeds = typeof seed === 'string' ? [seed] : seed;
+    const seen = new Set(seeds);
+    let frontier = [...seeds];
     for (let level = 0; level < depth && frontier.length; level++) {
         const next: string[] = [];
         for (const edge of edges) {

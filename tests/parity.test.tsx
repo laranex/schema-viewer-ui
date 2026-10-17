@@ -152,3 +152,84 @@ describe('diagnostics per connection', () => {
         expect(within(panel()).getByText('Ignore with users.legacy')).toBeInTheDocument();
     });
 });
+
+describe('cross-connection through relationships', () => {
+    const doc = (): SchemaDocument => JSON.parse(readFileSync(root('tests/viewer-documents/viewer-cross-connection-through.json'), 'utf8'));
+    const press = (key: string) => fireEvent.keyDown(document.body, { key });
+
+    it('draws a table on another connection that a relationship in view goes through as a reference', async () => {
+        const { container } = await show(doc(), { defaultConnection: 'connection:app' });
+        const reference = () => container.querySelector('[data-external][data-table-id="cache:sessions"]');
+        // ORM-only edges off: only the through relationship still reaches cache.sessions.
+        press('3');
+        await waitFor(() => expect(reference()).toBeTruthy());
+        press('4');
+        await waitFor(() => expect(reference()).toBeNull());
+    });
+});
+
+describe('deep links to something missing', () => {
+    it('says so and shows the whole diagram', async () => {
+        history.replaceState(null, '', '/#table=mysql%3Anope&focus=mysql%3Anope');
+        const { container } = await show(VALID['combined-eloquent'](), { deepLinks: true });
+        expect(screen.getByRole('status', { name: '' }).textContent ?? '').toMatch(/This link points at a table and a table or line to focus on that are not in this document/);
+        expect(container.querySelector('.canvas-top')).toBeNull();
+        expect(within(panel()).getByRole('tab', { name: 'Browse' })).toHaveAttribute('aria-selected', 'true');
+        await waitFor(() => expect(location.hash).toBe(''));
+    });
+});
+
+describe('columns and lines as selections', () => {
+    it('opens a column’s details from the table, lights the lines that use it, and keeps it in the hash', async () => {
+        history.replaceState(null, '', '/#table=mysql%3Aposts');
+        const { container } = await show(VALID['combined-eloquent'](), { deepLinks: true });
+        fireEvent.click(within(panel()).getByRole('button', { name: 'editor_id' }));
+        expect(within(panel()).getByRole('heading', { name: /posts\.editor_id/ })).toBeInTheDocument();
+        expect(within(panel()).getByText('Missing index')).toBeInTheDocument();
+        await waitFor(() => expect(location.hash).toContain('column=editor_id'));
+        const related = [...container.querySelectorAll('.table-card.related')].map((c) => c.getAttribute('data-table-id'));
+        expect(related).toEqual(['mysql:users']);
+        fireEvent.click(within(panel()).getByRole('button', { name: /← posts/ }));
+        expect(within(panel()).getByRole('heading', { name: /^posts/ })).toBeInTheDocument();
+        await waitFor(() => expect(location.hash).not.toContain('column='));
+    });
+
+    it('opens on a #column= deep link and selects a column from its card row', async () => {
+        history.replaceState(null, '', '/#table=mysql%3Aposts&column=user_id');
+        const { container } = await show(VALID['combined-eloquent'](), { deepLinks: true });
+        expect(within(panel()).getByRole('heading', { name: /posts\.user_id/ })).toBeInTheDocument();
+        const row = container.querySelector('[data-table-id="mysql:users"] [data-column="id"]') as HTMLElement;
+        fireEvent.click(row);
+        expect(within(panel()).getByRole('heading', { name: /users\.id/ })).toBeInTheDocument();
+    });
+
+    it('focuses on a line: its tables and their neighbours, named in the focus bar', async () => {
+        const doc = VALID['combined-eloquent']();
+        const link = doc.links.find((l) => l.foreignKey !== null && l.from.table === 'mysql:posts') as SchemaDocument['links'][number];
+        history.replaceState(null, '', `/#link=${encodeURIComponent(link.id)}&focus=${encodeURIComponent(link.id)}`);
+        const { container } = await show(doc, { deepLinks: true });
+        expect(container.querySelector('.focus-label')).toHaveTextContent(/^Focus on .+ · \d+ tables$/);
+        expect(within(panel()).getByText('Index')).toBeInTheDocument();
+    });
+});
+
+describe('changes since the previous build', () => {
+    const changes = [
+        { type: 'table', change: 'added' as const, subject: 'cache:sessions', label: 'sessions' },
+        { type: 'column', change: 'changed' as const, subject: 'app:public.users', label: 'users.email', fields: { nullable: [false, true] as [unknown, unknown] } },
+        { type: 'table', change: 'removed' as const, subject: null, label: 'legacy' },
+    ];
+
+    it('marks new and changed cards, opens a change’s subject, and follows the connection in view', async () => {
+        const { container } = await show(VALID['combined-multi-connection'](), { changes });
+        expect(container.querySelector('[data-table-id="cache:sessions"] .change-dot--new')).toBeTruthy();
+        expect(container.querySelector('[data-table-id="app:public.users"] .change-dot--changed')).toBeTruthy();
+        const tab = () => within(panel()).getByRole('tab', { name: /Changes/ });
+        expect(tab()).toHaveTextContent('Changes3');
+        fireEvent.click(tab());
+        fireEvent.click(within(panel()).getAllByRole('button', { name: 'Show it' })[0]);
+        expect(within(panel()).getByRole('heading', { name: /cache · sessions/ })).toBeInTheDocument();
+        fireEvent.change(screen.getByRole('combobox', { name: 'Connection' }), { target: { value: 'connection:analytics' } });
+        await waitFor(() => expect(tab()).toHaveTextContent('Changes1'));
+    });
+});
