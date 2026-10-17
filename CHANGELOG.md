@@ -70,6 +70,21 @@ All notable changes to this project are documented here. The format follows
   <kbd>X</kbd> (Compare), <kbd>M</kbd> (Migrations) and <kbd>5</kbd>; diagnostics about a comparison, migration track
   or inferred association link to it.
 
+### Fixed
+
+- Narrow side panel: text wraps between words, and long identifiers (`tenant_a.invoices`, paths, types) after their
+  separators, instead of anywhere ("mis sing"); the Compare counts go two by two when four do not fit.
+- Side-panel tabs: when the labels do not fit, the other tabs show an icon (their name stays the accessible name and
+  tooltip) and the row scrolls to keep the selected tab in view at the narrowest panel; <kbd>Home</kbd> and
+  <kbd>End</kbd> join the arrow keys.
+- Editor links keep the path's slashes (`encodeURI`, so `vscode://file/{file}:{line}` works) and a template with a
+  `javascript:`, `data:`, `vbscript:`, `blob:` or `file:` scheme shows the path as text instead of a link.
+- Folding or unfolding one card keeps every position, dragged ones included; folding every card (Columns, <kbd>C</kbd>),
+  notes and comparison marks arrange the diagram again.
+- Connection frames follow their tables: a table dragged out of its frame enlarges it, on the diagram and in images.
+- The Compare filters are kept in deep links (`#object=…&change=…&severity=…&certainty=…`).
+- On a phone, a deep link to a table, line, association or view opens the bottom sheet on its tab.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added

@@ -1,9 +1,9 @@
 import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, useStoreApi, useViewport, type EdgeChange, type NodeChange } from '@xyflow/react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import type { Diagnostic, SchemaDocument, Table } from '../contract/types';
 import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
 import { Browse, tableSubtitle, type BrowseMode } from './Browse';
-import { ComparePanel } from './Compare';
+import { ComparePanel, FILTER_PARAM, filtersFrom, type CompareFilters } from './Compare';
 import { ChangesPanel, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
 import { boundsOf, clip, colorsOf, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
 import {
@@ -24,7 +24,7 @@ import {
     type Fold,
     type GraphEdge,
 } from './graph';
-import { ARRANGEMENTS, autoLayout, packRegions, type Arrangement, type LayoutRequest, type Positions, type Region } from './layout';
+import { ARRANGEMENTS, autoLayout, frameAround, packRegions, type Arrangement, type LayoutRequest, type Positions, type Region } from './layout';
 import { Resizer } from './Resizer';
 import { route, type Box } from './routing';
 import { InferredDetails } from './Inferred';
@@ -57,7 +57,8 @@ export type SchemaViewerProps = {
     // Remember the theme button's choice in localStorage.
     persistTheme?: boolean;
     // Keep the view in the URL hash (#table=…, #link=…, #inferred=…, #focus=…, #depth=…, #connection=…, #view=compare with
-    // #comparison=… and #difference=…, #view=migrations with #migration=…) and open on it.
+    // #comparison=…, #difference=… and the filters #object=…, #change=…, #severity=…, #certainty=…; #view=migrations with
+    // #migration=…) and open on it.
     deepLinks?: boolean;
     // Where Download JSON points; null hides it. By default it downloads the document shown.
     downloadHref?: string | null;
@@ -219,6 +220,7 @@ function Viewer({
         const id = initialHash.get('migration');
         return doc.migrations.some((t) => t.id === id) ? id : null;
     });
+    const [compareFilters, setCompareFilters] = useState<CompareFilters>(() => filtersFrom(initialHash));
     const [overlay, setOverlay] = useState(true);
     const [showInferred, setShowInferred] = useState(true);
     const [browseMode, setBrowseMode] = useState<BrowseMode>('tables');
@@ -257,6 +259,15 @@ function Viewer({
     const [panelWidth, setPanelWidth] = useState<number | null>(null);
     const [menu, setMenu] = useState<string | null>(null);
     const menuProps = (name: string) => ({ open: menu === name, onOpenChange: (open: boolean) => setMenu(open ? name : null) });
+
+    // On a phone, a deep link to a table, line, association or view opens the sheet on its tab.
+    useLayoutEffect(() => {
+        const width = root.current?.getBoundingClientRect().width ?? 0;
+        if (width > 0 && width < NARROW && ['table', 'link', 'inferred', 'view'].some((key) => initialHash.get(key))) {
+            setSheetOpen(true);
+        }
+        // Only the link the viewer opened on counts.
+    }, []);
 
     // The phone note gives way once the sheet is in use.
     useEffect(() => {
@@ -307,11 +318,18 @@ function Viewer({
                 params.set('difference', differenceId);
             }
         }
+        if (tab === 'compare' && comparison) {
+            for (const [key, name] of Object.entries(FILTER_PARAM) as [keyof CompareFilters, string][]) {
+                if (compareFilters[key]) {
+                    params.set(name, compareFilters[key]);
+                }
+            }
+        }
         const hash = params.toString();
         if (hash !== location.hash.slice(1)) {
             history.replaceState(null, '', `${location.pathname}${location.search}${hash ? `#${hash}` : ''}`);
         }
-    }, [deepLinks, connection, focus, selection, tab, comparison, differenceId, trackId, overlay, doc]);
+    }, [deepLinks, connection, focus, selection, tab, comparison, differenceId, trackId, overlay, doc, compareFilters]);
 
     // A folded card still shows the columns the marked comparison names, as it shows drifted ones.
     const rows = useMemo(
@@ -392,12 +410,16 @@ function Viewer({
     const placedIds = useMemo(() => [...visible.map(({ table }) => table.id), ...externals.keys()], [visible, externals]);
     const layoutEdges = useMemo(() => edges.map((e) => ({ id: e.id, source: e.source, target: e.target })), [edges]);
     const pendingFit = useRef(false);
+    // Card heights are read when the layout runs, not watched: folding or unfolding one card keeps every position, dragged
+    // ones included, as in Laravel Schema Viewer. Folding every card (Columns), notes and comparison marks arrange again.
+    const sizeRef = useRef(sizeOf);
+    sizeRef.current = sizeOf;
     useEffect(() => {
         let cancelled = false;
         setPhase('arranging');
         const box = canvas.current?.getBoundingClientRect();
         const aspect = box && box.height > 0 ? Math.max(0.5, Math.min(2.4, box.width / box.height)) : 1.6;
-        const sizes = Object.fromEntries(placedIds.map((id) => [id, sizeOf(id)]));
+        const sizes = Object.fromEntries(placedIds.map((id) => [id, sizeRef.current(id)]));
         const request = (ids: string[]): LayoutRequest => ({ ids, heights: Object.fromEntries(ids.map((id) => [id, sizes[id]])), edges: layoutEdges, arrangement, aspect });
         const arranged = groups
             ? Promise.all(groups.map((g) => layout(request(g.ids)).then((positions) => ({ connection: g.connection, positions })))).then((blocks) => packRegions(blocks, sizes, aspect))
@@ -423,7 +445,7 @@ function Viewer({
         return () => {
             cancelled = true;
         };
-    }, [placedIds, groups, sizeOf, layoutEdges, arrangement, arrangeCount, layout]);
+    }, [placedIds, groups, layoutEdges, arrangement, arrangeCount, layout, notes, marks]);
 
     const related = useMemo(() => {
         if (group.length > 1) {
@@ -606,10 +628,23 @@ function Viewer({
         return data;
     }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, marks, empty, selectTable, focusOn, toggleCard]);
 
+    // Each connection's frame, around its cards where they are now, so it follows a dragged table.
+    const frames = useMemo(
+        () =>
+            regions.map((r) => {
+                const boxes = visible.flatMap(({ table, connection: c }) => {
+                    const p = c.id === r.connection ? (dragging[table.id] ?? positions[table.id]) : undefined;
+                    return p ? [{ x: p.x, y: p.y, height: heights[table.id] }] : [];
+                });
+                return boxes.length ? frameAround(r.connection, boxes) : r;
+            }),
+        [regions, visible, positions, dragging, heights],
+    );
+
     const openExternal = useCallback((id: string) => openRef.current(id), []);
     const nodes = useMemo<FlowNode[]>(
         () => [
-            ...regions.map(
+            ...frames.map(
                 (r): RegionNodeType => ({
                     id: `lsv-region:${r.connection}`,
                     type: 'region',
@@ -665,7 +700,7 @@ function Viewer({
                     }),
                 ),
         ],
-        [regions, visible, externals, positions, dragging, nodeData, picked, heights, spacePan, lookup, related, openExternal],
+        [frames, visible, externals, positions, dragging, nodeData, picked, heights, spacePan, lookup, related, openExternal],
     );
 
     // Routes over settled positions; edges touching a card being dragged float until it is dropped.
@@ -889,7 +924,7 @@ function Viewer({
                 declaredOnly: false,
                 external: true,
             }));
-        const frames = regions.map((r) => ({
+        const imageFrames = frames.map((r) => ({
             x: r.x,
             y: r.y,
             width: r.width,
@@ -902,7 +937,7 @@ function Viewer({
             const r = routes.get(e.id);
             return r ? [{ kind: e.kind, declaredOnly: e.declaredOnly, sx: r.sx, sy: r.sy, cx: r.channelX, tx: r.tx, ty: r.ty, label: labelled(e) ? { x: r.labelX, y: r.labelY, text: e.label } : null }] : [];
         });
-        return { nodes: allNodes, edges: imageEdges, frames, bounds: boundsOf([...allNodes, ...frames]) };
+        return { nodes: allNodes, edges: imageEdges, frames: imageFrames, bounds: boundsOf([...allNodes, ...imageFrames]) };
     };
     const exportImage = async (format: 'png' | 'svg', area: 'all' | 'visible') => {
         try {
@@ -946,7 +981,7 @@ function Viewer({
         '+': () => zoomBy(1.2),
         '=': () => zoomBy(1.2),
         '-': () => zoomBy(1 / 1.2),
-        c: () => (setFold((f) => FOLDS[(FOLDS.findIndex((x) => x.value === f) + 1) % FOLDS.length].value), setCollapsed(new Set())),
+        c: () => (setFold((f) => FOLDS[(FOLDS.findIndex((x) => x.value === f) + 1) % FOLDS.length].value), setCollapsed(new Set()), setArrangeCount((n) => n + 1)),
         C: copyLink,
         F: () => (focus ? setFocus(null) : selection?.kind === 'table' && focusOn(selection.id)),
         n: () => setNotes((n) => !n),
@@ -1044,31 +1079,28 @@ function Viewer({
     const statusText = phase === 'error' ? `Could not lay out the diagram: ${layoutError}` : phase === 'arranging' ? `Arranging ${visible.length} tables…` : null;
 
     const tabs: TabSpec<Tab>[] = [
-        { value: 'browse', label: 'Browse' },
-        { value: 'details', label: 'Details' },
-        { value: 'diagnostics', label: 'Diagnostics', count: doc.diagnostics.length, tone: 'warning' },
-        ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', count: changes.length }] : []),
+        { value: 'browse', label: 'Browse', icon: 'tables' },
+        { value: 'details', label: 'Details', icon: 'details' },
+        { value: 'diagnostics', label: 'Diagnostics', icon: 'warning', count: doc.diagnostics.length, tone: 'warning' },
+        ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', icon: 'changes' as const, count: changes.length }] : []),
         ...(doc.comparisons.length
             ? [
                   {
                       value: 'compare' as const,
-                      label: (
+                      label: 'Compare',
+                      icon: 'compare' as const,
+                      badge: comparison && !comparison.complete && (
                           <>
-                              Compare
-                              {comparison && !comparison.complete && (
-                                  <>
-                                      <span className="tab__count tab__count--warning" aria-hidden="true" title="Incomplete comparison">
-                                          !
-                                      </span>
-                                      <span className="sr-only">{' (incomplete)'}</span>
-                                  </>
-                              )}
+                              <span className="tab__count tab__count--warning" aria-hidden="true" title="Incomplete comparison">
+                                  !
+                              </span>
+                              <span className="sr-only">{' (incomplete)'}</span>
                           </>
                       ),
                   },
               ]
             : []),
-        ...(doc.migrations.length ? [{ value: 'migrations' as const, label: 'Migrations' }] : []),
+        ...(doc.migrations.length ? [{ value: 'migrations' as const, label: 'Migrations', icon: 'migrations' as const }] : []),
     ];
 
     const downloadMenu = (
@@ -1178,6 +1210,8 @@ function Viewer({
                     onComparison={(id) => (setComparisonId(id), setDifferenceId(null))}
                     onDifference={setDifferenceId}
                     onShowTable={(id, name) => openTable(id, name)}
+                    filters={compareFilters}
+                    onFilters={setCompareFilters}
                 />
             )}
             {tab === 'migrations' && <MigrationsPanel doc={doc} lookup={lookup} selected={trackId} onSelect={setTrackId} onShowTable={(id) => openTable(id)} />}
@@ -1410,7 +1444,7 @@ function Viewer({
                                 Columns <kbd>C</kbd>
                             </MenuLabel>
                             {FOLDS.map((f) => (
-                                <MenuRadio key={f.value} checked={fold === f.value} onSelect={() => (setFold(f.value), setCollapsed(new Set()))} hint={FOLD_HINT[f.value]}>
+                                <MenuRadio key={f.value} checked={fold === f.value} onSelect={() => (setFold(f.value), setCollapsed(new Set()), setArrangeCount((n) => n + 1))} hint={FOLD_HINT[f.value]}>
                                     {f.value === 'all' ? 'All' : f.value === 'keys' ? 'Keys' : 'Names'}
                                 </MenuRadio>
                             ))}

@@ -1,8 +1,10 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
 // Small accessible primitives: a menu button with a popover menu, and tabs. No dependencies.
 
-export function Icon({ name, size = 16 }: { name: keyof typeof PATHS; size?: number }) {
+export type IconName = keyof typeof PATHS;
+
+export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
     return (
         <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             {PATHS[name]}
@@ -73,6 +75,27 @@ const PATHS = {
     chevron: <path d="m6 9 6 6 6-6" />,
     check: <path d="m5 12 5 5L20 7" />,
     warning: <path d="M12 3 2 21h20L12 3zM12 10v4M12 17h.01" />,
+    details: (
+        <>
+            <rect x="4" y="3" width="16" height="18" rx="2" />
+            <path d="M8 8h8M8 12h8M8 16h5" />
+        </>
+    ),
+    changes: (
+        <>
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+            <path d="M3 3v5h5M12 7v5l3 2" />
+        </>
+    ),
+    compare: <path d="M8 4v16M16 4v16M3 8h5M16 8h5M3 16h5M16 16h5" />,
+    migrations: (
+        <>
+            <circle cx="6" cy="6" r="2" />
+            <circle cx="6" cy="18" r="2" />
+            <path d="M6 8v8M12 6h8M12 12h8M12 18h8" />
+        </>
+    ),
+    external: <path d="M14 4h6v6M20 4l-9 9M17 14v6H4V7h6" />,
     focus: (
         <>
             <circle cx="12" cy="12" r="3" />
@@ -96,6 +119,13 @@ const PATHS = {
     ),
     circle: <circle cx="12" cy="12" r="8" strokeDasharray="3 3" />,
 } as const;
+
+// A long identifier (schema.table.column, a path, a type) wraps after its separators before it is split anywhere else.
+export function Ident({ text }: { text: string }) {
+    const parts = text.split(/(?<=[._/:,])(?=.)/);
+    // One span, so a flex parent sees one item and the accessible name stays one word.
+    return <span className="ident">{parts.map((part, i) => (i ? [<wbr key={i} />, part] : part))}</span>;
+}
 
 type MenuProps = {
     label: string;
@@ -208,22 +238,61 @@ export function MenuItem({ onSelect, children, hint, shortcut, disabled }: { onS
     );
 }
 
-export type TabSpec<T extends string> = { value: T; label: ReactNode; count?: number; tone?: 'warning' };
+// badge: shown after the label, also in the compact row (with its own accessible text).
+export type TabSpec<T extends string> = { value: T; label: string; icon?: IconName; count?: number; tone?: 'warning'; badge?: ReactNode };
 
-// A tab list: arrow keys move between tabs, as the ARIA tabs pattern asks.
+// A tab list: arrow keys move between tabs, as the ARIA tabs pattern asks. When the labels do not fit on one row, the
+// tabs other than the selected one show only their icon (the label stays their accessible name and tooltip); should
+// even that not fit, the row scrolls and keeps the selected tab in view.
 export function TabList<T extends string>({ tabs, value, onChange, label, className, idPrefix }: { tabs: TabSpec<T>[]; value: T; onChange: (value: T) => void; label: string; className?: string; idPrefix: string }) {
+    const row = useRef<HTMLDivElement>(null);
+    const [compact, setCompact] = useState(false);
+    // The width the row needs with every label shown, measured while it is shown.
+    const natural = useRef(0);
+    const signature = tabs.map((t) => `${t.value}:${t.count ?? ''}`).join(' ');
+    useLayoutEffect(() => {
+        natural.current = 0;
+        setCompact(false);
+    }, [signature]);
+    useLayoutEffect(() => {
+        const el = row.current;
+        if (!el) {
+            return;
+        }
+        const check = () => {
+            if (!compact) {
+                natural.current = el.scrollWidth;
+            }
+            const next = natural.current > el.clientWidth + 1;
+            if (next !== compact) {
+                setCompact(next);
+            }
+        };
+        check();
+        if (typeof ResizeObserver === 'undefined') {
+            return;
+        }
+        const observer = new ResizeObserver(check);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [compact, signature]);
+    useEffect(() => {
+        row.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }, [value, compact]);
+
     const keys = (event: KeyboardEvent<HTMLDivElement>) => {
         const at = tabs.findIndex((t) => t.value === value);
         const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-        if (step) {
+        const edge = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : -1;
+        if (step || edge >= 0) {
             event.preventDefault();
-            const next = tabs[(at + step + tabs.length) % tabs.length];
+            const next = edge >= 0 ? tabs[edge] : tabs[(at + step + tabs.length) % tabs.length];
             onChange(next.value);
             (event.currentTarget.querySelector(`#${CSS.escape(`${idPrefix}-tab-${next.value}`)}`) as HTMLElement | null)?.focus();
         }
     };
     return (
-        <div role="tablist" aria-label={label} className={className} onKeyDown={keys}>
+        <div ref={row} role="tablist" aria-label={label} className={`${className ?? ''}${compact ? ' tabs--compact' : ''}`} onKeyDown={keys}>
             {tabs.map((t) => (
                 <button
                     key={t.value}
@@ -234,9 +303,12 @@ export function TabList<T extends string>({ tabs, value, onChange, label, classN
                     aria-controls={`${idPrefix}-panel-${t.value}`}
                     tabIndex={t.value === value ? 0 : -1}
                     className="tab"
+                    title={compact && t.value !== value ? t.label : undefined}
                     onClick={() => onChange(t.value)}
                 >
-                    {t.label}
+                    {t.icon && <Icon name={t.icon} size={14} />}
+                    <span className="tab__label">{t.label}</span>
+                    {t.badge}
                     {t.count !== undefined && t.count > 0 && <span className={`tab__count${t.tone ? ` tab__count--${t.tone}` : ''}`}>{t.count}</span>}
                 </button>
             ))}

@@ -57,15 +57,14 @@ test.describe('comparisons', () => {
         expect(errors).toEqual([]);
     });
 
-    test('opens on a deep link to one difference', async ({ page, isMobile }) => {
+    test('opens on a deep link to one difference', async ({ page }) => {
         const doc = fixture('comparison-tenant-schemas');
         const [c] = doc.comparisons;
         const d = c.differences.find((x: { key: string[] }) => x.key.join('.') === 'users.status');
         await page.goto(`/f/comparison-tenant-schemas/#view=compare&comparison=${c.id}&difference=${d.id}`);
         await loaded(page);
-        if (isMobile) {
-            await side(page).locator('.sheet-bar__action').click();
-        }
+        // On a phone the deep link opens the sheet on Compare.
+        await expect(side(page).getByRole('tab', { name: /^Compare/ })).toHaveAttribute('aria-selected', 'true');
         const selected = page.locator(`[data-difference="${d.id}"]`);
         await expect(selected).toHaveClass(/selected/);
         await expect(selected).toContainText('likely · heuristic');
@@ -87,14 +86,11 @@ test.describe('comparisons', () => {
     });
 
     for (const scheme of ['light', 'dark'] as const) {
-        test(`has no serious accessibility violations in Compare, ${scheme}`, async ({ page, isMobile }) => {
+        test(`has no serious accessibility violations in Compare, ${scheme}`, async ({ page }) => {
             await page.emulateMedia({ colorScheme: scheme });
             await page.goto('/f/viewer-two-way-comparison/#view=compare');
             await loaded(page);
             await expect(page.locator('.lsv')).toHaveAttribute('data-theme', scheme);
-            if (isMobile) {
-                await side(page).locator('.sheet-bar__action').click();
-            }
             await expect(side(page).locator('[data-difference]').first()).toBeVisible();
             expect(await serious(page)).toEqual([]);
         });
@@ -148,7 +144,7 @@ test.describe('migrations', () => {
 });
 
 test.describe('inferred associations', () => {
-    test('annotates the existing foreign-key edges, draws no extra edge, and explains the inference', async ({ page, isMobile }) => {
+    test('annotates the existing foreign-key edges, draws no extra edge, and explains the inference', async ({ page }) => {
         const doc = fixture('inferred-associations');
         const inferred = new Set(doc.inferredAssociations.flatMap((a: { links: string[] }) => a.links));
         await page.goto('/f/inferred-associations/');
@@ -164,9 +160,7 @@ test.describe('inferred associations', () => {
         await page.goto('about:blank');
         await page.goto(`/f/inferred-associations/#inferred=${a.id}`);
         await loaded(page);
-        if (isMobile) {
-            await side(page).locator('.sheet-bar__action').click();
-        }
+        // On a phone the deep link opens the sheet on Details.
         await expect(side(page).getByText('INFERRED ASSOCIATION · HEURISTIC')).toBeVisible();
         await expect(side(page).getByText(/No ORM relationship attribute is declared for it/)).toBeVisible();
         expect(await serious(page)).toEqual([]);

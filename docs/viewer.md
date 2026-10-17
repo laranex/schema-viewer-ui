@@ -15,7 +15,12 @@ The layout follows Laravel Schema Viewer's:
   **Details** (the selection, or an overview of the document), **Diagnostics** (facts apart from heuristics, each with
   a way to its table) and **Changes** when the host provides them; **Compare** and **Migrations** when the document
   stores comparisons or migration tracks, and an **Inferred** mode in Browse when it stores inferred associations. See
-  [Comparisons, migrations and inferences](./views.md).
+  [Comparisons, migrations and inferences](./views.md). When the panel is too narrow for every tab label, the other
+  tabs show their icon (hover for the name) and the row scrolls to keep the selected tab in view; the arrow keys,
+  <kbd>Home</kbd> and <kbd>End</kbd> move between tabs.
+
+Folding one card keeps every table where it is, dragged ones included. Changing Columns for every card
+(<kbd>C</kbd>), notes, comparison marks or Arrange lays the diagram out again, which resets dragged positions.
 
 ## Several connections
 
@@ -23,7 +28,7 @@ A document may hold several connections, each with its own driver. The viewer ne
 
 - **All connections** (the default): each connection is laid out on its own inside a labelled frame showing its name,
   driver and table count, so tables of the same name in two connections never mix. Relationships between connections
-  run between the frames.
+  run between the frames. A frame follows its tables: drag one out and the frame grows to contain it.
 - **One connection**: pick it in the header's connection menu (on a phone, in the ⋯ menu), step through them with
   <kbd>[</kbd> <kbd>]</kbd>, or open `#connection=<id>`. Tables on other connections that its relationships reach stay
   on the diagram as dashed reference nodes marked "On connection …": they cannot be moved or folded, and clicking one
@@ -34,7 +39,8 @@ A document may hold several connections, each with its own driver. The viewer ne
   Foreign keys never cross connections, so the viewer never shows one there.
 
 On a phone the header keeps only the search and a ⋯ menu, the diagram fills the screen, and the side panel is a bottom
-sheet: tap a table, Browse, or the diagnostics count to open it.
+sheet: tap a table, Browse, or the diagnostics count to open it. A deep link to a table, line, association or view
+opens the sheet on its tab.
 
 ## Edges
 
@@ -82,9 +88,14 @@ index, constraint and foreign key came from. Rows the database and the ORM disag
 list each differing field with both values. Diagnostics separate **facts** (read from metadata) from **heuristics**
 (inferred), and the guide's Coverage section lists what each source could not read.
 
+Models and relationships with a source location show it as `file:line`. With an `editor` template (a `ViewerConfig`
+field or the `editor` prop, e.g. `vscode://file/{file}:{line}`) it is a link: `{file}` is inserted with its slashes
+kept (`encodeURI`) and `{line}` defaults to 1. Templates with a `javascript:`, `data:`, `vbscript:`, `blob:` or
+`file:` scheme are ignored. The host puts the project root into the template when `file` is relative.
+
 ## Deep links
 
 The URL hash keeps the view: `#table=<id>`, `#link=<id>`, `#inferred=<id>`, `#focus=<id>&depth=2`, `#connection=<id>`,
-`#view=compare&comparison=<id>&difference=<id>` and `#view=migrations&migration=<id>`. An unknown connection id opens every connection; a `#table=` on another connection than
+`#view=compare&comparison=<id>&difference=<id>` (with the Compare filters `object`, `change`, `severity`, `certainty`) and `#view=migrations&migration=<id>`. An unknown connection id opens every connection; a `#table=` on another connection than
 `#connection=` opens the table's own connection. Press
 <kbd>Shift</kbd> <kbd>C</kbd> to copy it.

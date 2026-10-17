@@ -1,7 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Browser tests of the built standalone viewer (dist/viewer), served by e2e/server.mjs under a strict CSP.
-// Build first: npm run build.
+// Build first: npm run build. PORT picks another port, e.g. to run two checkouts side by side.
+const port = Number(process.env.PORT ?? 4180);
+
 export default defineConfig({
     testDir: './e2e',
     timeout: 30_000,
@@ -11,7 +13,7 @@ export default defineConfig({
     retries: process.env.CI ? 1 : 0,
     reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
     use: {
-        baseURL: 'http://127.0.0.1:4180',
+        baseURL: `http://127.0.0.1:${port}`,
         contextOptions: { reducedMotion: 'reduce' },
         trace: 'retain-on-failure',
     },
@@ -22,7 +24,7 @@ export default defineConfig({
     ],
     webServer: {
         command: 'node e2e/server.mjs',
-        url: 'http://127.0.0.1:4180/f/database-sqlite-indexes/',
+        url: `http://127.0.0.1:${port}/f/database-sqlite-indexes/`,
         reuseExistingServer: !process.env.CI,
     },
 });

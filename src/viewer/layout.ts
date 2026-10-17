@@ -152,6 +152,16 @@ const REGION_PAD = 48;
 const REGION_HEAD = 64;
 const REGION_GAP = 160;
 
+// The frame around a connection's cards wherever they are, with room for its label: frames follow dragged tables.
+const REGION_LABEL = 240;
+export function frameAround(connection: string, boxes: { x: number; y: number; height: number }[]): Region {
+    const minX = Math.min(...boxes.map((b) => b.x));
+    const minY = Math.min(...boxes.map((b) => b.y));
+    const maxX = Math.max(...boxes.map((b) => b.x + CARD_WIDTH));
+    const maxY = Math.max(...boxes.map((b) => b.y + b.height));
+    return { connection, x: minX - REGION_PAD, y: minY - REGION_HEAD - REGION_PAD, width: Math.max(REGION_LABEL, maxX - minX + REGION_PAD * 2), height: maxY - minY + REGION_HEAD + REGION_PAD * 2 };
+}
+
 // With every connection on the diagram, each connection is laid out on its own and framed in a labelled region, so
 // tables of the same name in two connections never mix. The regions are packed in rows, left to right, wrapping so the
 // diagram stays near the screen's shape. Adapted from Laranex Laravel Schema Viewer (MIT), ui/src/layout.ts.

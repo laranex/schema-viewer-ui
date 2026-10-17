@@ -75,4 +75,5 @@ a heuristic, never an ORM relationship:
 ## Deep links
 
 `#view=compare&comparison=<id>&difference=<id>`, `#view=migrations&migration=<id>` and `#inferred=<id>` open these
-views; the hash follows as you use them.
+views; the hash follows as you use them. Compare's filters are kept too: `&object=table&change=missing&severity=error&certainty=certain`
+(unknown values are ignored).

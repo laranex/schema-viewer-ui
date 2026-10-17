@@ -6,6 +6,7 @@ import { relationshipsOf, type GraphEdge, type Lookup } from './graph';
 import { InferredItem, InferredTag, NO_ATTRIBUTE } from './Inferred';
 import { CHANGE_TEXT, comparisonLabel, inferredByLink, inferredOfTable, OBJECT_TEXT, scopeLabel, tableMarks, type TableMark } from './intelligence';
 import { StatusBadge } from './Migrations';
+import { Icon, Ident } from './ui';
 
 // Renders one extension namespace richly; the viewer falls back to a generic rendering for the rest.
 export type ExtensionRenderers = Record<string, (value: Extensions[string]) => ReactNode>;
@@ -64,18 +65,35 @@ export function ProvenanceBadge({ provenance, kind, ctx }: { provenance: Provena
     ) : null;
 }
 
+// Schemes an editor link must never carry: they run code or embed content. Browsers ignore control characters and
+// spaces before a scheme, so they are skipped here too. After Laranex Laravel Schema Viewer (MIT), SidePanel.tsx.
+const UNSAFE_HREF = /^[\s\0-\x1f]*(javascript|data|vbscript|blob|file):/i;
+
+// The editor link for a source location: {file} keeps its slashes (encodeURI), {line} defaults to 1. Null when there is no
+// template or it uses an unsafe scheme.
+export function editorHref(editor: string | null, source: Source): string | null {
+    if (!editor || UNSAFE_HREF.test(editor)) {
+        return null;
+    }
+    return editor.replace('{file}', () => encodeURI(source.file)).replace('{line}', () => String(source.line ?? 1));
+}
+
 function SourceLink({ source, editor }: { source: Source | null; editor: string | null }) {
     if (!source) {
         return null;
     }
     const text = `${source.file}${source.line ? `:${source.line}` : ''}`;
-    if (!editor) {
-        return <code className="source">{text}</code>;
+    const href = editorHref(editor, source);
+    if (!href) {
+        return (
+            <code className="source">
+                <Ident text={text} />
+            </code>
+        );
     }
-    const href = editor.replace('{file}', encodeURIComponent(source.file)).replace('{line}', String(source.line ?? 1));
     return (
-        <a className="source" href={href} title="Open in your editor">
-            {text}
+        <a className="source" href={href} title={`Open ${text} in your editor`}>
+            <Ident text={text} /> <Icon name="external" size={12} />
         </a>
     );
 }
@@ -690,7 +708,7 @@ export function TableDetails({
     return (
         <>
             <h2 className="details__title">
-                {lookup.label(table.id)} <ProvenanceBadge provenance={table.provenance} kind="table" ctx={ctx} />
+                <Ident text={lookup.label(table.id)} /> <ProvenanceBadge provenance={table.provenance} kind="table" ctx={ctx} />
             </h2>
             <p className="details__subtitle">
                 {connection ? `${connection.name}${connection.driver ? ` (${connection.driver})` : ''}` : ''} · {table.columns.length} columns
@@ -743,7 +761,7 @@ export function TableDetails({
                         {table.columns.map((c) => (
                             <tr key={c.name} className={c.drift?.length ? 'drift' : ''}>
                                 <th scope="row">
-                                    {c.name}
+                                    <Ident text={c.name} />
                                     {table.primaryKey.includes(c.name) && <Badge tone="pk">PK</Badge>}
                                     {columnMarks(c.name).map((d) => (
                                         <Badge key={d.id} tone={`cmp-${d.change}`} title={`${CHANGE_TEXT[d.change].meaning} (${d.certainty})`}>
@@ -753,7 +771,9 @@ export function TableDetails({
                                     ))}
                                 </th>
                                 <td>
-                                    <code>{c.type}</code>
+                                    <code>
+                                        <Ident text={c.type} />
+                                    </code>
                                     {c.nullable ? <span className="muted"> null</span> : null}
                                     {c.autoIncrement ? <Badge>auto</Badge> : null}
                                     <ProvenanceBadge provenance={c.provenance} kind="column" ctx={ctx} />
@@ -911,7 +931,9 @@ export function EdgeDetails({ edge, ctx, onSelectTable, onInferred }: { edge: Gr
     return (
         <>
             <span className="tag">{KIND_TAG[edge.kind]}</span>
-            <h2>{edge.label}</h2>
+            <h2>
+                <Ident text={edge.label} />
+            </h2>
             {edge.kind === 'relationship' && !edge.crossConnection && <p className="muted">The ORM declares this relationship; no foreign-key constraint enforces it.</p>}
             {edge.crossConnection && (
                 <p className="muted cross-note">
