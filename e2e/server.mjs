@@ -1,6 +1,6 @@
 // Serves the built standalone viewer (dist/viewer) the way a strict host would: script-src 'self', no inline scripts,
 // no eval, no workers from blobs. Pages:
-//   /f/<fixture>/          the viewer, fetching snapshot.json (a contract fixture)
+//   /f/<fixture>/          the viewer, fetching snapshot.json (a contract fixture or a viewer-only test document)
 //   /inline/<fixture>/     the viewer, with the document inline in script#schema-viewer-data
 //   /element/<fixture>/    <laranex-schema-viewer src="snapshot.json">
 //   /page/<fixture>/       dist/viewer/index.html exactly as shipped, with its favicon links
@@ -21,8 +21,9 @@ const fixture = (name) => {
     if (name === 'invalid') {
         return JSON.stringify({ format: 'laranex-schema', version: '2.0', connections: 'nope' });
     }
-    const path = join(root, 'contract/fixtures/valid', `${name}.json`);
-    return existsSync(path) ? readFileSync(path, 'utf8') : null;
+    // Contract fixtures, then the viewer-only documents derived from them.
+    const path = [join(root, 'contract/fixtures/valid', `${name}.json`), join(root, 'tests/viewer-documents', `${name}.json`)].find((p) => !/[\\/]|\.\./.test(name) && existsSync(p));
+    return path ? readFileSync(path, 'utf8') : null;
 };
 
 const page = (body) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Schema viewer test</title><link rel="stylesheet" href="app.css"><script type="module" src="app.js"></script></head><body>${body}</body></html>`;
