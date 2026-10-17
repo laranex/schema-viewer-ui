@@ -1,0 +1,19 @@
+erDiagram
+    billing_invoices {
+        bigint id PK
+        bigint account_id FK
+        integer number
+        numeric total
+    }
+    public_accounts {
+        bigint id PK
+        text email UK
+        uuid external_ref UK
+        enum status
+        text__ tags
+        jsonb data
+        timestamptz created_at
+        timestamptz deleted_at
+        tsvector search
+    }
+    public_accounts ||--o{ billing_invoices : "account_id"

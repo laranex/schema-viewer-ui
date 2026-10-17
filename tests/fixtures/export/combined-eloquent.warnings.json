@@ -1,0 +1,62 @@
+{
+  "mermaid": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:mysql",
+        "label": "mysql"
+      },
+      "message": "The database inspection of mysql is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:mysql",
+        "label": "mysql"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of mysql: 13 indexes, 2 column defaults, 1 enum value list, 2 comments and notes, 7 referential action sets."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:mysql",
+        "label": "mysql"
+      },
+      "message": "The database inspection of mysql is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:countries:index:countries_code_unique",
+        "label": "countries"
+      },
+      "message": "The unique index countries_code_unique on countries.code is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:users:index:users_email_unique",
+        "label": "users"
+      },
+      "message": "The unique index users_email_unique on users.email is written as the column's unique setting; its name is not kept."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:mysql",
+        "label": "mysql"
+      },
+      "message": "The database inspection of mysql is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    }
+  ]
+}

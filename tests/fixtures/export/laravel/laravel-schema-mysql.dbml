@@ -1,0 +1,37 @@
+Project mysql {
+  Note: 'Project note.'
+}
+
+Table users {
+  id "bigint unsigned" [pk, increment, not null]
+  email varchar(255) [not null, unique, note: 'Login name']
+  status varchar(20) [not null, default: `'active'`]
+
+  indexes {
+    status [name: 'users_active_partial']
+  }
+  Note: 'People who sign in · Accounts table.'
+}
+
+Table profiles {
+  id "bigint unsigned" [pk, increment, not null]
+  user_id "bigint unsigned" [not null, unique]
+}
+
+Table role_user {
+  user_id "bigint unsigned" [not null]
+  role_id "bigint unsigned" [not null]
+  "meta data" json [note: 'Has a | pipe']
+
+  indexes {
+    (user_id, role_id) [pk]
+    role_id [name: 'role_user_role_id_index']
+  }
+}
+
+Table jobs {
+  id integer [pk, increment, not null]
+}
+
+Ref profiles_user_id_foreign: profiles.user_id - users.id [delete: cascade]
+Ref role_user_user_id_foreign: role_user.user_id > users.id [delete: cascade, update: cascade]

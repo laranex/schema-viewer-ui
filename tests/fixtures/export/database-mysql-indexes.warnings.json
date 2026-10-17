@@ -1,0 +1,88 @@
+{
+  "mermaid": [
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:shop",
+        "label": "shop"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of shop: 7 indexes, 3 column defaults, 1 enum value list, 1 comment or note."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:shop.products:index:products_sku_unique",
+        "label": "products"
+      },
+      "message": "The unique index products_sku_unique on products.sku is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "column",
+        "id": "mysql:shop.products",
+        "label": "products.name"
+      },
+      "message": "DBML has no column collation; products.name uses utf8mb4_0900_ai_ci."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:shop.products:index:products_name_prefix",
+        "label": "products"
+      },
+      "message": "Index products_name_prefix on products loses name's prefix length 10: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:shop.products:index:products_status_created",
+        "label": "products"
+      },
+      "message": "Index products_status_created on products loses created_at's order desc: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "table",
+        "id": "mysql:shop.products",
+        "label": "products"
+      },
+      "message": "SQL text on products contains a backtick, which DBML cannot hold; it is written as a quote: cast(json_unquote(json_extract(`attributes`,_utf8mb4'$.color')) as char(16))"
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:shop.products:index:products_description_fulltext",
+        "label": "products"
+      },
+      "message": "Index products_description_fulltext on products loses the method fulltext: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:shop.products:index:products_location_spatial",
+        "label": "products"
+      },
+      "message": "Index products_location_spatial on products loses the method spatial: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "mysql:shop.products:index:products_price",
+        "label": "products"
+      },
+      "message": "Index products_price on products loses the dialect options (mysql): DBML cannot state them."
+    }
+  ],
+  "markdown": []
+}

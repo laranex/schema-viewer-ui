@@ -1,0 +1,64 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "column",
+        "id": "app:public.users",
+        "label": "public.users.email"
+      },
+      "message": "The database and the ORM disagree on column public.users.email's type; the file has the database's value."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: public.teams → public_teams, public.users → public_users."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:app",
+        "label": "app"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of app: 1 referential action set."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "column",
+        "id": "app:public.users",
+        "label": "public.users.email"
+      },
+      "message": "The database and the ORM disagree on column public.users.email's type; the file has the database's value."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "column",
+        "id": "app:public.users",
+        "label": "public.users.email"
+      },
+      "message": "The database and the ORM disagree on column public.users.email's type; the file has the database's value."
+    }
+  ],
+  "json": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "relationship",
+        "id": "App\\Models\\User::sessions",
+        "label": "sessions"
+      },
+      "message": "Relationship App\\Models\\User::sessions reaches connection cache; a document of these connections cannot hold it, so it is left out."
+    }
+  ]
+}

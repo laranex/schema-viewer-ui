@@ -1,0 +1,72 @@
+erDiagram
+    tenant_behind_alembic_version {
+        varchar version_num PK
+    }
+    tenant_behind_users {
+        bigint id PK
+        text email
+    }
+    tenant_branches_alembic_version {
+        varchar version_num PK
+    }
+    tenant_branches_users {
+        bigint id PK
+        text email
+    }
+    tenant_current_alembic_version {
+        varchar version_num PK
+    }
+    tenant_current_audit_log {
+        bigint id PK
+        text event
+    }
+    tenant_current_legacy_import {
+        text row
+    }
+    tenant_current_users {
+        bigint id PK
+        text email
+    }
+    tenant_diverged_alembic_version {
+        varchar version_num PK
+    }
+    tenant_diverged_users {
+        bigint id PK
+        text email
+    }
+    tenant_locked_alembic_version {
+        varchar version_num PK
+    }
+    tenant_locked_users {
+        bigint id PK
+        text email
+    }
+    tenant_new_users {
+        bigint id PK
+        text email
+    }
+    tenant_partial_alembic_version {
+        varchar version_num PK
+    }
+    tenant_partial_users {
+        bigint id PK
+        text email
+    }
+    tenant_partial_new_users {
+        bigint id PK
+        text email
+    }
+    tenant_scriptless_alembic_version {
+        varchar version_num PK
+    }
+    tenant_scriptless_users {
+        bigint id PK
+        text email
+    }
+    tenant_unknown_alembic_version {
+        varchar version_num PK
+    }
+    tenant_unknown_users {
+        bigint id PK
+        text email
+    }

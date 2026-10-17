@@ -22,7 +22,7 @@ export const SHORTCUTS: [string[], string][] = [
     [['Shift C'], 'Copy a link to this view'],
     [['A', 'D', 'H', 'W'], 'Open Browse, Details, Diagnostics or Changes'],
     [['X', 'M'], 'Open Compare or Migrations, when the document has them'],
-    [['E'], 'Open the Download menu: JSON, PNG or SVG'],
+    [['E'], 'Open the Download dialog: schema files, diagram images and more'],
     [['S'], 'Show this list'],
     [['?'], 'Take the tour'],
 ];

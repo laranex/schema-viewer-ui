@@ -1,0 +1,43 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: primary.public.customers → primary_public_customers, primary.public.orders → primary_public_orders, replica.customers → replica_customers, replica.orders → replica_orders."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:primary",
+        "label": "primary"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of primary: 1 index, 2 column defaults, 1 referential action set."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:replica",
+        "label": "replica"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of replica: 1 index, 1 column default, 1 referential action set."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "DBML has one namespace per file: with several connections, each table is named by its connection and table, such as \"app.public.users\"."
+    }
+  ],
+  "markdown": []
+}

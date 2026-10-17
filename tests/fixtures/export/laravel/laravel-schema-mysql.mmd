@@ -1,0 +1,20 @@
+erDiagram
+    users {
+        bigint id PK
+        varchar email
+        varchar status
+    }
+    profiles {
+        bigint id PK
+        bigint user_id FK
+    }
+    role_user {
+        bigint user_id PK, FK
+        bigint role_id PK
+        json meta_data
+    }
+    jobs {
+        integer id PK
+    }
+    users ||--o| profiles : "user_id"
+    users ||--o{ role_user : "user_id"

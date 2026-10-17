@@ -1,0 +1,114 @@
+{
+  "mermaid": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:default",
+        "label": "default"
+      },
+      "message": "The database inspection of default is incomplete (checkConstraints: unavailable); the file holds only what was read."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "column",
+        "id": "table:default.users",
+        "label": "public.users.email"
+      },
+      "message": "The database and the ORM disagree on column public.users.email's type; the file has the database's value."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "column",
+        "id": "table:default.users",
+        "label": "public.users"
+      },
+      "message": "Column public.users.nickname is declared only by the ORM, not in the database; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "table:default.users:index:ix_users_email",
+        "label": "public.users"
+      },
+      "message": "The database and the ORM disagree on index ix_users_email's unique; the file has the database's value."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "table:default.users:fk:fk_users_team",
+        "label": "public.users"
+      },
+      "message": "Foreign key fk_users_team on public.users is declared only by the ORM, not in the database; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: public.audit_log → public_audit_log, public.teams → public_teams, public.users → public_users."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:default",
+        "label": "default"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of default: 1 index."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:default",
+        "label": "default"
+      },
+      "message": "The database inspection of default is incomplete (checkConstraints: unavailable); the file holds only what was read."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "column",
+        "id": "table:default.users",
+        "label": "public.users.email"
+      },
+      "message": "The database and the ORM disagree on column public.users.email's type; the file has the database's value."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "column",
+        "id": "table:default.users",
+        "label": "public.users"
+      },
+      "message": "Column public.users.nickname is declared only by the ORM, not in the database; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "table:default.users:index:ix_users_email",
+        "label": "public.users"
+      },
+      "message": "The database and the ORM disagree on index ix_users_email's unique; the file has the database's value."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "table:default.users:fk:fk_users_team",
+        "label": "public.users"
+      },
+      "message": "Foreign key fk_users_team on public.users is declared only by the ORM, not in the database; it is left out."
+    }
+  ]
+}

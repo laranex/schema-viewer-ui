@@ -1,0 +1,13 @@
+Project cache {
+  Note: 'Synthetic application with three database connections.'
+}
+
+Table sessions {
+  id varchar [pk, not null]
+  user_id bigint
+  payload text [not null]
+
+  indexes {
+    user_id [name: 'sessions_user_id_index']
+  }
+}

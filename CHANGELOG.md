@@ -30,6 +30,24 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `laranex-schema-viewer-ui/export`: client-side exporters behind one `Exporter` interface (`export(document,
+  { connections, dialect, orm }) → { content, warnings }`) for Mermaid ERD, DBML (dbdiagram.io), Markdown and JSON,
+  pure TypeScript with no React or DOM, deterministic, after Laranex Laravel Schema Viewer's formats. Only physical
+  foreign keys become relationships or Refs; in a combined document what only the ORM declares is left out; composite
+  keys, expression and partial indexes, unique and check constraints are kept where the format can state them, and
+  everything else is reported as a warning. JSON is a strictly valid 2.0 document of the chosen connection, with links
+  rebuilt by `buildGraph` (`scopeDocument`). `exportFileName` names files `schema-<connection>.<extension>`.
+- A **Download** dialog replaces the Download menu: a connection selector, Mermaid, DBML, Markdown and JSON with a
+  preview, conversion warnings, copy and download; SVG and PNG of the whole diagram or what is on screen; "This page as
+  HTML"; and the whole document and host `downloads`. <kbd>E</kbd> and the phone's ⋯ menu open it.
+- Image exports draw comparison marks, inferred-association styling, diagnostics counts, `PIVOT` tags, label chips
+  and crow's-foot ends, embed their fonts in the SVG, and no longer depend on the selection. Images are named
+  `schema-<connection or all>.svg|png`.
+- `dist/viewer/offline.js` (the viewer as one script with ELK inlined) and the offline HTML export: one
+  `schema-viewer.html` with the script, styles, fonts, favicon and document embedded, a hash-based
+  Content-Security-Policy, no network access, opening from `file://`. `offlineHtml`, `fetchOfflineBundle` and the
+  `offlineBundle` prop let React hosts offer it.
+
 - Required document arrays `comparisons` (schema comparisons between two scopes, such as tenant schemas or
   connections on different drivers, with normalized identities, severity defaults and certainty), `migrations`
   (migration history and status per scope: `up_to_date`, `behind`, `diverged`, `uninitialized`, `unknown`, with

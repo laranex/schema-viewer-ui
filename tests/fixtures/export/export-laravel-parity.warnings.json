@@ -1,0 +1,52 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "table",
+        "id": "t3:role_user",
+        "label": "role_user"
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; columns of role_user renamed: meta data → meta_data."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:mysql",
+        "label": "mysql"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of mysql: 5 indexes, 1 column default, 4 comments and notes, 2 referential action sets."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "t1:users:index:users_email_unique",
+        "label": "users"
+      },
+      "message": "The unique index users_email_unique on users.email is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "t1:users:index:users_active_partial",
+        "label": "users"
+      },
+      "message": "Index users_active_partial on users loses that it is partial (its predicate was not reported): DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "t2:profiles:index:profiles_user_id_unique",
+        "label": "profiles"
+      },
+      "message": "The unique index profiles_user_id_unique on profiles.user_id is written as the column's unique setting; its name is not kept."
+    }
+  ],
+  "markdown": []
+}

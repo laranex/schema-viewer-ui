@@ -11,7 +11,7 @@ import 'laranex-schema-viewer-ui/styles.css';
 | --- | --- | --- | --- |
 | `document` | `SchemaDocument` | — | A `laranex-schema` 2.x document. Validate untrusted input first. |
 | `changes` | `ViewerChange[] \| null` | — | Changes since the previous build, listed in the guide. |
-| `downloads` | `ViewerDownload[]` | — | Files the host prepared, offered in the guide. |
+| `downloads` | `ViewerDownload[]` | — | Files the host prepared, offered in the Download dialog beside the built-in formats. |
 | `editor` | `string \| null` | `null` | Editor URL template with `{file}` and `{line}` for source links. |
 | `defaultConnection` | `string \| null` | `null` | The connection id to open on. |
 | `extensionRenderers` | `Record<string, (value) => ReactNode>` | `{}` | Rich rendering for one extension namespace. |
@@ -19,7 +19,8 @@ import 'laranex-schema-viewer-ui/styles.css';
 | `onThemeChange` | `(theme) => void` | — | Called by the theme button. |
 | `persistTheme` | `boolean` | `true` | Remember the theme in `localStorage`. |
 | `deepLinks` | `boolean` | `true` | Keep the view in the URL hash. |
-| `downloadHref` | `string \| null` | — | Where Download JSON points; `null` hides it. |
+| `downloadHref` | `string \| null` | — | Where the dialog's whole-document JSON points; `null` hides it. |
+| `offlineBundle` | `(() => Promise<OfflineBundle>) \| null` | `null` | Where "This page as HTML" gets the single-file viewer, such as `() => fetchOfflineBundle(urlOfDistViewer)`; unset hides it. See [Downloads and exports](./exports.md). |
 | `title`, `className` | `ReactNode`, `string` | — | Header title, root class. |
 | `layout` | `(request) => Promise<Positions>` | ELK | Replace the automatic layout, for tests or custom placement. |
 

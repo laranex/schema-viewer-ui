@@ -1707,6 +1707,173 @@
 .lsv .dialog-head h2 {
     margin: 0;
 }
+/* The Download dialog */
+.lsv dialog.lsv-download {
+    width: min(720px, calc(100% - 32px));
+    overflow: auto;
+}
+.lsv .download {
+    display: grid;
+    gap: 18px;
+}
+.lsv .download__section {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+.lsv .download__heading {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.lsv .download__heading code {
+    text-transform: none;
+    color: var(--fg);
+    font-size: 12px;
+}
+.lsv .download__note {
+    margin: 0;
+    font-size: 12px;
+}
+.lsv .download__formats,
+.lsv .download__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+}
+.lsv .download__format,
+.lsv .download__item {
+    display: grid;
+    gap: 2px;
+    align-content: start;
+    text-align: left;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 10px 12px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.lsv .download__format b,
+.lsv .download__item b {
+    font-size: 13px;
+    color: var(--fg);
+}
+.lsv .download__format input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.lsv .download__format.checked {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    background: var(--accent-soft);
+}
+.lsv .download__format:has(input:focus-visible),
+.lsv .download .segmented label:has(input:focus-visible) {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.lsv .download__item--wide {
+    width: 100%;
+}
+.lsv .download__option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.lsv .download__file {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+}
+.lsv .download__preview {
+    margin: 0;
+    max-height: 260px;
+    overflow: auto;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    font: 11px/1.5 var(--font-mono);
+    white-space: pre;
+    color: var(--fg);
+}
+.lsv .download__warnings {
+    font-size: 12px;
+    border: 1px solid color-mix(in srgb, var(--warning) 45%, transparent);
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+.lsv .download__warnings summary {
+    cursor: pointer;
+    color: var(--fg);
+}
+.lsv .download__warnings summary .icon {
+    vertical-align: -2px;
+    color: var(--warning);
+}
+.lsv .download__warnings ul {
+    margin: 6px 0 2px;
+    padding-left: 18px;
+    max-height: 180px;
+    overflow: auto;
+    overflow-wrap: anywhere;
+}
+.lsv .download__actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.lsv .download__actions .icon {
+    vertical-align: -3px;
+}
+.lsv .download__error {
+    margin: 0;
+    color: var(--error);
+    font-size: 12px;
+}
+.lsv .download__image-options {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 12px;
+}
+.lsv .download .segmented {
+    margin: 0;
+}
+.lsv .download .segmented label {
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    white-space: nowrap;
+    cursor: pointer;
+}
+.lsv .download .segmented label.checked {
+    background: var(--surface);
+    color: var(--fg);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+.lsv .download .segmented input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.lsv .download__status {
+    margin: 0;
+    min-height: 1.4em;
+    font-size: 12px;
+    color: var(--muted);
+}
 .lsv dialog .shortcuts {
     display: grid;
     grid-template-columns: 120px 1fr;

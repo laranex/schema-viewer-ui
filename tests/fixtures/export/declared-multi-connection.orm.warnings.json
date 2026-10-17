@@ -1,0 +1,42 @@
+{
+  "mermaid": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: default.public.users → default_public_users, reporting.reports → reporting_reports, reporting.users → reporting_users."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:reporting",
+        "label": "reporting"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of reporting: 1 referential action set."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    }
+  ]
+}

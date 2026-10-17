@@ -1,0 +1,96 @@
+Table public.accounts {
+  id bigint [pk, not null]
+}
+
+Table public.friendships {
+  user_id bigint [not null]
+  friend_id bigint [not null]
+
+  indexes {
+    (user_id, friend_id) [pk]
+  }
+}
+
+Table public.import_rows {
+  id bigint [pk, not null]
+  user_id bigint [not null]
+}
+
+Table public.invoices {
+  id bigint [pk, not null]
+  account_id bigint [not null]
+}
+
+Table public.messages {
+  id bigint [pk, not null]
+  sender_id bigint [not null]
+  recipient_id bigint [not null]
+}
+
+Table public.order_lines {
+  id bigint [pk, not null]
+  order_region text [not null]
+  order_number integer [not null]
+}
+
+Table public.orders {
+  id bigint [pk, not null]
+  region text [not null]
+  number integer [not null]
+
+  indexes {
+    (region, number) [unique, name: 'orders_region_number_key']
+  }
+}
+
+Table public.passports {
+  id bigint [pk, not null]
+  user_id bigint [not null, unique]
+}
+
+Table public.post_tags {
+  post_id bigint [not null]
+  tag_id bigint [not null]
+
+  indexes {
+    (post_id, tag_id) [pk]
+  }
+}
+
+Table public.posts {
+  id bigint [pk, not null]
+  author_id bigint [not null]
+}
+
+Table public.profiles {
+  id bigint [pk, not null]
+  user_id bigint [not null, unique]
+}
+
+Table public.tags {
+  id bigint [pk, not null]
+}
+
+Table public.teams {
+  id bigint [pk, not null]
+}
+
+Table public.users {
+  id bigint [pk, not null]
+  team_id bigint [not null]
+  manager_id bigint [not null]
+}
+
+Ref friendships_user_id_fkey: public.friendships.user_id > public.users.id
+Ref friendships_friend_id_fkey: public.friendships.friend_id > public.users.id
+Ref import_rows_user_id_fkey: public.import_rows.user_id > public.users.id
+Ref invoices_account_id_fkey: public.invoices.account_id > public.accounts.id
+Ref messages_sender_id_fkey: public.messages.sender_id > public.users.id
+Ref messages_recipient_id_fkey: public.messages.recipient_id > public.users.id
+Ref order_lines_order_fkey: public.order_lines.(order_region, order_number) > public.orders.(region, number)
+Ref passports_user_id_fkey: public.passports.user_id - public.users.id
+Ref post_tags_post_id_fkey: public.post_tags.post_id > public.posts.id
+Ref post_tags_tag_id_fkey: public.post_tags.tag_id > public.tags.id
+Ref posts_author_id_fkey: public.posts.author_id > public.users.id
+Ref profiles_user_id_fkey: public.profiles.user_id - public.users.id
+Ref users_manager_id_fkey: public.users.manager_id > public.users.id

@@ -1,0 +1,20 @@
+Table products {
+  id "int unsigned" [pk, increment, not null]
+  sku varchar(32) [not null, unique]
+  name varchar(255) [not null, note: 'Display name']
+  description text
+  location point
+  status "enum('draft','live')" [not null, default: `'draft'`]
+  price decimal(10,2) [not null, default: `0.00`]
+  created_at datetime [not null, default: `CURRENT_TIMESTAMP`]
+  attributes json
+
+  indexes {
+    name [name: 'products_name_prefix']
+    (status, created_at) [name: 'products_status_created']
+    `cast(json_unquote(json_extract('attributes',_utf8mb4'$.color')) as char(16))` [name: 'products_color']
+    description [name: 'products_description_fulltext']
+    location [name: 'products_location_spatial']
+    price [name: 'products_price']
+  }
+}

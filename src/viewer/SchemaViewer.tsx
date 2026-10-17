@@ -6,7 +6,9 @@ import { BRAND_PATH, BRAND_RECTS, BRAND_VIEWBOX } from './brand';
 import { Browse, tableSubtitle, type BrowseMode } from './Browse';
 import { ComparePanel, FILTER_PARAM, filtersFrom, type CompareFilters } from './Compare';
 import { ChangesPanel, ColumnDetails, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, usesColumn, type DetailContext, type ExtensionRenderers } from './Details';
-import { boundsOf, clip, colorsOf, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
+import { DownloadDialog, type ImageArea } from './DownloadDialog';
+import { offlineHtml, type OfflineBundle } from './offline';
+import { boundsOf, clip, colorsOf, fontFaces, save, toCanvas, toPngBlob, toSvg, type EdgeEnd, type ImageModel } from './exportImage';
 import {
     cardHeight,
     cardRows,
@@ -30,7 +32,7 @@ import { ARRANGEMENTS, autoLayout, frameAround, packRegions, type Arrangement, t
 import { Resizer } from './Resizer';
 import { route, type Box } from './routing';
 import { InferredDetails } from './Inferred';
-import { comparisonMarks, inferredByLink, inferredLabel, scopeLabel, type TableMark } from './intelligence';
+import { comparisonMarks, inferredByLink, inferredLabel, markSummary, scopeLabel, type TableMark } from './intelligence';
 import { MigrationsPanel } from './Migrations';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { SearchBox, type SearchResult } from './Search';
@@ -38,6 +40,7 @@ import { ShortcutsDialog } from './Shortcuts';
 import { EXTERNAL_HEIGHT, ExternalNodeView, frameMeta, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
 import { Tour } from './Tour';
 import { useTheme, type Theme } from './theme';
+import { safeName, uniqueOn } from '../export/common';
 import { Icon, Menu, MenuCheck, MenuItem, MenuLabel, MenuRadio, MenuSeparator, TabList, type TabSpec } from './ui';
 
 export type { ExtensionRenderers } from './Details';
@@ -67,6 +70,9 @@ export type SchemaViewerProps = {
     className?: string;
     // Replaces the ELK layout, for tests and custom placement.
     layout?: (request: LayoutRequest) => Promise<Positions>;
+    // Where "This page as HTML" gets the single-file viewer from (see fetchOfflineBundle); unset hides it. The
+    // standalone bundle sets it.
+    offlineBundle?: (() => Promise<OfflineBundle>) | null;
 };
 
 type Selection = { kind: 'table' | 'edge' | 'inferred'; id: string } | null;
@@ -148,6 +154,7 @@ function Viewer({
     downloadHref,
     className,
     layout = autoLayout,
+    offlineBundle = null,
 }: SchemaViewerProps) {
     const flow = useReactFlow();
     const store = useStoreApi();
@@ -281,6 +288,7 @@ function Viewer({
     const [panMode, setPanMode] = useState(true);
     const [spacePan, setSpacePan] = useState(false);
     const [shortcuts, setShortcuts] = useState(false);
+    const [downloading, setDownloading] = useState(false);
     const [touring, setTouring] = useState(false);
     const [toast, setToast] = useState<string | null>(() => (missing.length ? `This link points at ${missing.join(' and ')} ${missing.length > 1 ? 'that are' : 'that is'} not in this document. Showing the whole diagram.` : null));
     const [panelWidth, setPanelWidth] = useState<number | null>(null);
@@ -997,15 +1005,18 @@ function Viewer({
         }
     };
 
-    // What the diagram shows, as an image model: cards where they are and edges along their routes.
+    // What the diagram shows, as an image model: cards where they are and edges along their routes, with the layers
+    // that are on (comparison marks, inferred associations, relationship names) and nothing hovered or selected.
     const imageModel = (): ImageModel => {
         const imageNodes = visible
             .filter(({ table }) => positions[table.id])
             .map(({ table }) => {
                 const p = dragging[table.id] ?? positions[table.id];
-                const marks = columnMarks(table);
+                const keyMarks = columnMarks(table);
                 const byName = new Map(table.columns.map((col) => [col.name, col]));
                 const shown = rows.get(table.id) ?? [];
+                const compared = marks.get(table.id);
+                const summary = compared ? markSummary(compared) : null;
                 return {
                     x: p.x,
                     y: p.y,
@@ -1019,10 +1030,21 @@ function Viewer({
                         }
                         const col = byName.get(r);
                         const flag = col?.drift?.length ? ('drift' as const) : combined && col?.provenance.length === 1 && col.provenance[0] === 'declared' ? ('declared-only' as const) : null;
-                        return { note: false, key: marks.get(r) ?? '', name: `${r}${col?.nullable ? '?' : ''}`, type: col?.typeName ?? col?.type ?? '', flag };
+                        const difference = compared?.columns.get(r);
+                        return {
+                            note: false,
+                            key: keyMarks.get(r) ?? '',
+                            name: `${r}${col?.nullable ? '?' : ''}`,
+                            type: col?.typeName ?? col?.type ?? '',
+                            flag,
+                            mark: difference ? { change: difference.change, likely: difference.certainty === 'likely' } : null,
+                        };
                     }),
                     more: table.columns.length - shown.filter((r) => !isNote(r)).length,
                     declaredOnly: combined && table.provenance.length === 1 && table.provenance[0] === 'declared',
+                    issues: issues.counts.get(table.id) ?? 0,
+                    pivot: pivots.has(table.id),
+                    chip: compared && summary ? { change: summary.change, text: summary.short, likely: compared.likely === compared.differences.length } : null,
                 };
             });
         const referenceNodes = [...externals]
@@ -1048,34 +1070,72 @@ function Viewer({
             meta: frameMeta(lookup.connections.get(r.connection)?.driver ?? null, visible.filter((v) => v.connection.id === r.connection).length, issues.perConnection.get(r.connection) ?? 0),
         }));
         const allNodes = [...imageNodes, ...referenceNodes];
+        // The referencing end: one when its columns are unique (or every relationship on it is one-to-one), else many.
+        const startOf = (e: GraphEdge): EdgeEnd => {
+            const fk = e.link?.foreignKey ? lookup.foreignKeys.get(e.link.foreignKey) : undefined;
+            const from = e.link ? lookup.tables.get(e.link.from.table) : undefined;
+            if (fk && from) {
+                return uniqueOn(from, fk.columns) ? 'one' : 'many';
+            }
+            const cardinalities = (e.link?.relationships ?? []).map((id) => lookup.relationships.get(id)?.cardinality);
+            return cardinalities.length && cardinalities.every((c) => c === 'one-to-one') ? 'one' : 'many';
+        };
         const imageEdges = shownEdges.flatMap((e) => {
             const r = routes.get(e.id);
-            return r ? [{ kind: e.kind, declaredOnly: e.declaredOnly, sx: r.sx, sy: r.sy, cx: r.channelX, tx: r.tx, ty: r.ty, label: labelled(e) ? { x: r.labelX, y: r.labelY, text: e.label } : null }] : [];
+            if (!r) {
+                return [];
+            }
+            const inferred = inferredOn(e) ? (inferredLinks.get(e.link?.id ?? '') ?? []) : [];
+            const chip = `${inferred.length ? `${e.chip} · inferred` : e.chip}${e.crossConnection ? ' · cross-connection' : ''}`;
+            // Labels follow the Relationship names layer only, never the selection.
+            const label = allLabels && (e.kind !== 'foreign_key' || inferred.length > 0) ? { x: r.labelX, y: r.labelY, text: inferred.length ? inferred.map((a) => inferredLabel(lookup, a)).join(' · ') : e.label, chip } : null;
+            return [
+                {
+                    kind: e.kind,
+                    declaredOnly: e.declaredOnly,
+                    inferred: inferred.length > 0,
+                    sx: r.sx,
+                    sy: r.sy,
+                    cx: r.channelX,
+                    tx: r.tx,
+                    ty: r.ty,
+                    label,
+                    start: e.kind === 'through' ? null : startOf(e),
+                    end: e.kind === 'through' ? ('arrow' as const) : ('parent' as const),
+                },
+            ];
         });
         return { nodes: allNodes, edges: imageEdges, frames: imageFrames, bounds: boundsOf([...allNodes, ...imageFrames]) };
     };
-    const exportImage = async (format: 'png' | 'svg', area: 'all' | 'visible') => {
-        try {
-            let model = imageModel();
-            if (area === 'visible') {
-                const box = canvas.current?.getBoundingClientRect();
-                const { x, y, zoom } = flow.getViewport();
-                if (box) {
-                    model = clip(model, { x: -x / zoom, y: -y / zoom, width: box.width / zoom, height: box.height / zoom });
-                }
+    // Images are named after the diagram's scope, as Laravel names them: the connection in view, or all.
+    const imageScope = connection ? (lookup.connections.get(connection)?.name ?? connection) : doc.connections.length === 1 ? doc.connections[0].name : 'all';
+    const exportImage = async (format: 'png' | 'svg', area: ImageArea): Promise<string> => {
+        let model = imageModel();
+        if (area === 'screen') {
+            const box = canvas.current?.getBoundingClientRect();
+            const { x, y, zoom } = flow.getViewport();
+            if (box) {
+                model = clip(model, { x: -x / zoom, y: -y / zoom, width: box.width / zoom, height: box.height / zoom });
             }
-            const colors = colorsOf(root.current as HTMLElement);
-            const name = `schema-${area === 'all' ? 'diagram' : 'view'}.${format}`;
-            if (format === 'svg') {
-                save(new Blob([toSvg(model, colors)], { type: 'image/svg+xml' }), name);
-            } else {
-                await document.fonts?.ready;
-                save(await toPngBlob(toCanvas(model, colors)), name);
-            }
-            setToast(`Saved ${name}`);
-        } catch (error) {
-            setToast(error instanceof Error ? error.message : 'The image could not be made.');
         }
+        const colors = colorsOf(root.current as HTMLElement);
+        const name = `schema-${safeName(imageScope)}.${format}`;
+        if (format === 'svg') {
+            save(new Blob([toSvg({ ...model, fonts: await fontFaces() }, colors)], { type: 'image/svg+xml' }), name);
+        } else {
+            await document.fonts?.ready;
+            save(await toPngBlob(toCanvas(model, colors)), name);
+        }
+        return `Downloaded ${name}.`;
+    };
+    // The whole viewer as one offline HTML file, with every connection, opening on the connection in view.
+    const downloadOffline = async (): Promise<string> => {
+        if (!offlineBundle) {
+            throw new Error('This page cannot build the offline viewer.');
+        }
+        const html = offlineHtml(await offlineBundle(), { document: doc, changes: changes ?? null, defaultConnection: connection || null });
+        save(new Blob([html], { type: 'text/html;charset=utf-8' }), 'schema-viewer.html');
+        return 'Downloaded schema-viewer.html. Open it in any browser, offline.';
     };
     const downloadDocument = () => {
         if (downloadHref) {
@@ -1130,7 +1190,7 @@ function Viewer({
             }
         },
         s: () => setShortcuts(true),
-        e: () => setMenu(narrow ? 'more' : 'download'),
+        e: () => (setMenu(null), setDownloading(true)),
         '?': () => setTouring(true),
         // One layer at a time, as Laravel Schema Viewer does: a menu, a column, several picked tables, focus, the
         // selection, then the phone sheet.
@@ -1154,6 +1214,10 @@ function Viewer({
     useEffect(() => {
         const down = (event: globalThis.KeyboardEvent) => {
             const target = event.target as HTMLElement | null;
+            // A dialog handles its own keys, Escape included.
+            if (target?.closest?.('dialog')) {
+                return;
+            }
             const typing = !!target?.closest?.('input, select, textarea, [contenteditable="true"]');
             const ours = !(target instanceof Element) || target === document.body || !!root.current?.contains(target);
             if (event.key === 'Escape') {
@@ -1192,6 +1256,19 @@ function Viewer({
     }, []);
 
     const selectedTable = selection?.kind === 'table' ? lookup.tables.get(selection.id) : undefined;
+    // The Download dialog opens on the selection's connection, else the one in view, else the first.
+    const downloadConnection = (() => {
+        const of = (id: string | undefined) => (id === undefined ? undefined : lookup.connectionOf.get(id));
+        const picked =
+            selection?.kind === 'table'
+                ? of(selection.id)
+                : selection?.kind === 'edge'
+                  ? of(edges.find((e) => e.id === selection.id)?.source)
+                  : selection?.kind === 'inferred'
+                    ? of(doc.inferredAssociations.find((a) => a.id === selection.id)?.table)
+                    : undefined;
+        return picked ?? (connection || (doc.connections[0]?.id ?? ''));
+    })();
     const selectedEdge = selection?.kind === 'edge' ? edges.find((e) => e.id === selection.id) : undefined;
     const selectedInferred = selection?.kind === 'inferred' ? doc.inferredAssociations.find((a) => a.id === selection.id) : undefined;
     const showComparison = (comparisonId: string, difference: string | null) => {
@@ -1236,24 +1313,6 @@ function Viewer({
             : []),
         ...(doc.migrations.length ? [{ value: 'migrations' as const, label: 'Migrations', icon: 'migrations' as const }] : []),
     ];
-
-    const downloadMenu = (
-        <>
-            <MenuLabel>Snapshot</MenuLabel>
-            {downloadHref !== null && <MenuItem onSelect={downloadDocument}>JSON document</MenuItem>}
-            {(downloads ?? []).map((d) => (
-                <MenuItem key={d.filename} onSelect={() => save(new Blob([d.content], { type: d.mediaType }), d.filename)}>
-                    {d.label}
-                </MenuItem>
-            ))}
-            <MenuSeparator />
-            <MenuLabel>Image</MenuLabel>
-            <MenuItem onSelect={() => void exportImage('png', 'all')}>PNG · whole diagram</MenuItem>
-            <MenuItem onSelect={() => void exportImage('png', 'visible')}>PNG · visible area</MenuItem>
-            <MenuItem onSelect={() => void exportImage('svg', 'all')}>SVG · whole diagram</MenuItem>
-            <MenuItem onSelect={() => void exportImage('svg', 'visible')}>SVG · visible area</MenuItem>
-        </>
-    );
 
     const panelBody = (
         <div className="panel__body" role="tabpanel" id={`${panelId}-panel-${tab}`} aria-labelledby={`${panelId}-tab-${tab}`}>
@@ -1413,7 +1472,7 @@ function Viewer({
                                 <MenuSeparator />
                             </>
                         )}
-                        {downloadMenu}
+                        <MenuItem onSelect={() => setDownloading(true)}>Download…</MenuItem>
                         <MenuSeparator />
                         <MenuItem onSelect={toggle}>{theme === 'dark' ? 'Light theme' : 'Dark theme'}</MenuItem>
                         <MenuItem onSelect={() => setShortcuts(true)}>Shortcuts</MenuItem>
@@ -1431,20 +1490,9 @@ function Viewer({
                                 ))}
                             </select>
                         )}
-                        <Menu
-                            label="Download"
-                            trigger={
-                                <>
-                                    <Icon name="download" /> Download
-                                </>
-                            }
-                            placement="below"
-                            align="end"
-                            className="header-menu"
-                            {...menuProps('download')}
-                        >
-                            {downloadMenu}
-                        </Menu>
+                        <button type="button" className="header-button" aria-haspopup="dialog" onClick={() => setDownloading(true)} title="Download (E)">
+                            <Icon name="download" /> Download
+                        </button>
                         <button type="button" className="icon-button" onClick={toggle} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title="Switch theme">
                             <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
                         </button>
@@ -1672,6 +1720,17 @@ function Viewer({
                 )}
             </main>
             <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
+            <DownloadDialog
+                open={downloading}
+                onClose={() => setDownloading(false)}
+                doc={doc}
+                initialConnection={downloadConnection}
+                shownTables={visible.filter(({ table }) => positions[table.id]).length}
+                onImage={exportImage}
+                onOffline={offlineBundle ? downloadOffline : null}
+                onWholeDocument={downloadHref === null ? null : downloadDocument}
+                downloads={downloads ?? []}
+            />
             <Tour open={touring} root={root} onClose={() => setTouring(false)} />
         </div>
     );

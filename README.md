@@ -16,7 +16,11 @@ import 'laranex-schema-viewer-ui/styles.css';
 
 ```js
 import { validateDocument, buildGraph, canonicalJson } from 'laranex-schema-viewer-ui/contract';
+import { dbml, mermaid, markdown, json } from 'laranex-schema-viewer-ui/export';
 ```
+
+The viewer's Download dialog exports a connection as Mermaid, DBML, Markdown or a scoped JSON document, the diagram as
+SVG or PNG, and the whole viewer as one offline HTML file, all in the browser; see [docs/exports.md](docs/exports.md).
 
 The viewer displays the comparisons, migration tracks and inferred associations a document stores (Compare and
 Migrations tabs, difference marks on the diagram, inferred marks on foreign-key edges) and never computes them; see

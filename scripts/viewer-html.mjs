@@ -3,15 +3,20 @@
 //     script#schema-viewer-data tag or window.__SCHEMA_VIEWER__ instead of data-snapshot-url.
 //   links to favicon.svg and favicon.ico (the brand mark, written by the Vite build from src/viewer/brand.ts) by relative
 //     URLs, so they work under any base path, and at /favicon.ico when a host serves dist/viewer at its root.
+//   offline.js: the viewer as one script with ELK inlined (vite.offline.config.ts builds it to dist/offline), which the
+//     Download dialog's "This page as HTML" inlines into a self-contained page. Moved here so the manifest lists it.
 //   manifest.json: the package and contract versions and every file's size and SHA-256, so a vendored copy can be
 //     checked against the release it came from.
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../dist/viewer/', import.meta.url));
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
+renameSync(fileURLToPath(new URL('../dist/offline/offline.js', import.meta.url)), join(root, 'offline.js'));
+rmSync(fileURLToPath(new URL('../dist/offline/', import.meta.url)), { recursive: true, force: true });
 
 writeFileSync(
     join(root, 'index.html'),
@@ -43,4 +48,4 @@ const entries = files(root)
         const bytes = readFileSync(path);
         return { path: relative(root, path).split('\\').join('/'), size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
     });
-writeFileSync(join(root, 'manifest.json'), `${JSON.stringify({ name: 'laranex-schema-viewer-ui', version, contract: { format: 'laranex-schema', major: 2 }, entry: { script: 'app.js', style: 'app.css', page: 'index.html' }, files: entries }, null, 2)}\n`);
+writeFileSync(join(root, 'manifest.json'), `${JSON.stringify({ name: 'laranex-schema-viewer-ui', version, contract: { format: 'laranex-schema', major: 2 }, entry: { script: 'app.js', style: 'app.css', page: 'index.html', offline: 'offline.js' }, files: entries }, null, 2)}\n`);

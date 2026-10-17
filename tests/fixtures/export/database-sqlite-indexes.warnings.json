@@ -1,0 +1,80 @@
+{
+  "mermaid": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:main",
+        "label": "main"
+      },
+      "message": "The database inspection of main is incomplete (checkConstraints: partial); the file holds only what was read."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:main",
+        "label": "main"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of main: 4 indexes, 1 check constraint, 1 column default."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:main",
+        "label": "main"
+      },
+      "message": "The database inspection of main is incomplete (checkConstraints: partial); the file holds only what was read."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "column",
+        "id": "sqlite:main.notes",
+        "label": "notes.title"
+      },
+      "message": "DBML has no column collation; notes.title uses NOCASE."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "sqlite:main.notes:index:sqlite_autoindex_notes_1",
+        "label": "notes"
+      },
+      "message": "The unique index sqlite_autoindex_notes_1 on notes.slug is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "sqlite:main.notes:index:notes_active_title",
+        "label": "notes"
+      },
+      "message": "Index notes_active_title on notes loses the predicate WHERE archived = 0: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "sqlite:main.notes:index:notes_title_nocase",
+        "label": "notes"
+      },
+      "message": "Index notes_title_nocase on notes loses title's order desc, collation NOCASE: DBML cannot state them."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:main",
+        "label": "main"
+      },
+      "message": "The database inspection of main is incomplete (checkConstraints: partial); the file holds only what was read."
+    }
+  ]
+}

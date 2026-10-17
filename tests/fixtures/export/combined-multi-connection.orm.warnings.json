@@ -1,0 +1,78 @@
+{
+  "mermaid": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:analytics",
+        "label": "analytics"
+      },
+      "message": "The database inspection of analytics is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "column",
+        "id": "app:public.users",
+        "label": "app.public.users.email"
+      },
+      "message": "The database and the ORM disagree on column app.public.users.email's type; the file has the database's value."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: app.public.teams → app_public_teams, app.public.users → app_public_users, analytics.events → analytics_events, analytics.users → analytics_users, cache.sessions → cache_sessions."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:app",
+        "label": "app"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of app: 1 referential action set."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:analytics",
+        "label": "analytics"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of analytics: 1 index, 1 comment or note, 1 referential action set."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:cache",
+        "label": "cache"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of cache: 1 index."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "incomplete_coverage",
+      "subject": {
+        "type": "connection",
+        "id": "connection:analytics",
+        "label": "analytics"
+      },
+      "message": "The database inspection of analytics is incomplete (checkConstraints: unavailable, indexExpressions: partial); the file holds only what was read."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "column",
+        "id": "app:public.users",
+        "label": "app.public.users.email"
+      },
+      "message": "The database and the ORM disagree on column app.public.users.email's type; the file has the database's value."
+    }
+  ]
+}

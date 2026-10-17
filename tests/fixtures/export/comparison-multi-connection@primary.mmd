@@ -1,0 +1,14 @@
+erDiagram
+    public_customers {
+        bigint id PK
+        varchar email
+        boolean active
+        double_precision score
+        timestamptz created_at
+        text bio
+    }
+    public_orders {
+        bigint id PK
+        bigint customer_id FK
+    }
+    public_customers ||--o{ public_orders : "customer_id"

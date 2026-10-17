@@ -29,7 +29,7 @@ export async function prepareDemo() {
     }
     await rm(demoDirectory, { recursive: true, force: true });
     await mkdir(new URL('snapshots/', demoDirectory), { recursive: true });
-    for (const name of ['app.js', 'app.css', 'assets', 'favicon.svg', 'favicon.ico', 'manifest.json']) {
+    for (const name of ['app.js', 'app.css', 'assets', 'offline.js', 'favicon.svg', 'favicon.ico', 'manifest.json']) {
         await cp(new URL(name, viewer), new URL(name, demoDirectory), { recursive: true });
     }
     // The site's logo and favicon are the viewer's favicon: the brand mark from src/viewer/brand.ts.

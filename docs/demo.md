@@ -27,4 +27,5 @@ Python host serves it. Pick a schema in the bar above the diagram.
 - **Inferred associations.** Foreign keys no ORM relationship covers are marked as inferred on their edges; Browse →
   Inferred lists them with confidence and evidence.
 - Press <kbd>S</kbd> for every shortcut, <kbd>?</kbd> for the tour, <kbd>N</kbd> for notes, <kbd>C</kbd> to fold
-  columns, and <kbd>E</kbd> to export the diagram as PNG or SVG.
+  columns, and <kbd>E</kbd> for the Download dialog: Mermaid, DBML, Markdown or JSON of a connection, the diagram as
+  SVG or PNG, or the whole viewer as one offline HTML file.
