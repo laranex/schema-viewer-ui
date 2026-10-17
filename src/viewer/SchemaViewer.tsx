@@ -90,6 +90,8 @@ const ARRANGE_HINT: Record<Arrangement, string> = {
     compact: 'A tight rectangle, in name order',
 };
 
+const tablesText = (n: number) => `${n} ${n === 1 ? 'table' : 'tables'}`;
+
 // The viewer switches to its phone layout by its own width, so it works embedded in a narrow column too.
 const NARROW = 760;
 
@@ -417,6 +419,12 @@ function Viewer({
             }),
         [changes, connection, scope, lookup],
     );
+    // Tables per owner kind on the connection in view, for the Tables menu.
+    const ownerCounts = useMemo(() => {
+        const counts = new Map<Owner, number>();
+        tables.forEach(({ table, connection: c }) => (!connection || c.id === connection) && counts.set(table.owner.kind, (counts.get(table.owner.kind) ?? 0) + 1));
+        return counts;
+    }, [tables, connection]);
     // The Diagnostics tab and counts follow the connection in view; those about the whole document always show.
     const diagnostics = useMemo(() => (connection ? doc.diagnostics.filter((d) => { const on = scope.connectionsOf(d); return on.length === 0 || on.includes(connection); }) : doc.diagnostics), [doc, scope, connection]);
     // With one connection shown, the tables of other connections that its relationships reach, or that a relationship
@@ -1111,6 +1119,24 @@ function Viewer({
         s: () => setShortcuts(true),
         e: () => setMenu(narrow ? 'more' : 'download'),
         '?': () => setTouring(true),
+        // One layer at a time, as Laravel Schema Viewer does: a menu, a column, several picked tables, focus, the
+        // selection, then the phone sheet.
+        Escape: () => {
+            if (menu) {
+                setMenu(null);
+            } else if (column) {
+                setColumn(null);
+            } else if (group.length > 1) {
+                setGroup(selection?.kind === 'table' ? [selection.id] : []);
+            } else if (focus) {
+                setFocus(null);
+            } else if (selection) {
+                setSelection(null);
+                setGroup([]);
+            } else {
+                setSheetOpen(false);
+            }
+        },
     };
     useEffect(() => {
         const down = (event: globalThis.KeyboardEvent) => {
@@ -1119,12 +1145,7 @@ function Viewer({
             const ours = !(target instanceof Element) || target === document.body || !!root.current?.contains(target);
             if (event.key === 'Escape') {
                 if (ours && !typing) {
-                    setMenu(null);
-                    setFocus(null);
-                    setSelection(null);
-                    setGroup([]);
-                    setColumn(null);
-                    setSheetOpen(false);
+                    actions.current.Escape();
                 }
                 return;
             }
@@ -1366,7 +1387,7 @@ function Viewer({
                                     All connections
                                 </MenuRadio>
                                 {doc.connections.map((c) => (
-                                    <MenuRadio key={c.id} checked={connection === c.id} onSelect={() => (setFocus(null), setConnection(c.id))} hint={c.driver ?? undefined}>
+                                    <MenuRadio key={c.id} checked={connection === c.id} onSelect={() => (setFocus(null), setConnection(c.id))} hint={[c.driver, tablesText(c.tables.length)].filter(Boolean).join(' · ')}>
                                         {c.name}
                                     </MenuRadio>
                                 ))}
@@ -1383,10 +1404,10 @@ function Viewer({
                     <div className="actions">
                         {doc.connections.length > 1 && (
                             <select className="connection" value={connection} onChange={(e) => (setFocus(null), setConnection(e.target.value))} aria-label="Connection">
-                                <option value="">All connections</option>
+                                <option value="">All connections · {tablesText(tables.length)}</option>
                                 {doc.connections.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {c.driver ? `${c.name} · ${c.driver}` : c.name}
+                                        {[c.name, c.driver, tablesText(c.tables.length)].filter(Boolean).join(' · ')}
                                     </option>
                                 ))}
                             </select>
@@ -1536,7 +1557,7 @@ function Viewer({
                             {(['application', 'framework', 'package'] as Owner[])
                                 .filter((o) => owners.has(o))
                                 .map((o) => (
-                                    <MenuCheck key={o} checked={!hiddenOwners.has(o)} onChange={() => setHiddenOwners((s) => toggleIn(s, o))} shortcut={OWNER_KEY[o]}>
+                                    <MenuCheck key={o} checked={!hiddenOwners.has(o)} onChange={() => setHiddenOwners((s) => toggleIn(s, o))} shortcut={OWNER_KEY[o]} hint={tablesText(ownerCounts.get(o) ?? 0)}>
                                         {OWNER_LABEL[o]}
                                     </MenuCheck>
                                 ))}

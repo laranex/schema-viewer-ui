@@ -31,7 +31,7 @@ A document may hold several connections, each with its own driver. The viewer ne
 - **All connections** (the default): each connection is laid out on its own inside a labelled frame showing its name,
   driver, table count and diagnostic count, so tables of the same name in two connections never mix. Relationships between connections
   run between the frames. A frame follows its tables: drag one out and the frame grows to contain it.
-- **One connection**: pick it in the header's connection menu (on a phone, in the ⋯ menu), step through them with
+- **One connection**: pick it in the header's connection menu (each option shows its driver and table count) (on a phone, in the ⋯ menu), step through them with
   <kbd>[</kbd> <kbd>]</kbd>, or open `#connection=<id>`. Tables on other connections that its relationships reach stay
   on the diagram as dashed reference nodes marked "On connection …": they cannot be moved or folded, and clicking one
   opens that table on its own connection.
@@ -76,7 +76,7 @@ it never infers a constraint from a relationship.
 | Keys | Action |
 | --- | --- |
 | <kbd>/</kbd> | Search |
-| <kbd>Esc</kbd> | Clear the search, the selection and focus |
+| <kbd>Esc</kbd> | Step back one layer at a time: an open menu, a column, several picked tables, focus, the selection, the phone sheet |
 | <kbd>F</kbd> <kbd>0</kbd> | Fit the diagram |
 | <kbd>+</kbd> <kbd>−</kbd> | Zoom |
 | <kbd>Space</kbd> | Hold to pan anywhere |

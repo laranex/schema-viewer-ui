@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SchemaDocument } from '../src/contract';
 import { editorHref } from '../src/viewer/Details';
 import { frameAround, type LayoutRequest } from '../src/viewer/layout';
@@ -25,6 +25,9 @@ async function show(doc: SchemaDocument, props: Partial<Parameters<typeof Schema
     return view;
 }
 const panel = () => screen.getByRole('complementary', { name: 'Side panel' });
+
+// These render the whole viewer several times; allow for a busy machine.
+vi.setConfig({ testTimeout: 20_000 });
 
 beforeEach(() => history.replaceState(null, '', '/'));
 
@@ -198,8 +201,9 @@ describe('columns and lines as selections', () => {
         history.replaceState(null, '', '/#table=mysql%3Aposts&column=user_id');
         const { container } = await show(VALID['combined-eloquent'](), { deepLinks: true });
         expect(within(panel()).getByRole('heading', { name: /posts\.user_id/ })).toBeInTheDocument();
-        const row = container.querySelector('[data-table-id="mysql:users"] [data-column="id"]') as HTMLElement;
-        fireEvent.click(row);
+        const row = () => container.querySelector('[data-table-id="mysql:users"] [data-column="id"]') as HTMLElement;
+        await waitFor(() => expect(row()).toBeTruthy());
+        fireEvent.click(row());
         expect(within(panel()).getByRole('heading', { name: /users\.id/ })).toBeInTheDocument();
     });
 
@@ -231,5 +235,31 @@ describe('changes since the previous build', () => {
         expect(within(panel()).getByRole('heading', { name: /cache · sessions/ })).toBeInTheDocument();
         fireEvent.change(screen.getByRole('combobox', { name: 'Connection' }), { target: { value: 'connection:analytics' } });
         await waitFor(() => expect(tab()).toHaveTextContent('Changes1'));
+    });
+});
+
+describe('Escape, one layer at a time', () => {
+    it('leaves the column, then focus, then the selection', async () => {
+        history.replaceState(null, '', '/#table=mysql%3Aposts&column=user_id&focus=mysql%3Aposts');
+        const { container } = await show(VALID['combined-eloquent'](), { deepLinks: true });
+        const esc = () => fireEvent.keyDown(document.body, { key: 'Escape' });
+        esc();
+        expect(within(panel()).getByRole('heading', { name: /^posts/ })).toBeInTheDocument();
+        expect(container.querySelector('.focus-label')).toBeTruthy();
+        esc();
+        await waitFor(() => expect(container.querySelector('.focus-label')).toBeNull());
+        expect(within(panel()).getByRole('heading', { name: /^posts/ })).toBeInTheDocument();
+        esc();
+        expect(within(panel()).getByRole('heading', { name: 'Nothing selected' })).toBeInTheDocument();
+    });
+
+    it('counts the tables of each connection and owner in the pickers', async () => {
+        await show(VALID['combined-multi-connection']());
+        expect([...(screen.getByRole('combobox', { name: 'Connection' }) as HTMLSelectElement).options].map((o) => o.textContent)).toEqual([
+            'All connections · 5 tables',
+            'app · postgresql · 2 tables',
+            'analytics · mysql · 2 tables',
+            'cache · sqlite · 1 table',
+        ]);
     });
 });

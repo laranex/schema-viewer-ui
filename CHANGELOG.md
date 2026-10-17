@@ -90,6 +90,10 @@ All notable changes to this project are documented here. The format follows
 - Changes: each change opens its subject, the list and count follow the connection in view, and cards new or changed
   since the previous build carry a dot.
 - A deep link to something the document does not have opens the whole diagram with a toast saying so.
+- <kbd>Esc</kbd> steps back one layer at a time: an open menu, a column, several picked tables, focus, the selection,
+  then the phone sheet.
+- The connection picker shows each connection's driver and table count, and the Tables menu the number of tables of
+  each owner kind.
 
 ### Fixed
 
