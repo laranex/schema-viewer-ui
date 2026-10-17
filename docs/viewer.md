@@ -116,3 +116,11 @@ The URL hash keeps the view: `#table=<id>` (with `&column=<name>` for a column),
 does not have opens the whole diagram with a note saying so. A copied link (<kbd>Shift</kbd> <kbd>C</kbd>, Copy link) adds
 `at=x,y,zoom`, so it opens panned and zoomed as it was. Press
 <kbd>Shift</kbd> <kbd>C</kbd> to copy it.
+
+## Known limitations
+
+- Unfolding one card keeps every position, so a taller card can overlap the one below it; Arrange again (Tables menu)
+  lays the diagram out afresh. Dragged positions are not remembered across reloads (only the theme is).
+- A frame grows to contain a table dragged out of it but does not push other frames away; frames can overlap.
+- PNG and SVG images draw plain arrowheads, not the crow's-foot line ends shown on the diagram.
+- There is no dense mode for very large schemas: every line keeps its full weight.
