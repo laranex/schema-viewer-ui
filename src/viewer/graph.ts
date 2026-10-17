@@ -1,0 +1,179 @@
+import type { DerivedLink, Link, Model, Relationship, SchemaDocument, Table } from '../contract/types';
+
+// Pure document-to-diagram functions. The viewer draws the links and derived links the document stores; it never
+// derives relationships or constraints of its own.
+
+export type EdgeKind = 'both' | 'foreign_key' | 'relationship' | 'through';
+
+export type GraphEdge = {
+    id: string;
+    kind: EdgeKind;
+    // Table ids: from the referencing table to the referenced one.
+    source: string;
+    target: string;
+    sourceColumn?: string;
+    targetColumn?: string;
+    label: string;
+    // A foreign key only the ORM declares, in a combined document: not enforced by the database.
+    declaredOnly: boolean;
+    polymorphic: boolean;
+    link: Link | null;
+    derived: DerivedLink | null;
+};
+
+// Card geometry, shared by the cards' CSS, the layout and the edge routes.
+export const CARD_WIDTH = 300;
+export const HEADER_HEIGHT = 54;
+export const ROW_HEIGHT = 27;
+export const MORE_HEIGHT = 30;
+
+export const tableLabel = (table: Pick<Table, 'name' | 'schema'>) => `${table.schema ? `${table.schema}.` : ''}${table.name}`;
+
+export type Lookup = {
+    tables: Map<string, Table>;
+    connectionOf: Map<string, string>;
+    relationships: Map<string, Relationship>;
+    models: Map<string, Model>;
+    foreignKeys: Map<string, Table['foreignKeys'][number]>;
+};
+
+export function lookup(doc: SchemaDocument): Lookup {
+    const tables = new Map<string, Table>();
+    const connectionOf = new Map<string, string>();
+    for (const c of doc.connections) {
+        for (const t of c.tables) {
+            tables.set(t.id, t);
+            connectionOf.set(t.id, c.id);
+        }
+    }
+    return {
+        tables,
+        connectionOf,
+        relationships: new Map(doc.relationships.map((r) => [r.id, r])),
+        models: new Map(doc.models.map((m) => [m.id, m])),
+        foreignKeys: new Map([...tables.values()].flatMap((t) => t.foreignKeys.map((f) => [f.id, f] as const))),
+    };
+}
+
+export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdge[] {
+    const edges: GraphEdge[] = doc.links.map((link) => {
+        const fk = link.foreignKey === null ? undefined : l.foreignKeys.get(link.foreignKey);
+        const names = link.relationships.map((id) => l.relationships.get(id)?.name ?? id);
+        const fkLabel = `${fk?.name ?? 'FK'} · ${link.from.columns.join(', ')} → ${link.to.columns.join(', ')}`;
+        return {
+            id: link.id,
+            kind: link.state,
+            source: link.from.table,
+            target: link.to.table,
+            sourceColumn: link.from.columns[0],
+            targetColumn: link.to.columns[0],
+            label: names.length ? names.join(' · ') : fkLabel,
+            declaredOnly: fk !== undefined && !fk.provenance.includes('database') && doc.source === 'combined',
+            polymorphic: link.polymorphic,
+            link,
+            derived: null,
+        };
+    });
+    for (const derived of doc.derivedLinks) {
+        const relation = l.relationships.get(derived.relationship);
+        edges.push({
+            id: derived.id,
+            kind: 'through',
+            source: derived.from,
+            target: derived.to,
+            label: `${relation?.name ?? derived.relationship} · through ${derived.via.map((id) => l.tables.get(id)?.name ?? id).join(', ')}`,
+            declaredOnly: false,
+            polymorphic: false,
+            link: null,
+            derived,
+        });
+    }
+    return edges;
+}
+
+// Whether an edge is on with these layers: foreign keys, ORM relationships, or both.
+export const edgeShown = (edge: GraphEdge, foreignKeys: boolean, orm: boolean) =>
+    edge.kind === 'both' ? foreignKeys || orm : edge.kind === 'foreign_key' ? foreignKeys : orm;
+
+// The table and every table one edge away, including the intermediate tables of a through relationship.
+export function neighbors(id: string, edges: GraphEdge[]): Set<string> {
+    const result = new Set([id]);
+    for (const edge of edges) {
+        if (edge.source === id || edge.target === id) {
+            result.add(edge.source);
+            result.add(edge.target);
+            edge.derived?.via.forEach((v) => result.add(v));
+        }
+    }
+    return result;
+}
+
+export function matchesTable(table: Table, connection: string, query: string, models: Model[]): boolean {
+    const q = query.trim().toLocaleLowerCase();
+    if (!q) {
+        return true;
+    }
+    const text = [
+        connection,
+        table.schema ?? '',
+        table.name,
+        table.note ?? '',
+        table.comment ?? '',
+        ...table.columns.map((c) => c.name),
+        ...models.filter((m) => m.tables.includes(table.id)).map((m) => m.className),
+    ].join(' ');
+    return text.toLocaleLowerCase().includes(q);
+}
+
+// The columns a card keeps when only keys are shown: primary keys, foreign keys, link columns and polymorphic columns.
+export function keyColumns(doc: SchemaDocument): Map<string, Set<string>> {
+    const keys = new Map(doc.connections.flatMap((c) => c.tables.map((t) => [t.id, new Set([...t.primaryKey, ...t.foreignKeys.flatMap((f) => f.columns)])] as const)));
+    for (const link of doc.links) {
+        link.from.columns.forEach((c) => keys.get(link.from.table)?.add(c));
+        link.to.columns.forEach((c) => keys.get(link.to.table)?.add(c));
+    }
+    for (const r of doc.relationships) {
+        if (r.polymorphic) {
+            const own = r.keys?.from.table ?? r.table;
+            keys.get(own)?.add(r.polymorphic.typeColumn);
+            keys.get(own)?.add(r.polymorphic.idColumn);
+        }
+    }
+    return keys;
+}
+
+// The column rows a card shows: key columns, and columns the database and the ORM disagree on or only the ORM declares,
+// so a folded card never hides drift. With nothing else to show it shows its first three columns, as the Python viewer
+// does, so a card is never empty.
+export function shownColumns(table: Table, all: boolean, keys: Set<string> | undefined): string[] {
+    if (all || !keys) {
+        return table.columns.map((c) => c.name);
+    }
+    const notable = (c: Table['columns'][number]) => !!c.drift?.length || (c.provenance.length === 1 && table.provenance.length === 2);
+    const shown = table.columns.filter((c) => keys.has(c.name) || notable(c)).map((c) => c.name);
+    return shown.length ? shown : table.columns.slice(0, 3).map((c) => c.name);
+}
+
+export const cardHeight = (rows: number, total: number) => HEADER_HEIGHT + rows * ROW_HEIGHT + (rows < total ? MORE_HEIGHT : 0) + 2;
+
+export function relationshipsOf(doc: SchemaDocument, tableId: string): Relationship[] {
+    return doc.relationships.filter((r) => r.table === tableId || r.relatedTable === tableId || r.pivot?.table === tableId || (r.through ?? []).includes(tableId));
+}
+
+// What a card marks a column as: part of the primary key, a foreign key, or unique on its own.
+export function columnMarks(table: Table): Map<string, 'PK' | 'FK' | 'UK'> {
+    const marks = new Map<string, 'PK' | 'FK' | 'UK'>();
+    for (const i of table.indexes) {
+        if (i.unique && !i.primary && i.columns.length === 1 && !i.partial && !i.expression) {
+            marks.set(i.columns[0], 'UK');
+        }
+    }
+    for (const c of table.constraints) {
+        if (c.kind === 'unique' && c.columns.length === 1) {
+            marks.set(c.columns[0], 'UK');
+        }
+    }
+    table.foreignKeys.forEach((f) => f.columns.forEach((c) => marks.set(c, 'FK')));
+    table.primaryKey.forEach((c) => marks.set(c, 'PK'));
+    return marks;
+}

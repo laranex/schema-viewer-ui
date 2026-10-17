@@ -1,0 +1,1093 @@
+/* Visual design from Laranex Python Schema Viewer (MIT), static/styles.css; see NOTICE. */
+/* Palette: monochrome zinc with a navy signal accent. Scoped to .lsv so the viewer can be embedded in any page. */
+@import '@xyflow/react/dist/base.css';
+
+.lsv {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --surface-2: #f4f4f5;
+    --line: #e4e4e7;
+    --line-strong: #d4d4d8;
+    --fg: #18181b;
+    --muted: #52525b;
+    --accent: #1e3a8a;
+    --accent-ink: #172554;
+    --accent-soft: rgb(30 58 138 / 8%);
+    --on-accent: #ffffff;
+    --fk: #71717a;
+    --both: #0f766e;
+    --declared: #b45309;
+    --warning: #b45309;
+    --error: #b91c1c;
+    --fact: #15803d;
+    --selected: #18181b;
+    --dot: #d4d4d8;
+    --canvas-glow: rgb(30 58 138 / 5%);
+    --shadow: 0 1px 2px rgb(24 24 27 / 5%), 0 4px 14px rgb(24 24 27 / 6%);
+    --glow: 0 0 0 1px rgb(30 58 138 / 35%), 0 0 20px rgb(30 58 138 / 12%);
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+    color-scheme: light;
+    container-type: inline-size;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+    font: 13px/1.45 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+.lsv[data-theme='dark'] {
+    --bg: #09090b;
+    --surface: #141417;
+    --surface-2: #1c1c20;
+    --line: #2a2a30;
+    --line-strong: #34343c;
+    --fg: #fafafa;
+    --muted: #a1a1aa;
+    --accent: #6d8dff;
+    --accent-ink: #9db4ff;
+    --accent-soft: rgb(109 141 255 / 12%);
+    --on-accent: #09090b;
+    --fk: #8b8b95;
+    --both: #2dd4bf;
+    --declared: #f59e0b;
+    --warning: #f59e0b;
+    --error: #f87171;
+    --fact: #4ade80;
+    --selected: #fafafa;
+    --dot: #24242a;
+    --canvas-glow: rgb(109 141 255 / 9%);
+    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 6px 18px rgb(0 0 0 / 28%);
+    --glow: 0 0 0 1px rgb(109 141 255 / 40%), 0 0 20px rgb(109 141 255 / 15%);
+    color-scheme: dark;
+}
+
+.lsv *,
+.lsv *::before,
+.lsv *::after {
+    box-sizing: border-box;
+}
+.lsv ::selection {
+    background: var(--accent-soft);
+}
+.lsv button,
+.lsv input,
+.lsv select,
+.lsv a {
+    font: inherit;
+    color: inherit;
+}
+.lsv button,
+.lsv .button,
+.lsv select {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--fg);
+    border-radius: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.lsv button:hover,
+.lsv .button:hover,
+.lsv select:hover {
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    color: var(--accent-ink);
+}
+.lsv .button.primary {
+    background: var(--fg);
+    border-color: var(--fg);
+    color: var(--bg);
+    font-weight: 600;
+}
+.lsv .button.primary:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: var(--glow);
+}
+.lsv :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+.lsv kbd {
+    font: 10px var(--font-mono);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 5px;
+    background: var(--surface-2);
+    color: var(--muted);
+}
+.lsv code {
+    font: 11px var(--font-mono);
+}
+.lsv small,
+.lsv .muted {
+    color: var(--muted);
+}
+
+.lsv-header {
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    gap: 15px;
+}
+.lsv .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+.lsv .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    background: var(--fg);
+    color: var(--bg);
+    font: 700 17px var(--font-mono);
+    border-radius: 9px;
+    position: relative;
+}
+.lsv .brand-mark::after {
+    content: '';
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.lsv h1 {
+    font-size: 15px;
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+}
+.lsv h1 span {
+    font-weight: 500;
+    color: var(--muted);
+}
+.lsv .brand small {
+    display: block;
+    font: 10px var(--font-mono);
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+.lsv .actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.lsv .theme {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+}
+.lsv .theme svg {
+    width: 16px;
+    height: 16px;
+}
+
+.lsv .layerbar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 9px 20px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+}
+.lsv .layerbar label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.lsv .layerbar select {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+.lsv .eyebrow {
+    font: 500 10px var(--font-mono);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+}
+.lsv input[type='checkbox'] {
+    accent-color: var(--accent);
+    margin: 0;
+}
+.lsv .line-key {
+    display: inline-block;
+    width: 22px;
+    flex: none;
+    border-top: 2px solid var(--fk);
+}
+.lsv .key--both {
+    border-color: var(--both);
+}
+.lsv .key--relationship {
+    border-color: var(--accent);
+    border-top-style: dashed;
+}
+.lsv .key--through {
+    border-color: var(--accent);
+    border-top-style: dotted;
+}
+.lsv .key--declared {
+    border-color: var(--declared);
+    border-top-style: dashed;
+}
+.lsv .counts {
+    margin-left: auto;
+    color: var(--muted);
+    font: 11px var(--font-mono);
+}
+
+.lsv-main {
+    display: grid;
+    grid-template-columns: 250px minmax(0, 1fr) 340px;
+    flex: 1;
+    min-height: 0;
+}
+.lsv .browse,
+.lsv .details {
+    background: var(--surface);
+    padding: 16px;
+    overflow: auto;
+    min-height: 0;
+}
+.lsv .browse {
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+}
+.lsv .details {
+    border-left: 1px solid var(--line);
+    line-height: 1.6;
+}
+.lsv .panel-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.lsv .panel-heading h2 {
+    margin: 0;
+}
+.lsv .table-count {
+    font: 11px var(--font-mono);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+.lsv h2 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    margin: 0 0 12px;
+}
+.lsv h3 {
+    font: 500 10px var(--font-mono);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 22px 0 8px;
+}
+.lsv h4 {
+    font: 600 11px var(--font-mono);
+    margin: 8px 0 4px;
+    color: var(--accent-ink);
+}
+.lsv .search-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+.lsv .search {
+    position: relative;
+    margin-bottom: 10px;
+}
+.lsv .search input {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg);
+    padding: 9px 34px 9px 11px;
+    border-radius: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.lsv .search input::placeholder {
+    color: var(--muted);
+}
+.lsv .search input:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.lsv .search kbd {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+.lsv .search:focus-within kbd {
+    display: none;
+}
+.lsv .table-list {
+    flex: 1;
+    overflow: auto;
+    margin: 0 -6px;
+}
+.lsv .table-list button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 8px 10px;
+    margin: 1px 0;
+    border-radius: 7px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 500 12px var(--font-mono);
+}
+.lsv .table-list button:hover {
+    background: var(--surface-2);
+    border-color: transparent;
+    color: var(--fg);
+}
+.lsv .table-list button.selected {
+    background: var(--accent-soft);
+    border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--accent-ink);
+}
+.lsv .table-list button small {
+    display: block;
+    font: 10px var(--font-sans);
+    margin-top: 2px;
+}
+.lsv .list-empty {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 10px;
+}
+.lsv .browse-foot {
+    font: 10px var(--font-mono);
+    color: var(--muted);
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+}
+
+/* Canvas */
+.lsv .canvas {
+    position: relative;
+    overflow: hidden;
+    background-color: var(--bg);
+    background-image: radial-gradient(ellipse at 50% 35%, var(--canvas-glow), transparent 65%);
+    min-height: 250px;
+}
+.lsv .canvas:focus-visible {
+    outline-offset: -2px;
+}
+.lsv .react-flow {
+    --xy-background-color: transparent;
+    background: transparent;
+}
+.lsv .react-flow__pane {
+    cursor: grab;
+}
+.lsv .react-flow__pane.dragging {
+    cursor: grabbing;
+}
+.lsv .react-flow__node {
+    cursor: default;
+}
+.lsv .react-flow__attribution {
+    background: transparent;
+    font-size: 9px;
+}
+.lsv .react-flow__attribution a {
+    color: var(--muted);
+}
+.lsv .edge-markers {
+    position: absolute;
+    width: 0;
+    height: 0;
+}
+.lsv .marker.fk {
+    fill: var(--fk);
+}
+.lsv .marker.orm {
+    fill: var(--accent);
+}
+.lsv .table-handle {
+    opacity: 0;
+    pointer-events: none;
+    top: 27px;
+}
+
+.lsv .table-card {
+    width: 300px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+.lsv .table-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.lsv .table-card.selected {
+    border-color: var(--accent);
+    box-shadow: var(--glow), var(--shadow);
+}
+.lsv .table-card.declared-only {
+    border-style: dashed;
+    border-color: var(--declared);
+}
+.lsv .has-selection .table-card:not(.selected, .related) {
+    opacity: 0.55;
+}
+.lsv .table-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+    cursor: move;
+    height: 54px;
+    gap: 6px;
+}
+.lsv .table-card.selected .table-title {
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+.lsv .table-title button {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    font: 600 12px var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+.lsv .table-title button:hover {
+    color: var(--accent-ink);
+}
+.lsv .table-title small {
+    display: block;
+    font: 10px var(--font-sans);
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lsv .column {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    height: 27px;
+    border-bottom: 1px solid var(--line);
+    font: 11px var(--font-mono);
+}
+.lsv .column:last-child {
+    border-bottom: 0;
+}
+.lsv .column.drift {
+    background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.lsv .column.declared-only {
+    color: var(--declared);
+    font-style: italic;
+}
+.lsv .column .key {
+    color: var(--muted);
+    width: 17px;
+    flex: none;
+    font-size: 9px;
+    font-weight: 600;
+}
+.lsv .column .key.pk {
+    color: var(--accent-ink);
+}
+.lsv .column .type {
+    color: var(--muted);
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 115px;
+}
+.lsv .column .column-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 155px;
+}
+.lsv .table-more {
+    font-size: 10px;
+    height: 30px;
+    line-height: 30px;
+    padding: 0 12px;
+    color: var(--muted);
+    background: var(--surface-2);
+}
+
+/* Edges */
+.lsv .react-flow__edge-path.edge {
+    fill: none;
+    stroke: var(--fk);
+    stroke-width: 1.6;
+    transition: opacity 0.2s, stroke-width 0.15s;
+}
+.lsv .react-flow__edge-path.edge--both {
+    stroke: var(--both);
+    stroke-width: 1.8;
+}
+.lsv .react-flow__edge-path.edge--relationship {
+    stroke: var(--accent);
+    stroke-width: 1.8;
+    stroke-dasharray: 7 5;
+}
+.lsv .react-flow__edge-path.edge--through {
+    stroke: var(--accent);
+    stroke-width: 1.8;
+    stroke-dasharray: 2 4;
+}
+.lsv .react-flow__edge-path.edge.declared-only {
+    stroke: var(--declared);
+    stroke-dasharray: 7 5;
+}
+.lsv .react-flow__edge:hover .edge,
+.lsv .react-flow__edge-path.edge.related {
+    stroke-width: 2.6;
+}
+.lsv .react-flow__edge-path.edge.selected {
+    stroke: var(--selected);
+    stroke-width: 3;
+}
+.lsv .has-selection .react-flow__edge-path.edge:not(.related, .selected) {
+    opacity: 0.25;
+}
+.lsv .edge-label {
+    position: absolute;
+    font: 10px var(--font-mono);
+    color: var(--accent-ink);
+    background: var(--bg);
+    padding: 0 4px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
+.lsv .edge-label--foreign_key {
+    color: var(--fg);
+}
+.lsv .edge-label--both {
+    color: var(--both);
+}
+
+.lsv .canvas-top {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    z-index: 5;
+}
+.lsv .pill {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font: 500 9px var(--font-mono);
+    letter-spacing: 2px;
+    color: var(--muted);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.lsv .pill::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+.lsv .unfocus {
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    box-shadow: var(--shadow);
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    color: var(--accent-ink);
+}
+.lsv .canvas-tools {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 4px;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    white-space: nowrap;
+    z-index: 5;
+}
+.lsv .canvas-tools button {
+    border: 0;
+    background: transparent;
+    min-width: 32px;
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+.lsv .canvas-tools button:hover {
+    background: var(--surface-2);
+}
+.lsv .canvas-tools .divider {
+    width: 1px;
+    height: 18px;
+    background: var(--line);
+    margin: 0 4px;
+}
+.lsv .zoom-label {
+    font: 11px var(--font-mono);
+    color: var(--muted);
+    width: 46px;
+    text-align: center;
+}
+.lsv .empty {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translate(-50%, -50%);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+    padding: 18px 22px;
+    border-radius: 10px;
+    text-align: center;
+    z-index: 5;
+}
+.lsv .empty strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+/* Details */
+.lsv .details pre {
+    font: 11px/1.6 var(--font-mono);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: var(--bg);
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 0 0 8px;
+}
+.lsv .detail-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.lsv .detail-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin: 5px 0;
+    overflow-wrap: anywhere;
+    font: 11px var(--font-mono);
+}
+.lsv .inline-link {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: 11px var(--font-mono);
+    color: var(--accent-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.lsv .details h2 {
+    overflow-wrap: anywhere;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    margin-top: 10px;
+}
+.lsv .details dl {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 6px 10px;
+    font-size: 12px;
+    margin: 0 0 6px;
+}
+.lsv .details .fact {
+    display: contents;
+}
+.lsv .details dt {
+    color: var(--muted);
+}
+.lsv .details dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+.lsv .details details {
+    border-top: 1px solid var(--line);
+}
+.lsv .details summary {
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 9px 0;
+    list-style-position: inside;
+}
+.lsv .details summary:hover {
+    color: var(--accent-ink);
+}
+.lsv .details summary .count {
+    font: 10px var(--font-mono);
+    color: var(--muted);
+    margin-left: 6px;
+}
+.lsv .tag {
+    display: inline-block;
+    font: 500 9.5px var(--font-mono);
+    letter-spacing: 1px;
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+    color: var(--accent-ink);
+    padding: 2px 7px;
+    border-radius: 5px;
+}
+.lsv .table-title .tag {
+    border-color: var(--line);
+    color: var(--muted);
+    letter-spacing: 0;
+    flex: none;
+}
+.lsv .table-title .tag.issues {
+    border-color: color-mix(in srgb, var(--warning) 50%, transparent);
+    color: var(--warning);
+}
+.lsv .badges {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+.lsv .badge {
+    display: inline-block;
+    font: 500 9.5px/1.6 var(--font-mono);
+    padding: 0 6px;
+    margin: 0 2px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    white-space: nowrap;
+}
+.lsv .badge--pk,
+.lsv .badge--unique {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent-ink);
+}
+.lsv .badge--partial,
+.lsv .badge--expression {
+    border-color: color-mix(in srgb, var(--both) 45%, transparent);
+    color: var(--both);
+}
+.lsv .badge--warning,
+.lsv .badge--declared,
+.lsv .badge--heuristic {
+    border-color: color-mix(in srgb, var(--warning) 50%, transparent);
+    color: var(--warning);
+}
+.lsv .badge--error,
+.lsv .badge--removed {
+    border-color: color-mix(in srgb, var(--error) 50%, transparent);
+    color: var(--error);
+}
+.lsv .badge--fact,
+.lsv .badge--added {
+    border-color: color-mix(in srgb, var(--fact) 50%, transparent);
+    color: var(--fact);
+}
+.lsv .badge--both,
+.lsv .badge--combined {
+    border-color: color-mix(in srgb, var(--both) 45%, transparent);
+    color: var(--both);
+}
+.lsv .source-mode {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+.lsv .note {
+    border-left: 2px solid var(--accent);
+    padding: 2px 0 2px 8px;
+    margin: 6px 0;
+    font-size: 12px;
+}
+.lsv .legend {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 12px;
+    display: grid;
+    gap: 8px;
+    font-size: 12px;
+}
+.lsv .legend li {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.lsv .details .shortcuts {
+    grid-template-columns: 64px 1fr;
+    align-items: center;
+}
+.lsv .details .shortcuts dd {
+    color: var(--muted);
+    font: 12px var(--font-sans);
+}
+.lsv .shortcuts dt {
+    display: flex;
+    gap: 3px;
+}
+.lsv ul.plain,
+.lsv ul.indexes,
+.lsv ul.diagnostics,
+.lsv ul.changes,
+.lsv ul.gaps,
+.lsv ul.drift-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px;
+}
+.lsv ul.plain > li,
+.lsv ul.indexes > li,
+.lsv ul.changes > li {
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 12px;
+}
+.lsv ul.plain > li:last-child,
+.lsv ul.indexes > li:last-child {
+    border-bottom: 0;
+}
+.lsv .index-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    font: 600 11px var(--font-mono);
+}
+.lsv .parts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+.lsv .parts code,
+.lsv .chips code {
+    background: var(--surface-2);
+    border-radius: 4px;
+    padding: 0 5px;
+}
+.lsv .chips {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.lsv code.expression {
+    color: var(--both);
+}
+.lsv .index-extra {
+    font: 11px var(--font-mono);
+    color: var(--muted);
+    margin-top: 3px;
+}
+.lsv .diagnostic {
+    border-left: 2px solid var(--line-strong);
+    padding: 4px 0 4px 8px;
+    margin: 6px 0;
+}
+.lsv .diagnostic--warning {
+    border-left-color: var(--warning);
+}
+.lsv .diagnostic--error {
+    border-left-color: var(--error);
+}
+.lsv .diagnostic p {
+    margin: 4px 0 0;
+    font-size: 12px;
+}
+.lsv .diagnostic-link {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    padding: 0;
+    background: transparent;
+}
+.lsv .columns-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+    margin-bottom: 8px;
+}
+.lsv .columns-table th,
+.lsv .columns-table td {
+    text-align: left;
+    vertical-align: top;
+    padding: 5px 4px;
+    border-bottom: 1px solid var(--line);
+}
+.lsv .columns-table th {
+    font: 500 11px var(--font-mono);
+    white-space: nowrap;
+}
+.lsv .columns-table tr.drift {
+    background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+.lsv .coverage {
+    margin: 6px 0 10px;
+}
+.lsv .connection-coverage {
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+.lsv .extensions {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+.lsv .source {
+    display: block;
+    font: 10px var(--font-mono);
+    color: var(--muted);
+}
+
+.lsv-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 20px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    font: 10px var(--font-mono);
+    color: var(--muted);
+    gap: 8px;
+}
+.lsv .status::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--fk);
+    margin-right: 7px;
+    vertical-align: 1px;
+}
+.lsv[data-loaded='true'] .status::before {
+    background: #22c55e;
+}
+.lsv[data-loaded='error'] .status::before {
+    background: #ef4444;
+}
+
+@container (max-width: 1100px) {
+    .lsv-main {
+        grid-template-columns: 200px minmax(0, 1fr) 280px;
+    }
+    .lsv .layerbar .eyebrow {
+        display: none;
+    }
+}
+@container (max-width: 760px) {
+    .lsv-header {
+        padding: 10px 12px;
+    }
+    .lsv .brand small,
+    .lsv .button-label {
+        display: none;
+    }
+    .lsv h1 {
+        font-size: 14px;
+    }
+    .lsv-main {
+        grid-template-columns: 150px minmax(0, 1fr);
+        grid-template-rows: minmax(260px, 1fr) 220px;
+    }
+    .lsv .details {
+        grid-column: 1 / -1;
+        border-left: 0;
+        border-top: 1px solid var(--line);
+    }
+    .lsv .layerbar {
+        padding: 8px 12px;
+        gap: 12px;
+    }
+    .lsv .counts,
+    .lsv .search kbd,
+    .lsv .canvas-tools .divider {
+        display: none;
+    }
+    .lsv .browse {
+        padding: 12px 8px;
+    }
+    .lsv .canvas-tools {
+        gap: 0;
+        padding: 3px;
+    }
+    .lsv .canvas-tools button {
+        padding: 6px;
+    }
+    .lsv-footer span:last-child {
+        display: none;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .lsv *,
+    .lsv *::before,
+    .lsv *::after {
+        transition-duration: 0.01ms !important;
+    }
+}

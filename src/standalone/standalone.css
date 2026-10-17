@@ -1,0 +1,25 @@
+/* The standalone page fills the window with the viewer. */
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+#schema-viewer {
+    height: 100dvh;
+}
+.lsv-message {
+    display: grid;
+    place-items: center;
+}
+.lsv-message__box {
+    max-width: 560px;
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+}
+.lsv-message__box ul {
+    padding-left: 18px;
+    font-size: 12px;
+}

@@ -1,28 +1,25 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-// The standalone viewer: one ES module, one stylesheet and its fonts, so Laravel, Python and Node hosts can serve
-// dist/viewer as static files without Node at runtime. `npm run dev` serves dev/index.html with a sample snapshot.
+// The standalone viewer: app.js and app.css with fixed names, plus fonts and the lazily loaded ELK layout engine under
+// assets/, so Laravel, Python and Node hosts can serve dist/viewer as static files without Node at runtime.
+// `npm run dev` serves dev/index.html with the contract fixtures.
 export default defineConfig({
     plugins: [react()],
-    root: '.',
     base: './',
-    define: { 'process.env.NODE_ENV': JSON.stringify('production') },
-    server: { open: '/dev/index.html' },
+    server: { port: 5181, strictPort: true },
     build: {
         outDir: 'dist/viewer',
         emptyOutDir: true,
         assetsInlineLimit: 0,
-        lib: {
-            entry: 'src/standalone/main.tsx',
-            formats: ['es'],
-            fileName: () => 'app.js',
-            cssFileName: 'app',
-        },
+        modulePreload: false,
         rollupOptions: {
+            input: 'src/standalone/main.tsx',
+            preserveEntrySignatures: 'exports-only',
             output: {
-                inlineDynamicImports: true,
-                assetFileNames: 'assets/[name]-[hash][extname]',
+                entryFileNames: 'app.js',
+                chunkFileNames: 'assets/[name]-[hash].js',
+                assetFileNames: (asset) => (asset.names.some((name) => name.endsWith('.css')) ? 'app.css' : 'assets/[name]-[hash][extname]'),
             },
         },
     },

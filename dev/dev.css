@@ -1,0 +1,38 @@
+html,
+body,
+#dev {
+    height: 100%;
+    margin: 0;
+}
+.dev {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+.dev .lsv {
+    flex: 1;
+    min-height: 0;
+}
+.dev-bar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 6px 12px;
+    font: 12px ui-monospace, monospace;
+    background: #18181b;
+    color: #fafafa;
+}
+.dev-bar button {
+    font: inherit;
+    border: 1px solid #3f3f46;
+    background: transparent;
+    color: inherit;
+    border-radius: 6px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+.dev-bar button.on {
+    background: #fafafa;
+    color: #18181b;
+}
