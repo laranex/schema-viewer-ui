@@ -110,6 +110,44 @@ test('grows a connection frame around a table dragged out of it, and keeps the p
     expect(await placed()).toBe(dropped);
 });
 
+test('saves images with the frames where the screen has them after a drag, their diagnostics counts, and through references', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Cards are not draggable on phones.');
+    const svgOf = async () => {
+        await page.getByRole('button', { name: 'Download' }).click();
+        const dialog = page.getByRole('dialog', { name: 'Download' });
+        const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: /^SVG/ }).click()]);
+        await dialog.getByRole('button', { name: 'Close' }).click();
+        return Buffer.concat(await (await download.createReadStream()).toArray()).toString('utf8');
+    };
+    await page.goto('/f/combined-multi-connection/');
+    await loaded(page);
+    const title = (await page.locator('.react-flow__node[data-id="cache:sessions"] .table-title').boundingBox())!;
+    await page.mouse.move(title.x + 30, title.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(title.x + 30, title.y + 260, { steps: 10 });
+    await page.mouse.up();
+    const frames = await page.locator('.react-flow__node-region').evaluateAll((nodes) =>
+        nodes.map((n) => {
+            const e = n as HTMLElement;
+            const [x, y] = /translate\(([-\d.]+)px, ?([-\d.]+)px\)/.exec(e.style.transform)?.slice(1).map(Number) ?? [];
+            return { x, y, width: parseFloat(e.style.width), height: parseFloat(e.style.height), meta: e.querySelector('.region-node__meta')?.textContent ?? '' };
+        }),
+    );
+    expect(frames.length).toBe(3);
+    expect(frames.some((f) => / · \d+ diagnostics?$/.test(f.meta))).toBe(true);
+    const svg = await svgOf();
+    const round = (n: number) => String(Math.round(n * 100) / 100);
+    for (const f of frames) {
+        expect(svg).toContain(`<rect x="${round(f.x)}" y="${round(f.y)}" width="${round(f.width)}" height="${round(f.height)}" rx="22"`);
+        expect(svg).toContain(`>${f.meta}</text>`);
+    }
+
+    await page.goto('/f/viewer-cross-connection-through/#connection=connection%3Aapp');
+    await loaded(page);
+    await expect(page.locator('.react-flow__node-external[data-id="cache:sessions"]')).toBeVisible();
+    expect(await svgOf()).toContain('>ON CONNECTION CACHE</text>');
+});
+
 test('draws a table on another connection that a relationship goes through as a reference', async ({ page }) => {
     await page.goto('/f/viewer-cross-connection-through/#connection=connection%3Aapp');
     await loaded(page);
