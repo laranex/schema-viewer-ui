@@ -246,7 +246,8 @@ pivot, polymorphic, through, join, constraints, inverse, note, source, extension
   `inspection_unavailable`, `model_without_table`, `table_without_model`, `declared_only`, `database_only`,
   `column_drift`, `index_drift`, `foreign_key_drift`, `missing_index`, `duplicate_index`, `redundant_index`,
   `relationship_without_foreign_key`, `foreign_key_without_relationship`, and for the sections below
-  `comparison_incomplete` (inspection, subject `comparison`), `migration_history_unavailable` (extraction),
+  `comparison_incomplete` (inspection, subject `comparison`; exactly as [Storing comparisons](#storing-comparisons)
+  defines it), `migration_history_unavailable` (extraction),
   `migration_version_table_unreadable` (inspection), `migration_multiple_heads` (lint),
   `migration_unknown_revision` (reconciliation), all with subject `migration`, and `inference_ambiguous` (lint,
   subject `inferredAssociation`).
@@ -269,12 +270,8 @@ whose schema is null or the default schema are in scope. A scope must not hold t
 - `summary` `{ missing, extra, changed }` counts every difference found, listed or not; `omitted` is how many were
   left out of `differences` (a producer's limit, in difference order). The validator checks `summary` sums to
   `differences.length + omitted` and covers the listed ones.
-- `complete` is false when `omitted > 0`, or when either side's coverage (`database` coverage, or `declared` in a
-  declared document) is not `complete` or `not_applicable` for every feature the comparison reads (`tables`,
-  `columns`, `columnTypes`, `defaults`, `comments`, `primaryKeys`, `foreignKeys`, `referentialActions`, `indexes`,
-  `indexExpressions`, `indexPredicates`, `uniqueConstraints`, `checkConstraints`) or did not read the scope's schema
-  (`schema`, else `defaultSchema`, when both it and `coverage.schemas` are known). An incomplete comparison is never
-  reported as passing; see [Gate reports](#gate-reports).
+- `complete` is true exactly when `omitted` is 0 and neither side has a [coverage gap](#coverage-gaps). An
+  incomplete comparison is never reported as passing; see [Gate reports](#gate-reports).
 
 **Difference** `{ id, change, objectType, key, baseline, target, fields, severity, certainty, extensions? }`
 
@@ -292,6 +289,60 @@ whose schema is null or the default schema are in scope. A scope must not hold t
 - `id` is `"x"` + the digest of `["difference", comparisonId, objectType, key]`.
 - Differences are sorted by object type in the order above, then `key` element-wise, then change (`missing`,
   `extra`, `changed`).
+
+### Coverage gaps
+
+A side's coverage gaps say why it cannot be compared completely (`coverageGaps(document, scope)`;
+`contract/conformance/coverage-gaps/` checks them). The side's coverage is its connection's `database` coverage, or
+`declared` coverage in a `declared` document. The gaps, in this order:
+
+1. `{ kind: "coverage_unknown" }` when that coverage is null; it is then the only gap.
+2. `{ kind: "feature", feature, state }` for each feature the comparison reads whose state is not `complete` or
+   `not_applicable`, in this order: `tables`, `columns`, `columnTypes`, `defaults`, `comments`, `primaryKeys`,
+   `foreignKeys`, `referentialActions`, `indexes`, `indexExpressions`, `indexPredicates`, `uniqueConstraints`,
+   `checkConstraints` (`COMPARISON_FEATURES`). `state` is `partial`, `unavailable`, or `unknown` for a feature the
+   coverage leaves out. `not_applicable` is never a gap, nor is any other feature (`includedColumns`, `models`,
+   `relationships`).
+3. `{ kind: "schema_not_read", schema }` when the scope's schema (`schema`, else the connection's `defaultSchema`)
+   and the coverage's `schemas` are both known and `schemas` does not list it.
+
+A side is covered (`scopeCovered()`) when it has no gaps. Messages spell a gap as `coverage unknown`,
+`{feature} {state}` or `schema {schema} not read` (`coverageGapText()`).
+
+### Requested comparisons
+
+Users ask for comparisons by connection **name**, as they configure them:
+`{ baseline: { connection, schema }, target: { connection, schema } }`, with `schema` a schema or null for the
+unqualified scope. Producers resolve their configured comparisons, and the gate its requested ones, with
+`expandComparisonRequests(document, requests)` (`contract/conformance/requests/` checks it), which returns
+`{ pairs, errors }` and never throws:
+
+- Requests are taken sorted by baseline connection name, baseline schema, target connection name and target schema
+  (null before any string, strings in code point order). A request equal to an earlier one (same names and schemas)
+  is not expanded again and gives one `duplicate` error, however often it repeats: `Requested comparison {request} is
+  listed more than once.`
+- Each connection name the document does not have gives an `unknown_connection` error, once per name: `Requested
+  comparison {request} names connection {name}, which the document does not have.` Nothing more is done for that
+  request.
+- A target schema `"*"` (`WILDCARD`) stands for every schema the target connection's coverage (as for
+  [coverage gaps](#coverage-gaps)) lists in `schemas`, each once, in code point order, leaving out the baseline's own
+  scope: on the same connection, the schema equal to the baseline's, or, with a null baseline schema, the
+  connection's `defaultSchema`. Coverage or its `schemas` null: a `no_schemas` error, `Requested comparison
+  {request} cannot be expanded: the inspection of connection {name} lists no schemas.` Nothing left: a `no_match`
+  error, `Requested comparison {request} matches no schema.` Only a target expands: `"*"` in a baseline is an
+  ordinary schema name. A wildcard never yields a null schema.
+- Any other request is one pair: both names resolved to connection ids, schemas as given. Expansion consults neither
+  coverage nor the stored comparisons.
+- When an explicit request and a `"*"` expansion give the same pair, the pair is listed once with the explicit
+  request, and that is no error. No other two different requests can give one pair.
+- `pairs` `{ baseline, target, request }`: the scopes (connection ids) and the request that gave them, sorted by
+  baseline connection id, baseline schema, target connection id and target schema (null first). `errors`
+  `{ kind, request, message }`, in the order of the sorted requests, a request's own errors in the order above.
+
+`{request}` spells each scope as `name` or `name:schema` (the request's own names and schemas, so `name:*` for a
+wildcard), baseline and target joined by ` → ` (U+2192 with single spaces). A producer reports every error as a
+configuration error and writes no comparison for that request. A request whose two scopes are equal is a
+configuration error producers reject when they read their configuration; expansion passes it through.
 
 ### The comparison algorithm
 
@@ -356,6 +407,66 @@ field.
 | column | error | warning; `comment`: info |
 | primaryKey | error | error |
 | index, foreignKey, constraint | warning | warning |
+
+An override is `{ objectType, change, field, severity }`, `field` optional (absent or null for a general override).
+The fields a changed difference can list, from the algorithm above, are exactly the fields an override may name
+(`DIFFERENCE_FIELDS`):
+
+| Object | Fields |
+|---|---|
+| table | `comment` |
+| column | `collation`, `comment`, `default`, `enum`, `generated`, `nullable`, `type` |
+| primaryKey | `columns` |
+| index | `included`, `method`, `name`, `parts`, `predicate`, `unique` |
+| foreignKey | `columns`, `deferrable`, `foreignColumns`, `foreignTable`, `initially`, `name`, `onDelete`, `onUpdate` |
+| constraint | `columns`, `expression`, `name` |
+
+`validateSeverityOverrides(overrides)` returns these errors, empty when the overrides are valid
+(`contract/conformance/overrides/` checks them); `{i}` is the override's index. Producers reject a configuration
+with any of them, and `compareScopes()` throws `Invalid severity overrides: {errors joined by "; "}`.
+
+| Rule | Message |
+|---|---|
+| Not an array | `overrides must be an array` (the only error) |
+| An entry that is not an object | `overrides[{i}] must be an object` (nothing more for it) |
+| Keys other than the four | `overrides[{i}] has unknown keys: {keys}`, sorted, joined by `, ` |
+| `objectType` not an object type | `overrides[{i}].objectType must be one of table, column, primaryKey, index, foreignKey, constraint` |
+| `change` not a change | `overrides[{i}].change must be one of missing, extra, changed` |
+| `severity` missing or not a severity | `overrides[{i}].severity must be one of error, warning, info` |
+| `field` neither a string nor null | `overrides[{i}].field must be a string or null` |
+| A field with a valid `change` other than `changed` | `overrides[{i}].field applies only to changed differences, not {change}` |
+| A field the valid `objectType` does not have, on `changed` | `overrides[{i}].field must be one of {fields} for objectType {objectType}` |
+| The `(objectType, change, field)` of an earlier override `{j}`, both valid in those three | `overrides[{i}] repeats overrides[{j}]` |
+
+Errors are listed per override in index order, each override's in the order of the table. A field is judged only
+against a valid object type and change.
+
+### Storing comparisons
+
+A producer writes the comparisons it computed into a document with `storeComparisons(document, comparisons)`
+(`contract/conformance/store/` checks it):
+
+1. Two comparisons with one id are an error (`Comparison {id} is listed more than once`).
+2. Stored comparisons with the id of a new one are dropped, with every diagnostic whose subject is such a comparison
+   (`subject.type` `comparison`, whatever its kind). Other comparisons and diagnostics are kept.
+3. Each new comparison is added with its diagnostics (`comparisonDiagnostics(document, comparison)`, checked by
+   `contract/conformance/comparison-diagnostics/`): none when it is complete, else one `comparison_incomplete`
+   diagnostic:
+   - `category` `inspection`, `severity` `warning`, `certainty` `certain`;
+   - `subject` `{ type: "comparison", id: <the comparison id>, columns: null, label }`, `label` being
+     `{baseline}={target}`, each scope spelled `name` or `name:schema` with its connection's name;
+   - `message` `Comparison {label} is incomplete: {reasons}`, the reasons joined by `; `: first `{omitted} of
+     {total} differences are left out by the limit of {listed}` when `omitted` > 0 (`total` the summary's sum,
+     `listed` the number of listed differences, which is the limit applied); then `the baseline {scope} is not
+     completely covered ({gaps})` and `the target {scope} is not completely covered ({gaps})` for each side with
+     [coverage gaps](#coverage-gaps), the gaps spelled as there and joined by `, `. (A comparison stored as incomplete
+     with neither reason, which the algorithm never produces, gets `Comparison {label} is incomplete`.)
+   - `id` by the [diagnostic id rule](#diagnostics).
+4. Comparisons are sorted by id; diagnostics by `(category, kind, subject.type, subject.id, message)`, a null subject
+   id as the empty string, strings in code point order, and a diagnostic id listed once (the first in that order).
+   Nothing else in the document changes.
+
+Storing the comparisons a document already holds gives the same document.
 
 ## Migrations
 
@@ -459,11 +570,9 @@ findings, errors }`
   **qualifies** when its severity is at least `severity` (`info` < `warning` < `error`) and, with certainty
   `certain`, it is certain; with `likely`, certain and likely findings both qualify.
 - **Requested comparisons**, a list of `{ baseline: { connection, schema }, target: { connection, schema } }`, empty
-  or absent when none was requested or configured. `connection` is the connection's **name** (as users configure
-  it); `schema` is a schema or null for the unqualified scope (see [Comparisons](#comparisons)). A target schema `"*"`
-  stands for every schema the target connection's inspection read; `"*"` in a baseline is an ordinary schema name.
-  The report's `requested` lists them without duplicates, sorted by baseline connection, baseline schema, target
-  connection and target schema (null before any string).
+  or absent when none was requested or configured, as in [Requested comparisons](#requested-comparisons)
+  (connection names; a target schema `"*"`). The report's `requested` lists them without duplicates, sorted by
+  baseline connection, baseline schema, target connection and target schema (null before any string).
 
 ### Validation
 
@@ -486,21 +595,13 @@ prints them beside it.
 
 - No requested comparisons: every stored comparison is checked. Zero comparisons is valid.
 - Requested comparisons: **only** the requested ones are checked; other stored comparisons are neither findings nor
-  errors. Each request is resolved against the document, and each failure is a `comparison_not_found` error:
-  1. Each connection name the document does not have: `Requested comparison {request} names connection {name},
-     which the document does not have.` (once per name; nothing more is checked for that request).
-  2. A `"*"` target expands to the schemas in the target connection's coverage `schemas` (`declared` coverage in a
-     `declared` document, else `database`), sorted, without duplicates, leaving out the baseline's own scope (same
-     connection, and the schema equals the baseline's, or the baseline's schema is null and the schema is the
-     connection's `defaultSchema`). Coverage or its `schemas` null: `Requested comparison {request} cannot be
-     expanded: the inspection of connection {name} lists no schemas.` Nothing left: `Requested comparison {request}
-     matches no schema.`
-  3. Each resulting pair must be a stored comparison with exactly those scopes (connection ids, schemas):
-     otherwise `Requested comparison {pair} is not in the document.`
+  errors. The gate expands the report's `requested` (so without duplicates) with
+  [`expandComparisonRequests`](#requested-comparisons); each of its errors is a `comparison_not_found` error with
+  the same message. Each resulting pair must be a stored comparison with exactly those scopes (connection ids,
+  schemas): otherwise `Requested comparison {pair} is not in the document.`
 
-`{request}` and `{pair}` spell scopes as `name` or `name:schema` (the request's own names; `name:*` for a wildcard),
-baseline and target joined by ` → ` (U+2192 with single spaces). The report's `comparisons` lists the checked
-comparisons' ids, sorted. Wildcard expansion belongs to the gate, so producers pass requests as configured.
+`{pair}` spells the pair's scopes by connection name, as `{request}` does. The report's `comparisons` lists the
+checked comparisons' ids, sorted. Producers pass requests to the gate as configured; the gate expands them itself.
 
 ### Findings
 
@@ -551,11 +652,10 @@ list:
 
 - `comparison_incomplete` reasons, joined by `; `: `{omitted} of {total} differences omitted` when `omitted` > 0
   (`total` the summary's sum); then `the baseline {scope} was not inspected completely` and `the target {scope} was
-  not inspected completely` for each side whose coverage does not support the comparison (the
-  [comparison rule](#comparisons): every compared feature `complete` or `not_applicable`, and the scope's schema
-  read).
-- `coverage_incomplete` gaps: `{feature} {state}` for each failing feature in the [coverage](#coverage) feature order,
-  joined by `, `. `partial` features other than tables and columns (a dialect's known limit, such as SQLite check
+  not inspected completely` for each side with [coverage gaps](#coverage-gaps).
+- `coverage_incomplete` gaps: `{feature} {state}` (`state` `unknown` when left out, as for
+  [coverage gaps](#coverage-gaps)) for each failing feature in the [coverage](#coverage) feature order, joined by
+  `, `. `partial` features other than tables and columns (a dialect's known limit, such as SQLite check
   constraints) and `not_applicable` ones never fail a connection; the comparisons that read them are judged by
   their own `complete`. `declared` coverage never fails the gate.
 - `migration_unknown` reason, the first that applies: `the version table could not be read` (`current` null), `the
@@ -624,5 +724,6 @@ node node_modules/laranex-schema-viewer-ui/contract/check.mjs path/to/snapshot.j
 
 `check.mjs` runs strict validation (which checks comparison ids, order and summaries and recomputes migration
 statuses), compares the stored links and inferred associations with the shared builders, and checks canonical form.
-Producers in other languages also run `contract/conformance/{graph,comparison,migrations,inference,gate}/*.json`
+Producers in other languages also run
+`contract/conformance/{graph,comparison,requests,coverage-gaps,overrides,comparison-diagnostics,store,migrations,inference,gate}/*.json`
 through their own implementations and `contract/fixtures/invalid/*.json` through their own validators, where they have them.

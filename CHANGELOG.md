@@ -38,6 +38,15 @@ All notable changes to this project are documented here. The format follows
   `comparison_incomplete`, `coverage_incomplete` (tables or columns not read completely, or a feature unavailable),
   `inspection_failed` and `migration_unknown`. When comparisons are requested only those are checked. Reports also
   list the `requested` and checked `comparisons`.
+- What producers do around a comparison, specified normatively and exported so Node calls it and Python ports it,
+  each with conformance cases: `expandComparisonRequests` (requests by connection name, `*` targets over the
+  coverage's schemas minus the baseline's own scope, explicit pairs over wildcard ones, `unknown_connection`,
+  `no_schemas`, `no_match` and `duplicate` errors) in `contract/conformance/requests/`; `coverageGaps` and
+  `coverageGapText` (`coverage_unknown`, feature states, `schema_not_read`; `scopeCovered` is "no gaps" and a
+  comparison's `complete` follows from them) in `coverage-gaps/`; `DIFFERENCE_FIELDS` and
+  `validateSeverityOverrides` with exact messages, which `compareScopes` now enforces, in `overrides/`;
+  `comparisonDiagnostics`, the exact `comparison_incomplete` diagnostic, in `comparison-diagnostics/`; and
+  `storeComparisons` in `store/`. The gate expands requests and words coverage with these exports.
 - Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`, `migrations-alembic`
   and `inferred-associations`, and invalid fixtures for each new rule.
 - Viewer **Compare** tab for stored comparisons: baseline and target selectors built from the stored scopes (with a
