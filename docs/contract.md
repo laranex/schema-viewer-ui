@@ -85,8 +85,21 @@ Each connection's `coverage` has one entry per source: `{ complete, schemas, fea
 
 ## Connections and tables
 
+A document is multi-connection: `connections` holds every named database connection (or ORM bind) the producer read,
+each with its own driver, default schema, coverage and tables, in any mix of dialects. A single-connection document is
+the one-element case; nothing in the contract assumes there is only one.
+
 **Connection** `{ id, name, driver, defaultSchema, coverage, tables, extensions? }`. `name` is unique. `driver` is the
 dialect (`pgsql`, `postgresql`, `mysql`, `mariadb`, `sqlite`, `sqlsrv`, …) or null when the source does not know it.
+
+- Table ids are unique across the whole document, so producers qualify them by connection (`analytics:users`). Table
+  names, and schema-qualified names, may repeat across connections: `users` in two connections are two tables, told
+  apart by id and never merged. Readers look tables up by id, never by name.
+- A model's `tables` and a relationship's `table`, `relatedTable`, `pivot.table` and `through` may be in any
+  connection: an ORM relationship may cross connections.
+- A foreign key never crosses connections: its `foreignTable` is in the same connection as the table that declares it,
+  because a constraint lives in one database. The validator rejects a foreign key to a table in another connection
+  (`Foreign key crosses connections`).
 
 **Table** `{ id, name, schema, comment, note, owner, primaryKey, columns, indexes, foreignKeys, constraints, provenance,
 drift?, extensions? }`
@@ -143,6 +156,7 @@ provenance, drift?, extensions? }`
   not declared or not reported.
 - A target table or column outside the document is allowed only with an `unresolved_foreign_key` diagnostic whose
   subject is the foreign key.
+- The target table is in the same connection as the foreign key's table; see [Connections and tables](#connections-and-tables).
 
 ## Models and relationships
 
@@ -172,8 +186,9 @@ pivot, polymorphic, through, join, constraints, inverse, note, source, extension
 `links` and `derivedLinks` are stored in the document. Producers build them with the shared rules below. The TypeScript
 `buildGraph()` implements them, and `contract/conformance/graph/` holds the cases every implementation must pass.
 
-1. Every foreign key whose endpoints resolve (the target table and every column are in the document) is a link from
-   its columns to the referenced columns.
+1. Every foreign key whose endpoints resolve (the target table and every column are in the document, in the foreign
+   key's own connection) is a link from its columns to the referenced columns. A foreign key naming a table in another
+   connection, which a valid document never has, has no link.
 2. Every relationship's `keys` are a link the same way. Keys equal to a foreign key's, compared as unordered column
    pairs, join that foreign key's link; otherwise the link has no foreign key. A relationship never creates a
    constraint.
@@ -181,7 +196,9 @@ pivot, polymorphic, through, join, constraints, inverse, note, source, extension
    relationship's `table`, and `relatedPivotColumns → relatedColumns` on its `relatedTable`.
 4. A through relationship is a derived link `{ from: table, to: relatedTable, via: through, relationship }`, never
    matched to a foreign key.
-5. Nothing without resolvable endpoints has a link.
+5. Nothing without resolvable endpoints has a link. Links come only from foreign keys within a connection and from
+   relationships; a relationship whose ends are in two connections is a `relationship` link and never gains a
+   foreign key.
 6. When several foreign keys have the same column pairs, the smallest id stands for them; a link's endpoints follow
    its foreign key's column order, or the first relationship's when there is none.
 7. `state` is `both`, `foreign_key` or `relationship`; `polymorphic` is true when any of its relationships is;

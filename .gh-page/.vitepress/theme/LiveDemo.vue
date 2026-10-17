@@ -11,6 +11,7 @@ const fixtures = [
   { page: 'postgresql.html', label: 'PostgreSQL indexes' },
   { page: 'mysql.html', label: 'MySQL indexes' },
   { page: 'sqlite.html', label: 'SQLite indexes' },
+  { page: 'connections.html', label: 'Three connections' },
 ]
 const page = ref(fixtures[0].page)
 const ready = ref(false)

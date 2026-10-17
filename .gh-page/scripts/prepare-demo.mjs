@@ -15,6 +15,7 @@ export const pages = {
     'postgresql.html': ['database-postgresql-indexes', 'PostgreSQL indexes'],
     'mysql.html': ['database-mysql-indexes', 'MySQL indexes'],
     'sqlite.html': ['database-sqlite-indexes', 'SQLite indexes'],
+    'connections.html': ['combined-multi-connection', 'Three connections · combined (Eloquent)'],
 };
 
 export async function prepareDemo() {

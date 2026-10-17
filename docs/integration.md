@@ -3,6 +3,11 @@
 Every host renders the same viewer from the same `laranex-schema` document. Hosts differ only in how they produce the
 document (see [contract.md](contract.md)) and how they serve the page.
 
+Put every connection the host reads in one document, each with its own `driver`: the viewer frames them, qualifies
+labels by connection and keeps cross-connection relationships visible. `defaultConnection` (or `#connection=`) takes a
+connection **id**; an unknown id opens every connection. Table ids must be unique across connections, so qualify them by
+connection; foreign keys stay inside their connection.
+
 ## React applications
 
 ```tsx

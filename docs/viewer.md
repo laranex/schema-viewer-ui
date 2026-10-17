@@ -15,6 +15,22 @@ The layout follows Laravel Schema Viewer's:
   **Details** (the selection, or an overview of the document), **Diagnostics** (facts apart from heuristics, each with
   a way to its table) and **Changes** when the host provides them.
 
+## Several connections
+
+A document may hold several connections, each with its own driver. The viewer never assumes one:
+
+- **All connections** (the default): each connection is laid out on its own inside a labelled frame showing its name,
+  driver and table count, so tables of the same name in two connections never mix. Relationships between connections
+  run between the frames.
+- **One connection**: pick it in the header's connection menu (on a phone, in the ⋯ menu), step through them with
+  <kbd>[</kbd> <kbd>]</kbd>, or open `#connection=<id>`. Tables on other connections that its relationships reach stay
+  on the diagram as dashed reference nodes marked "On connection …": they cannot be moved or folded, and clicking one
+  opens that table on its own connection.
+- With more than one connection, every table label names its connection, `analytics · public.users`: cards, Browse,
+  search results, Details headings, edge details, the phone sheet and image exports.
+- A relationship between two connections is always drawn as an ORM-only (dashed) edge with a `cross-connection` chip.
+  Foreign keys never cross connections, so the viewer never shows one there.
+
 On a phone the header keeps only the search and a ⋯ menu, the diagram fills the screen, and the side panel is a bottom
 sheet: tap a table, Browse, or the diagnostics count to open it.
 
@@ -47,7 +63,7 @@ it never infers a constraint from a relationship.
 | <kbd>L</kbd> | Relationship names everywhere or on the selection |
 | <kbd>1</kbd>–<kbd>4</kbd> | FK + ORM, FK only, ORM only, through edges |
 | <kbd>Y</kbd> <kbd>G</kbd> <kbd>P</kbd> | Your, framework and package tables |
-| <kbd>[</kbd> <kbd>]</kbd> | Previous or next connection |
+| <kbd>[</kbd> <kbd>]</kbd> | Previous or next connection, or all of them |
 | <kbd>Shift</kbd> <kbd>C</kbd> | Copy a link to this view |
 | <kbd>A</kbd> <kbd>D</kbd> <kbd>H</kbd> <kbd>W</kbd> | Browse, Details, Diagnostics, Changes |
 | <kbd>E</kbd> | Download menu: JSON, PNG or SVG |
@@ -63,5 +79,6 @@ list each differing field with both values. Diagnostics separate **facts** (read
 
 ## Deep links
 
-The URL hash keeps the view: `#table=<id>`, `#link=<id>`, `#focus=<id>&depth=2`, `#connection=<id>`. Press
+The URL hash keeps the view: `#table=<id>`, `#link=<id>`, `#focus=<id>&depth=2`, `#connection=<id>`. An unknown connection id opens every connection; a `#table=` on another connection than
+`#connection=` opens the table's own connection. Press
 <kbd>Shift</kbd> <kbd>C</kbd> to copy it.

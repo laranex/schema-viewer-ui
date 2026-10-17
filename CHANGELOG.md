@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+Planned as 0.2.0.
+
+### Added
+
+- Complete multi-connection support. With every connection shown, each connection is laid out in its own labelled frame (name, driver, table count), in the diagram and in PNG and SVG exports. With one connection shown, tables on other connections that its relationships reach appear as dashed, non-editable reference nodes ("On connection …") that open the table on its own connection, so cross-connection relationships never disappear.
+- Table labels name their connection whenever a document has more than one (`analytics · public.users`): cards, Browse, search, Details, edge details, the diagnostics panel, the phone sheet and exports. Tables with the same name, or the same schema and name, in two connections are always told apart.
+- Relationships between connections are drawn as ORM-only edges marked `cross-connection`, and their details say no foreign key can enforce them.
+- Synthetic fixtures `combined-multi-connection` (pgsql, mysql and sqlite connections, `users` in two of them, cross-connection relationships without foreign keys, per-connection coverage, drift on one connection) and `declared-multi-connection`; graph conformance cases `cross-connection-relationship`, `cross-connection-foreign-key` and `duplicate-table-names`; and the invalid fixture `foreign-key-across-connections`.
+
+### Changed
+
+- The validator rejects a foreign key whose target table is in another connection (`Foreign key crosses connections`), and `buildGraph()` never links one; `docs/contract.md` states that documents are multi-connection, foreign keys never cross connections and relationships may. Every existing valid document stays valid.
+- An unknown `#connection=` (or `defaultConnection`) id opens every connection instead of an empty diagram, and a `#table=` deep link to another connection opens that table's connection. Opening a table on another connection from search, Browse or Details switches to its connection instead of to all connections.
+- The connection menu shows each connection's driver.
+
 ## [0.1.0] - 2026-10-17
 
 ### Added
