@@ -9,3 +9,9 @@ playwright-report/
 # macOS Finder metadata
 .DS_Store
 ._*
+
+# Documentation site
+.gh-page/node_modules/
+.gh-page/.vitepress/cache/
+.gh-page/.vitepress/dist/
+.gh-page/public/demo/

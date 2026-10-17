@@ -4,7 +4,7 @@
   "description": "The unified laranex-schema contract and the shared ERD viewer for Laravel, Python and Node.js: a React component, a standalone static bundle, JSON Schema, validator, graph builder and conformance fixtures.",
   "license": "MIT",
   "author": "Laranex",
-  "homepage": "https://github.com/laranex/schema-viewer-ui#readme",
+  "homepage": "https://laranex.github.io/schema-viewer-ui/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/laranex/schema-viewer-ui.git"
@@ -43,7 +43,8 @@
   "files": [
     "dist",
     "contract",
-    "docs",
+    "docs/contract.md",
+    "docs/integration.md",
     "NOTICE"
   ],
   "engines": {

@@ -36,6 +36,10 @@ npm run contract:check   # check.mjs over the valid fixtures
 
 Run focused tests first, then `npm run check`. Report skipped or unavailable browsers accurately.
 
+## Documentation site
+
+Markdown lives in `docs/`; VitePress config, theme and Node deps live in `.gh-page/` (`srcDir: ../docs`, base `/schema-viewer-ui/`). The live demo is the built bundle (`dist/viewer`) loading the synthetic contract fixtures. Build the package first, then in `.gh-page/`: `npm ci`, `npm run dev`, `npm run check`. `deploy-docs.yml` deploys `main` to https://laranex.github.io/schema-viewer-ui/.
+
 ## Releases
 
 Record user-visible changes under `## [Unreleased]` in `CHANGELOG.md`. Publishing a GitHub release `vX.Y.Z` runs `.github/workflows/publish.yml`: the full test workflow, a tag/version match, a check that the version is not on npm, then npm Trusted Publishing. Do not bypass these gates.
