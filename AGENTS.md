@@ -1,6 +1,6 @@
 # Laranex Schema Viewer UI
 
-Independent npm package `laranex-schema-viewer-ui`: the unified `laranex-schema` contract and the shared, framework-independent ERD viewer for Laravel, Python and Node.js. It ships the contract artifacts (`contract/`), a React component, and a standalone static bundle (`dist/viewer/`) that hosts serve without Node at runtime. It never extracts ORM metadata, touches a database, contains CLI or MCP code, or reads framework-specific formats: producers convert their own legacy snapshots.
+Independent npm package `laranex-schema-viewer-ui`: the unified `laranex-schema` contract and the shared, framework-independent ERD viewer for Laravel, Python and Node.js. It ships the contract artifacts (`contract/`), a React component, and a standalone static bundle (`dist/viewer/`) that hosts serve without Node at runtime. It never extracts ORM metadata, touches a database, contains CLI or MCP code, or reads framework-specific formats.
 
 ## Architecture
 

@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Upgrading from 0.2.0
+
+- Producers must write `laranex-schema` 2.0 documents: `version: "2.0"`, the three required arrays (empty when not
+  produced), diagnostic ids, index `parts`/`backs` instead of `columns`/`primary`, and canonical driver names. Check a
+  producer with `node contract/check.mjs` and the fixtures in `contract/fixtures/`.
+- The viewer and validators reject 1.x documents; rebuild saved snapshots with a producer that writes 2.0.
+
 ### Changed
 
 - **Breaking:** the contract is `laranex-schema` 2.0. Validators accept only 2.x (1.x is rejected with one clear
@@ -38,7 +45,8 @@ All notable changes to this project are documented here. The format follows
   `comparison_incomplete`, `coverage_incomplete` (tables or columns not read completely, or a feature unavailable),
   `inspection_failed` and `migration_unknown`. When comparisons are requested only those are checked. Reports also
   list the `requested` and checked `comparisons`.
-- Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`, `migrations-alembic`
+- Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`,
+  `comparison-schema-named-tables` (tables, columns and indexes named like the compared schemas), `migrations-alembic`
   and `inferred-associations`, and invalid fixtures for each new rule.
 - Viewer **Compare** tab for stored comparisons: baseline and target selectors built from the stored scopes (with a
   swap when the reverse comparison is stored), the baseline → target direction everywhere, summary counts, `omitted`
