@@ -1,7 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import type { Constraint, Coverage, Diagnostic, Extensions, ForeignKey, Index, JsonValue, Provenance, Relationship, SchemaDocument, Source, Table } from '../contract/types';
 import type { ViewerChange } from '../contract/viewer-config';
+import { ChangeMark, CertaintyBadge, DifferenceSides } from './Compare';
 import { relationshipsOf, type GraphEdge, type Lookup } from './graph';
+import { InferredItem, InferredTag, NO_ATTRIBUTE } from './Inferred';
+import { CHANGE_TEXT, comparisonLabel, inferredByLink, inferredOfTable, OBJECT_TEXT, scopeLabel, tableMarks, type TableMark } from './intelligence';
+import { StatusBadge } from './Migrations';
 
 // Renders one extension namespace richly; the viewer falls back to a generic rendering for the rest.
 export type ExtensionRenderers = Record<string, (value: Extensions[string]) => ReactNode>;
@@ -156,8 +160,8 @@ export function DiagnosticList({ diagnostics }: { diagnostics: Diagnostic[] }) {
     const ordered = [...diagnostics].sort((a, b) => (a.certainty === b.certainty ? rank[a.severity] - rank[b.severity] : a.certainty === 'certain' ? -1 : 1));
     return (
         <ul className="cards">
-            {ordered.map((d, i) => (
-                <li key={i} className={`card card--${d.severity}`}>
+            {ordered.map((d) => (
+                <li key={d.id} className={`card card--${d.severity}`}>
                     <div className="card__eyebrow">
                         {d.severity} · {d.certainty === 'certain' ? 'fact' : 'heuristic'} · {d.category}
                     </div>
@@ -208,12 +212,32 @@ const HUMAN: Record<string, string> = {
     redundant_index: 'Redundant index',
     relationship_without_foreign_key: 'Relationship without a foreign key',
     foreign_key_without_relationship: 'Foreign key without a relationship',
+    comparison_incomplete: 'Comparison incomplete',
+    migration_history_unavailable: 'Migration history unavailable',
+    migration_version_table_unreadable: 'Version table unreadable',
+    migration_multiple_heads: 'Multiple migration heads',
+    migration_unknown_revision: 'Unknown migration revision',
+    inference_ambiguous: 'Ambiguous inference',
 };
 
 export const diagnosticTitle = (kind: string) => HUMAN[kind] ?? kind.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 
 // What the Details tab shows with nothing selected: where the metadata came from, the legend and the coverage.
-export function Overview({ ctx, onShortcuts, onTour }: { ctx: DetailContext; onShortcuts: () => void; onTour: () => void }) {
+export function Overview({
+    ctx,
+    onShortcuts,
+    onTour,
+    onCompare,
+    onMigrations,
+    onInferred,
+}: {
+    ctx: DetailContext;
+    onShortcuts: () => void;
+    onTour: () => void;
+    onCompare?: () => void;
+    onMigrations?: () => void;
+    onInferred?: () => void;
+}) {
     const { doc } = ctx;
     const states = new Set(doc.links.map((l) => l.state));
     return (
@@ -255,7 +279,54 @@ export function Overview({ ctx, onShortcuts, onTour }: { ctx: DetailContext; onS
                         Declared by the ORM, not in the database
                     </li>
                 )}
+                {doc.inferredAssociations.length > 0 && (
+                    <li>
+                        <span className="line-key key--inferred" />
+                        Foreign key with an inferred association: a heuristic, no ORM relationship declared
+                    </li>
+                )}
+                {doc.comparisons.length > 0 && (
+                    <li>
+                        <span className="legend-marks">
+                            <ChangeMark change="missing" />
+                            <ChangeMark change="extra" />
+                            <ChangeMark change="changed" />
+                        </span>
+                        Compared with another scope: missing in the target, extra in the target, changed; a dashed mark is likely (heuristic)
+                    </li>
+                )}
             </ul>
+            {(doc.comparisons.length > 0 || doc.migrations.length > 0 || doc.inferredAssociations.length > 0) && (
+                <>
+                    <h3>Stored results</h3>
+                    <ul className="plain intelligence-summary">
+                        {doc.comparisons.length > 0 && (
+                            <li>
+                                <button type="button" className="link-button" onClick={onCompare}>
+                                    {doc.comparisons.length} {doc.comparisons.length === 1 ? 'comparison' : 'comparisons'}
+                                </button>{' '}
+                                <span className="muted">schema differences between two scopes</span>
+                            </li>
+                        )}
+                        {doc.migrations.length > 0 && (
+                            <li>
+                                <button type="button" className="link-button" onClick={onMigrations}>
+                                    {doc.migrations.length} migration {doc.migrations.length === 1 ? 'track' : 'tracks'}
+                                </button>{' '}
+                                <span className="muted">revision status, apart from schema drift</span>
+                            </li>
+                        )}
+                        {doc.inferredAssociations.length > 0 && (
+                            <li>
+                                <button type="button" className="link-button" onClick={onInferred}>
+                                    {doc.inferredAssociations.length} inferred {doc.inferredAssociations.length === 1 ? 'association' : 'associations'}
+                                </button>{' '}
+                                <span className="muted">heuristic, no ORM relationship declared</span>
+                            </li>
+                        )}
+                    </ul>
+                </>
+            )}
             <h3>Coverage</h3>
             {doc.connections.map((c) => (
                 <div key={c.id} className="connection-coverage">
@@ -277,7 +348,22 @@ export function Overview({ ctx, onShortcuts, onTour }: { ctx: DetailContext; onS
 }
 
 // The Diagnostics tab: confirmed facts apart from heuristic advice, each with a way to the table it is about.
-export function DiagnosticsPanel({ doc, lookup, tableOf, onShow }: { doc: SchemaDocument; lookup: Lookup; tableOf: (d: Diagnostic) => string | undefined; onShow: (table: string) => void }) {
+export type SubjectActions = { comparison: (id: string) => void; migration: (id: string) => void; inferredAssociation: (id: string) => void };
+const SUBJECT_ACTION: Record<keyof SubjectActions, string> = { comparison: 'Show the comparison', migration: 'Show the migration status', inferredAssociation: 'Show the inferred association' };
+
+export function DiagnosticsPanel({
+    doc,
+    lookup,
+    tableOf,
+    onShow,
+    onSubject,
+}: {
+    doc: SchemaDocument;
+    lookup: Lookup;
+    tableOf: (d: Diagnostic) => string | undefined;
+    onShow: (table: string) => void;
+    onSubject?: SubjectActions;
+}) {
     const [certainty, setCertainty] = useState<'all' | 'certain' | 'likely'>('all');
     const rank = { error: 0, warning: 1, info: 2 } as const;
     const shown = doc.diagnostics
@@ -302,11 +388,12 @@ export function DiagnosticsPanel({ doc, lookup, tableOf, onShow }: { doc: Schema
                 ))}
             </div>
             <ul className="cards">
-                {shown.map((d, i) => {
+                {shown.map((d) => {
                     const table = tableOf(d);
                     const name = table ? lookup.tables.get(table) : undefined;
+                    const subject = d.subject.type === 'comparison' || d.subject.type === 'migration' || d.subject.type === 'inferredAssociation' ? d.subject.type : null;
                     return (
-                        <li key={i} className={`card card--${d.severity}`}>
+                        <li key={d.id} className={`card card--${d.severity}`}>
                             <div className="card__eyebrow">
                                 {d.severity} · {d.certainty === 'certain' ? 'fact' : 'heuristic'} · {d.category}
                             </div>
@@ -315,6 +402,11 @@ export function DiagnosticsPanel({ doc, lookup, tableOf, onShow }: { doc: Schema
                             {name && (
                                 <button type="button" className="link-button" onClick={() => onShow(name.id)}>
                                     Show {lookup.label(name.id)}
+                                </button>
+                            )}
+                            {subject && onSubject && d.subject.id !== null && (
+                                <button type="button" className="link-button" onClick={() => onSubject[subject](d.subject.id as string)}>
+                                    {SUBJECT_ACTION[subject]}
                                 </button>
                             )}
                         </li>
@@ -347,7 +439,25 @@ export function ChangesPanel({ changes }: { changes: ViewerChange[] }) {
     );
 }
 
-function IndexItem({ index, ctx }: { index: Index; ctx: DetailContext }) {
+// A comparison's mark on one entity of a table: missing, extra or changed against the other side.
+function EntityMark({ marks, id }: { marks: TableMark[]; id: string }) {
+    const found = marks.flatMap((m) => {
+        const d = m.entities.get(id);
+        return d ? [d] : [];
+    });
+    return (
+        <>
+            {found.map((d) => (
+                <Badge key={d.id} tone={`cmp-${d.change}`} title={`${CHANGE_TEXT[d.change].meaning} (${d.certainty})`}>
+                    {CHANGE_TEXT[d.change].symbol} {CHANGE_TEXT[d.change].label}
+                    {d.certainty === 'likely' ? ' · likely' : ''}
+                </Badge>
+            ))}
+        </>
+    );
+}
+
+function IndexItem({ index, ctx, marks = [] }: { index: Index; ctx: DetailContext; marks?: TableMark[] }) {
     const parts = index.parts.map((p, i) => (
         <code key={i} className={p.expression ? 'expression' : ''}>
             {p.column ?? p.expression}
@@ -373,6 +483,7 @@ function IndexItem({ index, ctx }: { index: Index; ctx: DetailContext }) {
                     {index.expression && <Badge tone="expression">expression</Badge>}
                     {index.method && <Badge>{index.method}</Badge>}
                     <ProvenanceBadge provenance={index.provenance} kind="index" ctx={ctx} />
+                    <EntityMark marks={marks} id={index.id} />
                 </span>
             </div>
             <div className="parts">
@@ -421,7 +532,7 @@ function DriftView({ drift }: { drift: NonNullable<Table['drift']> }) {
     );
 }
 
-function ConstraintItem({ constraint, ctx }: { constraint: Constraint; ctx: DetailContext }) {
+function ConstraintItem({ constraint, ctx, marks = [] }: { constraint: Constraint; ctx: DetailContext; marks?: TableMark[] }) {
     return (
         <li>
             <Badge tone={constraint.kind === 'unique' ? 'unique' : 'plain'}>{constraint.kind}</Badge> <strong>{constraint.name ?? 'unnamed'}</strong>{' '}
@@ -430,15 +541,17 @@ function ConstraintItem({ constraint, ctx }: { constraint: Constraint; ctx: Deta
             ))}
             {constraint.expression && <code className="expression">{constraint.expression}</code>}
             <ProvenanceBadge provenance={constraint.provenance} kind="constraint" ctx={ctx} />
+            <EntityMark marks={marks} id={constraint.id} />
         </li>
     );
 }
 
-function ForeignKeyItem({ fk, ctx, onSelectTable }: { fk: ForeignKey; ctx: DetailContext; onSelectTable: (id: string) => void }) {
+function ForeignKeyItem({ fk, ctx, onSelectTable, marks = [] }: { fk: ForeignKey; ctx: DetailContext; onSelectTable: (id: string) => void; marks?: TableMark[] }) {
     const target = ctx.lookup.tables.get(fk.foreignTable);
     return (
         <li>
             <strong>{fk.name ?? 'unnamed'}</strong> <ProvenanceBadge provenance={fk.provenance} kind="foreignKey" ctx={ctx} />
+            <EntityMark marks={marks} id={fk.id} />
             <div>
                 <code>{fk.columns.join(', ')}</code> →{' '}
                 {target ? (
@@ -492,6 +605,36 @@ function RelationshipItem({ r, ctx, onSelectTable }: { r: Relationship; ctx: Det
     );
 }
 
+function ComparisonDifferences({ mark, ctx, onCompare }: { mark: TableMark; ctx: DetailContext; onCompare?: (comparison: string, difference: string) => void }) {
+    const c = mark.comparison;
+    const baseline = scopeLabel(ctx.lookup, c.baseline);
+    const target = scopeLabel(ctx.lookup, c.target);
+    return (
+        <div className="table-comparison">
+            <p className="muted small">
+                {comparisonLabel(ctx.lookup, c)}: this table is on the <strong>{mark.side}</strong> side.
+                {!c.complete && <strong className="cmp-incomplete-inline"> Incomplete comparison: more differences may exist.</strong>}
+            </p>
+            <ul className="cards">
+                {mark.differences.map((d) => (
+                    <li key={d.id} className={`card diff diff--${d.change} card--${d.severity}${d.certainty === 'likely' ? ' diff--likely' : ''}`}>
+                        <div className="card__eyebrow">
+                            <ChangeMark change={d.change} likely={d.certainty === 'likely'} /> {CHANGE_TEXT[d.change].label} · {OBJECT_TEXT[d.objectType]} · {d.severity}
+                        </div>
+                        <strong>{(d.baseline ?? d.target)?.label}</strong> <CertaintyBadge certainty={d.certainty} />
+                        <DifferenceSides difference={d} baseline={baseline} target={target} />
+                        {onCompare && (
+                            <button type="button" className="link-button" onClick={() => onCompare(c.id, d.id)}>
+                                Open in Compare
+                            </button>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 export function TableDetails({
     ctx,
     table,
@@ -501,6 +644,9 @@ export function TableDetails({
     onCopyLink,
     onSelectEdge,
     onSelectTable,
+    onCompare,
+    onInferred,
+    onMigration,
 }: {
     ctx: DetailContext;
     table: Table;
@@ -510,6 +656,9 @@ export function TableDetails({
     onCopyLink: () => void;
     onSelectEdge: (edge: GraphEdge) => void;
     onSelectTable: (id: string) => void;
+    onCompare?: (comparison: string, difference: string) => void;
+    onInferred?: (id: string) => void;
+    onMigration?: (id: string) => void;
 }) {
     const { doc, lookup } = ctx;
     const connection = doc.connections.find((c) => c.id === lookup.connectionOf.get(table.id));
@@ -529,6 +678,15 @@ export function TableDetails({
     const relationships = relationshipsOf(doc, table.id);
     const diagnostics = doc.diagnostics.filter((d) => d.subject.id === table.id || table.indexes.some((i) => i.id === d.subject.id) || table.foreignKeys.some((f) => f.id === d.subject.id) || table.constraints.some((c) => c.id === d.subject.id));
     const incoming = [...lookup.tables.values()].flatMap((t) => (t.id === table.id ? [] : t.foreignKeys.filter((f) => f.foreignTable === table.id).map((f) => ({ t, f }))));
+    const marks = tableMarks(doc, table.id);
+    const columnMarks = (name: string) =>
+        marks.flatMap((m) => {
+            const d = m.columns.get(name);
+            return d ? [d] : [];
+        });
+    const differenceCount = marks.reduce((n, m) => n + m.differences.length, 0);
+    const inferred = inferredOfTable(doc, table.id);
+    const tracks = doc.migrations.filter((t) => t.versionTable === table.id || t.coverage.some((row) => row.table === table.id));
     return (
         <>
             <h2 className="details__title">
@@ -567,6 +725,13 @@ export function TableDetails({
                 ))}
             </dl>
             {table.drift && <DriftView drift={table.drift} />}
+            {differenceCount > 0 && (
+                <Section title="Compared with another scope" count={differenceCount} open>
+                    {marks.map((m) => (
+                        <ComparisonDifferences key={m.comparison.id} mark={m} ctx={ctx} onCompare={onCompare} />
+                    ))}
+                </Section>
+            )}
             {diagnostics.length > 0 && (
                 <Section title="Diagnostics" count={diagnostics.length} open>
                     <DiagnosticList diagnostics={diagnostics} />
@@ -580,6 +745,12 @@ export function TableDetails({
                                 <th scope="row">
                                     {c.name}
                                     {table.primaryKey.includes(c.name) && <Badge tone="pk">PK</Badge>}
+                                    {columnMarks(c.name).map((d) => (
+                                        <Badge key={d.id} tone={`cmp-${d.change}`} title={`${CHANGE_TEXT[d.change].meaning} (${d.certainty})`}>
+                                            {CHANGE_TEXT[d.change].symbol} {CHANGE_TEXT[d.change].label}
+                                            {d.certainty === 'likely' ? ' · likely' : ''}
+                                        </Badge>
+                                    ))}
                                 </th>
                                 <td>
                                     <code>{c.type}</code>
@@ -617,7 +788,7 @@ export function TableDetails({
                 {table.indexes.length ? (
                     <ul className="indexes">
                         {table.indexes.map((i) => (
-                            <IndexItem key={i.id} index={i} ctx={ctx} />
+                            <IndexItem key={i.id} index={i} ctx={ctx} marks={marks} />
                         ))}
                     </ul>
                 ) : (
@@ -628,7 +799,7 @@ export function TableDetails({
                 {table.constraints.length ? (
                     <ul className="plain">
                         {table.constraints.map((c) => (
-                            <ConstraintItem key={c.id} constraint={c} ctx={ctx} />
+                            <ConstraintItem key={c.id} constraint={c} ctx={ctx} marks={marks} />
                         ))}
                     </ul>
                 ) : (
@@ -638,7 +809,7 @@ export function TableDetails({
             <Section title="Foreign keys" count={table.foreignKeys.length + incoming.length} open={table.foreignKeys.length + incoming.length > 0}>
                 <ul className="plain">
                     {table.foreignKeys.map((f) => (
-                        <ForeignKeyItem key={f.id} fk={f} ctx={ctx} onSelectTable={onSelectTable} />
+                        <ForeignKeyItem key={f.id} fk={f} ctx={ctx} onSelectTable={onSelectTable} marks={marks} />
                     ))}
                     {incoming.map(({ t, f }) => (
                         <li key={f.id}>
@@ -663,6 +834,41 @@ export function TableDetails({
                     <p className="muted">None declared</p>
                 )}
             </Section>
+            {inferred.length > 0 && (
+                <Section title="Inferred associations" count={inferred.length} open>
+                    <p className="muted small">Heuristic: foreign keys imply these; the ORM declares no relationship for them.</p>
+                    <ul className="plain">
+                        {inferred.map((a) => (
+                            <InferredItem key={a.id} association={a} lookup={lookup} onOpen={(id) => onInferred?.(id)} />
+                        ))}
+                    </ul>
+                </Section>
+            )}
+            {tracks.length > 0 && (
+                <Section title="Migrations" count={tracks.length}>
+                    <p className="muted small">Revision status of the migration tracks that name this table; not schema drift.</p>
+                    <ul className="plain">
+                        {tracks.map((t) => {
+                            const row = t.coverage.find((r) => r.table === table.id);
+                            return (
+                                <li key={t.id}>
+                                    <button type="button" className="inline-link" onClick={() => onMigration?.(t.id)}>
+                                        {t.provider} · {scopeLabel(lookup, { connection: t.connection, schema: t.schema })}
+                                    </button>{' '}
+                                    <StatusBadge status={t.status} />
+                                    {t.versionTable === table.id && <div className="muted">This is the track's version table.</div>}
+                                    {row && (
+                                        <div className="muted">
+                                            autogenerate {row.autogenerate} · migrations {row.migrationManaged}
+                                            {row.certainty === 'likely' ? ' · likely' : ''}
+                                        </div>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </Section>
+            )}
             <Section title="Models" count={models.length}>
                 {models.length ? (
                     <ul className="plain">
@@ -698,8 +904,9 @@ const KIND_TAG: Record<GraphEdge['kind'], string> = {
 
 const connectionName = (ctx: DetailContext, table: string) => ctx.lookup.connections.get(ctx.lookup.connectionOf.get(table) ?? '')?.name ?? '?';
 
-export function EdgeDetails({ edge, ctx, onSelectTable }: { edge: GraphEdge; ctx: DetailContext; onSelectTable: (id: string) => void }) {
+export function EdgeDetails({ edge, ctx, onSelectTable, onInferred }: { edge: GraphEdge; ctx: DetailContext; onSelectTable: (id: string) => void; onInferred?: (id: string) => void }) {
     const fk = edge.link?.foreignKey ? ctx.lookup.foreignKeys.get(edge.link.foreignKey) : undefined;
+    const inferred = edge.link ? (inferredByLink(ctx.doc).get(edge.link.id) ?? []) : [];
     const relationships = (edge.link?.relationships ?? (edge.derived ? [edge.derived.relationship] : [])).map((id) => ctx.lookup.relationships.get(id)).filter((r): r is Relationship => !!r);
     return (
         <>
@@ -718,6 +925,19 @@ export function EdgeDetails({ edge, ctx, onSelectTable }: { edge: GraphEdge; ctx
                     <h3>Foreign key</h3>
                     <ul className="plain">
                         <ForeignKeyItem fk={fk} ctx={ctx} onSelectTable={onSelectTable} />
+                    </ul>
+                </>
+            )}
+            {inferred.length > 0 && (
+                <>
+                    <h3>Inferred association</h3>
+                    <p className="inferred-note">
+                        <InferredTag /> {NO_ATTRIBUTE}
+                    </p>
+                    <ul className="plain">
+                        {inferred.map((a) => (
+                            <InferredItem key={a.id} association={a} lookup={ctx.lookup} onOpen={(id) => onInferred?.(id)} />
+                        ))}
                     </ul>
                 </>
             )}

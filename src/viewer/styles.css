@@ -20,6 +20,10 @@
     --warning: #b45309;
     --error: #b91c1c;
     --fact: #15803d;
+    --inferred: #7c3aed;
+    --missing: #b91c1c;
+    --extra: #15803d;
+    --changed: #b45309;
     --selected: #18181b;
     --dot: #d4d4d8;
     --canvas-glow: rgb(30 58 138 / 5%);
@@ -58,6 +62,10 @@
     --warning: #f59e0b;
     --error: #f87171;
     --fact: #4ade80;
+    --inferred: #c4b5fd;
+    --missing: #f87171;
+    --extra: #4ade80;
+    --changed: #fbbf24;
     --selected: #fafafa;
     --dot: #24242a;
     --canvas-glow: rgb(109 141 255 / 9%);
@@ -1718,6 +1726,450 @@
         gap: 0;
     }
 }
+/* Comparisons: missing, extra and changed, always with a symbol and words; dashed when likely (heuristic) */
+.lsv .cmp-mark {
+    display: inline-grid;
+    place-items: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    font: 700 11px/1 var(--font-mono);
+    flex: none;
+}
+.lsv .cmp-mark--missing {
+    color: var(--missing);
+}
+.lsv .cmp-mark--extra {
+    color: var(--extra);
+}
+.lsv .cmp-mark--changed {
+    color: var(--changed);
+}
+.lsv .cmp-mark--likely {
+    border-style: dashed;
+}
+.lsv .legend-marks {
+    display: inline-flex;
+    gap: 2px;
+    flex: none;
+}
+.lsv .cmp-chip {
+    flex: none;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font: 600 9.5px/16px var(--font-mono);
+    padding: 0 5px;
+    border-radius: 4px;
+    border: 1px solid currentColor;
+    background: var(--surface);
+}
+.lsv .cmp-chip--missing {
+    color: var(--missing);
+}
+.lsv .cmp-chip--extra {
+    color: var(--extra);
+}
+.lsv .cmp-chip--changed {
+    color: var(--changed);
+}
+.lsv .cmp-chip--likely {
+    border-style: dashed;
+}
+.lsv .table-card.cmp--missing {
+    border-color: var(--missing);
+}
+.lsv .table-card.cmp--extra {
+    border-color: var(--extra);
+}
+.lsv .table-card.cmp--changed .table-title {
+    box-shadow: inset 3px 0 0 var(--changed);
+}
+.lsv .table-card.cmp--missing .table-title {
+    box-shadow: inset 3px 0 0 var(--missing);
+}
+.lsv .table-card.cmp--extra .table-title {
+    box-shadow: inset 3px 0 0 var(--extra);
+}
+.lsv .column.cmp-column--missing {
+    background: color-mix(in srgb, var(--missing) 10%, transparent);
+}
+.lsv .column.cmp-column--extra {
+    background: color-mix(in srgb, var(--extra) 10%, transparent);
+}
+.lsv .column.cmp-column--changed {
+    background: color-mix(in srgb, var(--changed) 10%, transparent);
+}
+.lsv .column .cmp-mark {
+    margin-left: 2px;
+}
+.lsv .badge--cmp-missing {
+    border-color: color-mix(in srgb, var(--missing) 50%, transparent);
+    color: var(--missing);
+}
+.lsv .badge--cmp-extra {
+    border-color: color-mix(in srgb, var(--extra) 50%, transparent);
+    color: var(--extra);
+}
+.lsv .badge--cmp-changed {
+    border-color: color-mix(in srgb, var(--changed) 50%, transparent);
+    color: var(--changed);
+}
+.lsv .small {
+    font-size: 11.5px;
+}
+
+/* Badges keep a solid surface on tinted cards, for contrast */
+.lsv .card .badge {
+    background: var(--surface);
+}
+
+/* Which comparison the diagram marks, over the canvas */
+.lsv .canvas-note {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 24px);
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    font-size: 11.5px;
+}
+.lsv .canvas-note.below-focus {
+    top: 56px;
+}
+.lsv .canvas-note.incomplete {
+    border-color: var(--warning);
+}
+.lsv .canvas-note.incomplete strong {
+    color: var(--warning);
+}
+.lsv .canvas-note__marks {
+    font: 700 11px var(--font-mono);
+    color: var(--muted);
+    flex: none;
+}
+.lsv .canvas-note__text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.lsv .canvas-note .link-button {
+    flex: none;
+}
+
+/* The Compare tab */
+.lsv .cmp-scopes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 6px;
+}
+.lsv .cmp-filter {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+.lsv .cmp-filter > span {
+    font: 500 9.5px var(--font-mono);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.lsv .cmp-filter select {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 6px;
+    font-size: 12px;
+}
+.lsv .cmp-arrow {
+    padding-bottom: 6px;
+    color: var(--muted);
+}
+.lsv .cmp-swap {
+    padding: 5px 8px;
+}
+.lsv .cmp-direction {
+    margin: 10px 0 4px;
+    font-size: 12px;
+}
+.lsv .cmp-explain {
+    font-size: 11.5px;
+    margin: 4px 0 10px;
+}
+.lsv .cmp-alert {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    border: 1px solid var(--warning);
+    border-left-width: 4px;
+    background: color-mix(in srgb, var(--warning) 10%, var(--bg));
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 8px 0 12px;
+    font-size: 12px;
+}
+.lsv .cmp-alert > .icon {
+    color: var(--warning);
+    margin-top: 2px;
+}
+.lsv .cmp-alert p {
+    margin: 4px 0;
+}
+.lsv .cmp-gaps {
+    margin: 4px 0 0;
+}
+.lsv .cmp-clean {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    border: 1px solid color-mix(in srgb, var(--fact) 50%, transparent);
+    border-radius: 10px;
+    padding: 8px 12px;
+    margin: 8px 0 12px;
+    color: var(--fact);
+    font-size: 12px;
+}
+.lsv .panel__body dl.cmp-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    margin: 8px 0;
+}
+.lsv .panel__body .cmp-stat {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 2px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 8px;
+    background: var(--bg);
+}
+.lsv .panel__body .cmp-stat dt {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font: 500 10px var(--font-mono);
+    color: var(--muted);
+}
+.lsv .panel__body .cmp-stat dd {
+    margin: 0;
+    font: 600 16px var(--font-mono);
+}
+.lsv .cmp-overlay {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+    margin: 6px 0 10px;
+}
+.lsv .cmp-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    border: 0;
+    padding: 0;
+    margin: 0 0 10px;
+}
+.lsv .cmp-group h3 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.lsv .cmp-group h3 .count,
+.lsv .cmp-group h3 .cmp-mark {
+    letter-spacing: 0;
+}
+.lsv .diff.diff--missing {
+    border-left-color: var(--missing);
+}
+.lsv .diff.diff--extra {
+    border-left-color: var(--extra);
+}
+.lsv .diff.diff--changed {
+    border-left-color: var(--changed);
+}
+.lsv .diff.diff--likely {
+    border-style: dashed;
+    border-left-style: solid;
+}
+.lsv .diff.selected,
+.lsv .track.selected {
+    box-shadow: 0 0 0 2px var(--accent-soft);
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.lsv .card__eyebrow .cmp-mark {
+    min-width: 14px;
+    height: 14px;
+    font-size: 10px;
+    letter-spacing: 0;
+}
+.lsv .diff__title {
+    border: 0;
+    padding: 0;
+    background: none;
+    font: 600 12px var(--font-mono);
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+.lsv .cmp-sides {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    margin: 6px 0;
+    font-size: 11px;
+}
+.lsv .cmp-sides th,
+.lsv .cmp-sides td {
+    text-align: left;
+    vertical-align: top;
+    padding: 3px 4px;
+    border-bottom: 1px solid var(--line);
+    overflow-wrap: anywhere;
+}
+.lsv .cmp-sides thead th {
+    font: 500 9.5px var(--font-mono);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.lsv .cmp-sides tbody th {
+    width: 26%;
+    font: 500 11px var(--font-mono);
+}
+.lsv .cmp-sides td.absent {
+    color: var(--muted);
+    font-style: italic;
+}
+.lsv .diff__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+}
+.lsv .table-comparison + .table-comparison {
+    margin-top: 12px;
+}
+.lsv .cmp-incomplete-inline {
+    color: var(--warning);
+}
+
+/* The Migrations tab: revision status, kept apart from schema differences */
+.lsv .status-badge {
+    background: var(--surface);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font: 600 10px/18px var(--font-mono);
+    padding: 0 6px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+}
+.lsv .status-badge .icon {
+    vertical-align: 0;
+}
+.lsv .status-badge--up_to_date {
+    color: var(--fact);
+}
+.lsv .status-badge--behind,
+.lsv .status-badge--uninitialized {
+    color: var(--warning);
+}
+.lsv .status-badge--diverged {
+    color: var(--error);
+}
+.lsv .status-badge--unknown {
+    color: var(--muted);
+    border-style: dashed;
+}
+.lsv ul.status-counts {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font: 500 11px var(--font-mono);
+}
+.lsv .card--fact {
+    border-left-color: var(--fact);
+}
+.lsv .track__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+}
+.lsv .track__scope {
+    font: 600 12px var(--font-mono);
+}
+.lsv .track__meaning {
+    color: var(--muted);
+}
+.lsv .panel__body dl.track__facts {
+    grid-template-columns: 104px minmax(0, 1fr);
+    margin: 4px 0;
+}
+.lsv .track__warning {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--warning);
+    font-weight: 500;
+}
+.lsv code.unknown-revision {
+    color: var(--error);
+}
+.lsv .track__toggle {
+    margin-top: 4px;
+    font-size: 12px;
+}
+.lsv .coverage-rows .badges {
+    margin-left: 2px;
+}
+.lsv .coverage-rows .evidence {
+    display: block;
+}
+
+/* Inferred associations: a heuristic over foreign keys, never an ORM relationship */
+.lsv .badge--inferred {
+    border-color: color-mix(in srgb, var(--inferred) 55%, transparent);
+    color: var(--inferred);
+}
+.lsv .tag--inferred {
+    border-color: color-mix(in srgb, var(--inferred) 55%, transparent);
+    color: var(--inferred);
+}
+.lsv .inferred-note {
+    border-left: 2px solid var(--inferred);
+    padding: 2px 0 2px 8px;
+    margin: 8px 0;
+    font-size: 12px;
+}
+.lsv .key--inferred {
+    border-top: 0;
+    height: 2px;
+    background: repeating-linear-gradient(to right, var(--inferred) 0 9px, transparent 9px 11px, var(--inferred) 11px 13px, transparent 13px 15px);
+}
+.lsv .react-flow__edge-path.edge.inferred {
+    stroke: var(--inferred);
+    stroke-dasharray: 10 3 2 3;
+}
+.lsv .edge-label--inferred .edge-label__chip {
+    background: color-mix(in srgb, var(--inferred) 16%, transparent);
+    color: var(--inferred);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .lsv *,
     .lsv *::before,

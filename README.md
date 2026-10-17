@@ -18,6 +18,10 @@ import 'laranex-schema-viewer-ui/styles.css';
 import { validateDocument, buildGraph, canonicalJson } from 'laranex-schema-viewer-ui/contract';
 ```
 
+The viewer displays the comparisons, migration tracks and inferred associations a document stores (Compare and
+Migrations tabs, difference marks on the diagram, inferred marks on foreign-key edges) and never computes them; see
+[docs/views.md](docs/views.md).
+
 Hosts without Node.js serve `node_modules/laranex-schema-viewer-ui/dist/viewer/` as static files with a
 `snapshot.json` beside `index.html`, or use `<laranex-schema-viewer src="snapshot.json">`.
 

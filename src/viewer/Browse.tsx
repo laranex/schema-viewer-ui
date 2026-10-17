@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react';
 import type { Model, SchemaDocument, Table } from '../contract/types';
 import { relationshipsOf, type GraphEdge, type Lookup } from './graph';
+import { inferredLabel } from './intelligence';
 
 // The Browse tab, after Laravel Schema Viewer's: every table with its models, every relationship, or every column,
 // filtered by a box of its own. Choosing a row opens it in Details and on the diagram.
 
-export type BrowseMode = 'tables' | 'relationships' | 'columns';
+// Inferred associations, when the document has them, are listed apart from the declared relationships.
+export type BrowseMode = 'tables' | 'relationships' | 'columns' | 'inferred';
 const MODES: { value: BrowseMode; label: string }[] = [
     { value: 'tables', label: 'Tables & Models' },
     { value: 'relationships', label: 'Relationships' },
     { value: 'columns', label: 'Columns' },
+    { value: 'inferred', label: 'Inferred' },
 ];
 
 const shortClass = (name: string) => name.split(/[\\.]/).pop() ?? name;
@@ -37,10 +40,14 @@ type Props = {
     onTable: (id: string) => void;
     onEdge: (edge: GraphEdge) => void;
     onColumn: (table: string, column: string) => void;
+    onInferred: (id: string) => void;
+    selectedInferred: string | null;
+    mode: BrowseMode;
+    onMode: (mode: BrowseMode) => void;
 };
 
-export function Browse({ doc, lookup, tables, edges, issues, selected, several, onTable, onEdge, onColumn }: Props) {
-    const [mode, setMode] = useState<BrowseMode>('tables');
+export function Browse({ doc, lookup, tables, edges, issues, selected, several, onTable, onEdge, onColumn, onInferred, selectedInferred, mode: wanted, onMode: setMode }: Props) {
+    const mode = wanted === 'inferred' && doc.inferredAssociations.length === 0 ? 'tables' : wanted;
     const [filter, setFilter] = useState('');
     const q = filter.trim().toLocaleLowerCase();
     const hit = (...texts: string[]) => !q || texts.some((t) => t.toLocaleLowerCase().includes(q));
@@ -78,6 +85,20 @@ export function Browse({ doc, lookup, tables, edges, issues, selected, several, 
                     };
                 });
         }
+        if (mode === 'inferred') {
+            return doc.inferredAssociations
+                .filter((a) => hit(inferredLabel(lookup, a), lookup.label(a.table), lookup.label(a.relatedTable), a.via ? lookup.label(a.via) : ''))
+                .map((a) => ({
+                    key: a.id,
+                    title: inferredLabel(lookup, a),
+                    subtitle: `${a.cardinality} · ${a.via ? `via ${lookup.label(a.via)}` : `${lookup.label(a.table)} → ${lookup.label(a.relatedTable)}`}`,
+                    meta: `${a.confidence} · inferred`,
+                    group: lookup.label(a.table),
+                    issues: 0,
+                    selected: selectedInferred === a.id,
+                    open: () => onInferred(a.id),
+                }));
+        }
         return tables.flatMap(({ table, connection }) =>
             table.columns
                 .filter((c) => hit(c.name, lookup.label(table.id), c.type))
@@ -92,13 +113,13 @@ export function Browse({ doc, lookup, tables, edges, issues, selected, several, 
                     open: () => onColumn(table.id, c.name),
                 })),
         );
-    }, [mode, q, tables, doc, lookup, edges, issues, selected]);
+    }, [mode, q, tables, doc, lookup, edges, issues, selected, selectedInferred]);
 
-    const noun = mode === 'tables' ? 'tables' : mode === 'relationships' ? 'relationships' : 'columns';
+    const noun = mode === 'tables' ? 'tables' : mode === 'relationships' ? 'relationships' : mode === 'inferred' ? 'inferred associations' : 'columns';
     return (
         <div className="browse">
             <div className="segmented" role="radiogroup" aria-label="Browse">
-                {MODES.map((m) => (
+                {MODES.filter((m) => m.value !== 'inferred' || doc.inferredAssociations.length > 0).map((m) => (
                     <button key={m.value} type="button" role="radio" aria-checked={mode === m.value} onClick={() => setMode(m.value)}>
                         {m.label}
                     </button>
@@ -108,6 +129,7 @@ export function Browse({ doc, lookup, tables, edges, issues, selected, several, 
                 <span className="sr-only">Filter {noun}</span>
                 <input type="search" placeholder={`Filter ${rows.length} ${noun}`} value={filter} onChange={(e) => setFilter(e.target.value)} autoComplete="off" spellCheck={false} />
             </label>
+            {mode === 'inferred' && <p className="muted small">Heuristic: foreign keys imply these associations; no ORM relationship attribute is declared for any of them.</p>}
             {rows.length === 0 && <p className="muted empty-note">Nothing matches.</p>}
             <ul className="browse__rows">
                 {rows.map((r, i) => (

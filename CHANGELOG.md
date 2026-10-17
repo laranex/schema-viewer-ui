@@ -31,6 +31,26 @@ All notable changes to this project are documented here. The format follows
   exit codes 0 (pass), 1 (qualifying drift) and 2 (incomplete comparison, failed inspection or validation).
 - Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`, `migrations-alembic`
   and `inferred-associations`, and invalid fixtures for each new rule.
+- Viewer **Compare** tab for stored comparisons: baseline and target selectors built from the stored scopes (with a
+  swap when the reverse comparison is stored), the baseline → target direction everywhere, summary counts, `omitted`
+  and an incomplete-comparison warning with the coverage gaps, differences grouped as missing, extra and changed with
+  baseline and target values side by side, filters by object type, change, severity and certainty, the connections'
+  diagnostics, and links that open the affected table on the baseline or target side.
+- Comparison marks on the diagram and in Details: missing, extra and changed tables, columns (kept visible on folded
+  cards), indexes, foreign keys and constraints, each with a symbol and words; likely (heuristic) findings dashed and
+  labelled apart from certain ones; a canvas note names the marked comparison and says when it is incomplete. Toggle
+  them in Show → Comparison marks.
+- Viewer **Migrations** tab: every migration track per connection and schema with its stored status (up to date,
+  behind with the pending revisions, diverged in the contract's words, uninitialized, unknown with the reason),
+  current revisions, expected heads, multiple-heads warnings, unknown and missing revisions, the version table, the
+  track's diagnostics and its migration coverage. Revision status is kept apart from schema differences.
+- Inferred associations: marked on the foreign-key edges they rest on (violet dash-dot, `FK · inferred`, own legend
+  entry and toggle <kbd>5</kbd>) without drawing new edges; listed in Browse → Inferred, in table and edge details,
+  and in their own details with cardinality, confidence, ambiguities and confirmed or unconfirmed evidence, always
+  stating that no ORM relationship attribute is declared.
+- Deep links `#view=compare&comparison=…&difference=…`, `#view=migrations&migration=…` and `#inferred=…`; shortcuts
+  <kbd>X</kbd> (Compare), <kbd>M</kbd> (Migrations) and <kbd>5</kbd>; diagnostics about a comparison, migration track
+  or inferred association link to it.
 
 ## [0.2.0] - 2026-10-17
 

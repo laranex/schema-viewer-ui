@@ -18,5 +18,13 @@ Python host serves it. Pick a schema in the bar above the diagram.
   that is unique in only one of them, a column and a foreign key only the models declare.
 - **PostgreSQL indexes.** Open `public.accounts` and read the Indexes section: primary, unique, constraint-backed,
   partial, expression, covering, GIN and operator-class indexes.
+- **Tenant schemas compared.** Open Compare (<kbd>X</kbd>): two tenant schemas, baseline → target, with missing,
+  extra and changed objects side by side. The diagram marks the same differences; choose **Show in target** on a
+  difference to open the table on that side.
+- **Incomplete comparison.** The warning says why it is incomplete; a comparison like this never passes as clean.
+- **Migration status.** Open Migrations (<kbd>M</kbd>): every Alembic status, multiple heads, a partial history and
+  migration coverage, apart from schema differences.
+- **Inferred associations.** Foreign keys no ORM relationship covers are marked as inferred on their edges; Browse →
+  Inferred lists them with confidence and evidence.
 - Press <kbd>S</kbd> for every shortcut, <kbd>?</kbd> for the tour, <kbd>N</kbd> for notes, <kbd>C</kbd> to fold
   columns, and <kbd>E</kbd> to export the diagram as PNG or SVG.

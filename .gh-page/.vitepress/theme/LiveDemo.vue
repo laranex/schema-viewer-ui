@@ -12,6 +12,10 @@ const fixtures = [
   { page: 'mysql.html', label: 'MySQL indexes' },
   { page: 'sqlite.html', label: 'SQLite indexes' },
   { page: 'connections.html', label: 'Three connections' },
+  { page: 'compare.html', label: 'Tenant schemas compared' },
+  { page: 'compare-incomplete.html', label: 'Incomplete comparison' },
+  { page: 'migrations.html', label: 'Migration status' },
+  { page: 'inferred.html', label: 'Inferred associations' },
 ]
 const page = ref(fixtures[0].page)
 const ready = ref(false)
