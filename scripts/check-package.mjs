@@ -27,7 +27,7 @@ try {
 
     const installed = join(project, 'node_modules/laranex-schema-viewer-ui');
     const script = `
-        import { validateDocument, buildGraph, canonicalJson, compareScopes, FORMAT } from 'laranex-schema-viewer-ui/contract';
+        import { validateDocument, buildGraph, canonicalJson, compareScopes, gateDocument, FORMAT } from 'laranex-schema-viewer-ui/contract';
         import { readFileSync } from 'node:fs';
         import { createRequire } from 'node:module';
         const require = createRequire(import.meta.url);
@@ -38,6 +38,8 @@ try {
         const tenants = JSON.parse(readFileSync(require.resolve('laranex-schema-viewer-ui/contract/fixtures/valid/comparison-tenant-schemas.json'), 'utf8'));
         const c = tenants.comparisons[0];
         if (canonicalJson(compareScopes(tenants, c.baseline, c.target)) !== canonicalJson(c)) throw new Error('comparison differs');
+        const gate = JSON.parse(readFileSync(require.resolve('laranex-schema-viewer-ui/contract/conformance/gate/requested-wildcard.json'), 'utf8'));
+        if (canonicalJson(gateDocument(gate.input.document, gate.input)) !== canonicalJson(gate.expected)) throw new Error('gate report differs');
         const schema = require('laranex-schema-viewer-ui/schema.json');
         if (!schema.$id || FORMAT !== 'laranex-schema') throw new Error('schema export');
         require.resolve('laranex-schema-viewer-ui/viewer/app.js');
@@ -69,7 +71,7 @@ try {
     if (!page.includes('<link rel="icon" href="favicon.svg" type="image/svg+xml">') || !page.includes('<link rel="icon" href="favicon.ico" sizes="32x32">')) {
         fail('index.html does not link the favicon by relative URLs');
     }
-    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/check.mjs', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
+    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/check.mjs', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'contract/conformance/gate', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
         if (!existsSync(join(installed, required))) {
             fail(`missing ${required}`);
         }

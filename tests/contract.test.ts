@@ -7,6 +7,7 @@ import { sha256 } from '../src/contract/sha256';
 import { VALID } from './fixtures/documents';
 import { COMPARISON_CASES } from './fixtures/comparison-cases';
 import { GATE_INVALID, GATE_VALID } from './fixtures/gate';
+import { GATE_CASES } from './fixtures/gate-cases';
 import { GRAPH_CASES } from './fixtures/graph-cases';
 import { INFERENCE_CASES } from './fixtures/inference-cases';
 import { MIGRATION_CASES } from './fixtures/migration-cases';
@@ -63,6 +64,7 @@ describe('contract artifacts', () => {
     it('comparison conformance cases are current', () => artifacts('conformance/comparison', COMPARISON_CASES));
     it('migration conformance cases are current', () => artifacts('conformance/migrations', MIGRATION_CASES));
     it('inference conformance cases are current', () => artifacts('conformance/inference', INFERENCE_CASES));
+    it('gate conformance cases are current', () => artifacts('conformance/gate', GATE_CASES));
 });
 
 describe('valid fixtures', () => {
@@ -151,6 +153,24 @@ describe('gate reports', () => {
     }
     it('exits 2 for an incomplete comparison, 1 for qualifying drift and 0 otherwise', () => {
         expect([GATE_VALID.passed.exitCode, GATE_VALID.drift.exitCode, GATE_VALID.incomplete.exitCode]).toEqual([0, 1, 2]);
+    });
+});
+
+describe('gate conformance', () => {
+    const schema = new Ajv2020({ strict: true, allErrors: true }).compile(gateReportJsonSchema());
+    for (const [name, c] of Object.entries(GATE_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(validateGateReport(c.expected, { strict: true }).errors).toEqual([]);
+            expect(schema(c.expected), JSON.stringify(schema.errors)).toBe(true);
+            expect(gateDocument(c.input.document, { thresholds: c.input.thresholds, requested: c.input.requested })).toEqual(c.expected);
+        });
+    }
+
+    it('reads valid case documents strictly, so only the invalid and newer-minor cases test validation', () => {
+        for (const [name, c] of Object.entries(GATE_CASES)) {
+            const invalid = c.expected.errors.some((e) => e.kind === 'invalid_document' || e.kind === 'validation_incomplete');
+            expect(validateDocument(c.input.document, { strict: true }).ok, name).toBe(!invalid);
+        }
     });
 });
 
