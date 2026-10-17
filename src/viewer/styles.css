@@ -1196,3 +1196,25 @@
     padding: 0;
     margin: 0;
 }
+.lsv .export-menu {
+    position: absolute;
+    bottom: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: grid;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    padding: 4px;
+    z-index: 6;
+}
+.lsv .export-menu button {
+    border: 0;
+    text-align: left;
+    background: transparent;
+    font-size: 12px;
+}
+.lsv .export-menu button:hover {
+    background: var(--surface-2);
+}

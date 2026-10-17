@@ -3,15 +3,18 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type Keyboard
 import type { Diagnostic, SchemaDocument, Table } from '../contract/types';
 import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
 import { EdgeDetails, Guide, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
+import { boundsOf, clip, colorsOf, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
 import {
     cardHeight,
     cardRows,
     CARD_WIDTH,
+    columnMarks,
     EDGE_KINDS,
     edgesFor,
     FOLDS,
     isNote,
     keyColumns,
+    NOTE,
     lookup as buildLookup,
     matchesTable,
     neighbors,
@@ -172,6 +175,7 @@ function Viewer({
     const [spacePan, setSpacePan] = useState(false);
     const [shortcuts, setShortcuts] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
+    const [exportOpen, setExportOpen] = useState(false);
 
     useEffect(() => {
         if (!toast) {
@@ -473,6 +477,64 @@ function Viewer({
         setFocus(null);
         setConnection((c) => ids[(ids.indexOf(c) + by + ids.length) % ids.length]);
     };
+    // What the diagram shows, as an image model: cards where they are and edges along their routes.
+    const imageModel = (): ImageModel => {
+        const imageNodes = visible
+            .filter(({ table }) => positions[table.id])
+            .map(({ table, connection: c }) => {
+                const p = dragging[table.id] ?? positions[table.id];
+                const marks = columnMarks(table);
+                const byName = new Map(table.columns.map((col) => [col.name, col]));
+                const shown = rows.get(table.id) ?? [];
+                return {
+                    x: p.x,
+                    y: p.y,
+                    width: CARD_WIDTH,
+                    height: heights[table.id],
+                    title: tableLabel(table),
+                    subtitle: `${c.name}${table.owner.kind !== 'application' ? ` · ${table.owner.package ?? table.owner.kind}` : ''}`,
+                    rows: shown.map((r) => {
+                        if (isNote(r)) {
+                            return { note: true, key: '', name: (r === NOTE ? table.note : byName.get(r.slice(NOTE.length))?.note) ?? '', type: '', flag: null };
+                        }
+                        const col = byName.get(r);
+                        const flag = col?.drift?.length ? ('drift' as const) : combined && col?.provenance.length === 1 && col.provenance[0] === 'declared' ? ('declared-only' as const) : null;
+                        return { note: false, key: marks.get(r) ?? '', name: r, type: col?.type ?? '', flag };
+                    }),
+                    more: table.columns.length - shown.filter((r) => !isNote(r)).length,
+                    declaredOnly: combined && table.provenance.length === 1 && table.provenance[0] === 'declared',
+                };
+            });
+        const imageEdges = shownEdges.flatMap((e) => {
+            const r = routes.get(e.id);
+            return r ? [{ kind: e.kind, declaredOnly: e.declaredOnly, sx: r.sx, sy: r.sy, cx: r.channelX, tx: r.tx, ty: r.ty, label: labelled(e) ? { x: r.labelX, y: r.labelY, text: e.label } : null }] : [];
+        });
+        return { nodes: imageNodes, edges: imageEdges, bounds: boundsOf(imageNodes) };
+    };
+    const exportImage = async (format: 'png' | 'svg', area: 'all' | 'visible') => {
+        setExportOpen(false);
+        try {
+            let model = imageModel();
+            if (area === 'visible') {
+                const box = canvas.current?.getBoundingClientRect();
+                const { x, y, zoom } = flow.getViewport();
+                if (box) {
+                    model = clip(model, { x: -x / zoom, y: -y / zoom, width: box.width / zoom, height: box.height / zoom });
+                }
+            }
+            const colors = colorsOf(root.current as HTMLElement);
+            const name = `schema-${area === 'all' ? 'diagram' : 'view'}.${format}`;
+            if (format === 'svg') {
+                save(new Blob([toSvg(model, colors)], { type: 'image/svg+xml' }), name);
+            } else {
+                await document.fonts?.ready;
+                save(await toPngBlob(toCanvas(model, colors)), name);
+            }
+            setToast(`Saved ${name}`);
+        } catch (error) {
+            setToast(error instanceof Error ? error.message : 'The image could not be made.');
+        }
+    };
     const copyLink = () => {
         void navigator.clipboard?.writeText(location.href).then(
             () => setToast('Link copied'),
@@ -503,6 +565,7 @@ function Viewer({
         '[': () => stepConnection(-1),
         ']': () => stepConnection(1),
         s: () => setShortcuts(true),
+        e: () => setExportOpen((o) => !o),
     };
     useEffect(() => {
         const down = (event: globalThis.KeyboardEvent) => {
@@ -778,7 +841,25 @@ function Viewer({
                         onZoomOut={() => zoomBy(0.8)}
                         onFit={() => fit()}
                         onArrange={() => setArrangeCount((n) => n + 1)}
+                        onExport={() => setExportOpen((o) => !o)}
+                        exportOpen={exportOpen}
                     />
+                    {exportOpen && (
+                        <div className="export-menu" role="menu" aria-label="Export the diagram">
+                            {(
+                                [
+                                    ['png', 'all', 'PNG · whole diagram'],
+                                    ['png', 'visible', 'PNG · visible area'],
+                                    ['svg', 'all', 'SVG · whole diagram'],
+                                    ['svg', 'visible', 'SVG · visible area'],
+                                ] as const
+                            ).map(([format, area, label]) => (
+                                <button type="button" role="menuitem" key={label} onClick={() => void exportImage(format, area)}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {visible.length === 0 && (
                         <div className="empty">
                             <strong>No matching tables</strong>
@@ -847,8 +928,12 @@ function CanvasTools({
     onZoomOut,
     onFit,
     onArrange,
+    onExport,
+    exportOpen,
 }: {
     panMode: boolean;
+    onExport: () => void;
+    exportOpen: boolean;
     onPanMode: () => void;
     onZoomIn: () => void;
     onZoomOut: () => void;
@@ -875,6 +960,9 @@ function CanvasTools({
             </button>
             <button type="button" onClick={onArrange} title="Reset the layout">
                 Arrange
+            </button>
+            <button type="button" onClick={onExport} aria-expanded={exportOpen} aria-haspopup="menu" title="Export an image (E)">
+                Export
             </button>
         </div>
     );

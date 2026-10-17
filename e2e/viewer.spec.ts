@@ -100,4 +100,21 @@ test.describe('standalone viewer under a strict CSP', () => {
         const after = await card('mysql:roles').boundingBox();
         expect(Math.round(after!.x - before!.x)).toBeGreaterThan(50);
     });
+
+    test('exports PNG and SVG images under the strict CSP', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'Downloads are covered on desktop.');
+        await page.goto('/f/combined-eloquent/');
+        await loaded(page);
+        await page.getByRole('button', { name: 'Export' }).click();
+        const [png] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'PNG · whole diagram' }).click()]);
+        expect(png.suggestedFilename()).toBe('schema-diagram.png');
+        const bytes = await (await png.createReadStream()).toArray();
+        const head = Buffer.concat(bytes).subarray(0, 8);
+        expect(head.toString('hex')).toBe('89504e470d0a1a0a');
+        await page.keyboard.press('e');
+        const [svg] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'SVG · visible area' }).click()]);
+        const text = Buffer.concat(await (await svg.createReadStream()).toArray()).toString('utf8');
+        expect(text).toContain('<svg');
+        expect(text).toContain('posts');
+    });
 });
