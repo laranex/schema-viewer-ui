@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 // Every keyboard shortcut, adapted from Laranex Laravel Schema Viewer's list. Shown by S and in the guide.
 export const SHORTCUTS: [string[], string][] = [
-    [['/'], 'Search tables, columns and models'],
+    [['/', '⌘/Ctrl K'], 'Search tables, columns and models'],
     [['Esc'], 'Step back one layer: a menu, a column, picked tables, focus, the selection, the sheet'],
     [['F', '0'], 'Fit the diagram to the screen'],
     [['+', '−'], 'Zoom in or out'],

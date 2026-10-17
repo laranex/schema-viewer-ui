@@ -75,7 +75,7 @@ it never infers a constraint from a relationship.
 
 | Keys | Action |
 | --- | --- |
-| <kbd>/</kbd> | Search |
+| <kbd>/</kbd> <kbd>⌘/Ctrl</kbd> <kbd>K</kbd> | Search |
 | <kbd>Esc</kbd> | Step back one layer at a time: an open menu, a column, several picked tables, focus, the selection, the phone sheet |
 | <kbd>F</kbd> <kbd>0</kbd> | Fit the diagram |
 | <kbd>+</kbd> <kbd>−</kbd> | Zoom |
@@ -89,7 +89,7 @@ it never infers a constraint from a relationship.
 | <kbd>5</kbd> | Inferred-association marks on foreign-key edges |
 | <kbd>Y</kbd> <kbd>G</kbd> <kbd>P</kbd> | Your, framework and package tables |
 | <kbd>[</kbd> <kbd>]</kbd> | Previous or next connection, or all of them |
-| <kbd>Shift</kbd> <kbd>C</kbd> | Copy a link to this view |
+| <kbd>Shift</kbd> <kbd>C</kbd> | Copy a link to this exact view, panned and zoomed as it is (`#at=x,y,zoom`) |
 | <kbd>A</kbd> <kbd>D</kbd> <kbd>H</kbd> <kbd>W</kbd> | Browse, Details, Diagnostics, Changes |
 | <kbd>X</kbd> <kbd>M</kbd> | Compare, Migrations (when the document has them) |
 | <kbd>E</kbd> | Download menu: JSON, PNG or SVG |
@@ -113,5 +113,6 @@ kept (`encodeURI`) and `{line}` defaults to 1. Templates with a `javascript:`, `
 The URL hash keeps the view: `#table=<id>` (with `&column=<name>` for a column), `#link=<id>`, `#inferred=<id>`, `#focus=<table or line id>&depth=2`, `#connection=<id>`,
 `#view=compare&comparison=<id>&difference=<id>` (with the Compare filters `object`, `change`, `severity`, `certainty`) and `#view=migrations&migration=<id>`. An unknown connection id opens every connection; a `#table=` on another connection than
 `#connection=` opens the table's own connection. A link to a table, line, connection, comparison or migration track the document
-does not have opens the whole diagram with a note saying so. Press
+does not have opens the whole diagram with a note saying so. A copied link (<kbd>Shift</kbd> <kbd>C</kbd>, Copy link) adds
+`at=x,y,zoom`, so it opens panned and zoomed as it was. Press
 <kbd>Shift</kbd> <kbd>C</kbd> to copy it.

@@ -263,3 +263,13 @@ describe('Escape, one layer at a time', () => {
         ]);
     });
 });
+
+describe('viewport links and search shortcut', () => {
+    it('opens a link with #at= panned and zoomed as it was, and focuses the search with Cmd/Ctrl K', async () => {
+        history.replaceState(null, '', '/#at=10,20,0.5');
+        const { container } = await show(VALID['combined-eloquent'](), { deepLinks: true });
+        await waitFor(() => expect((container.querySelector('.react-flow__viewport') as HTMLElement).style.transform).toBe('translate(10px,20px) scale(0.5)'));
+        fireEvent.keyDown(document.body, { key: 'k', metaKey: true });
+        expect(document.activeElement).toBe(screen.getByRole('combobox', { name: /Search/ }));
+    });
+});

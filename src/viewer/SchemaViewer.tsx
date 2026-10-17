@@ -487,6 +487,12 @@ function Viewer({
     const placedIds = useMemo(() => [...visible.map(({ table }) => table.id), ...externals.keys()], [visible, externals]);
     const layoutEdges = useMemo(() => edges.map((e) => ({ id: e.id, source: e.source, target: e.target })), [edges]);
     const pendingFit = useRef(false);
+    const initialView = useRef<{ x: number; y: number; zoom: number } | null>(
+        (() => {
+            const [x, y, zoom] = (initialHash.get('at') ?? '').split(',').map(Number);
+            return [x, y, zoom].every(Number.isFinite) && zoom > 0 ? { x, y, zoom: Math.max(0.05, Math.min(2.5, zoom)) } : null;
+        })(),
+    );
     // Card heights are read when the layout runs, not watched: folding or unfolding one card keeps every position, dragged
     // ones included, as in Laravel Schema Viewer. Folding every card (Columns), notes and comparison marks arrange again.
     const sizeRef = useRef(sizeOf);
@@ -680,7 +686,10 @@ function Viewer({
             return;
         }
         pendingFit.current = false;
-        const frame = requestAnimationFrame(() => (selection?.kind === 'table' && positions[selection.id] && !focus ? center(selection.id) : fit()));
+        // The first layout opens where a copied link was (#at=x,y,zoom), if it has one.
+        const at = initialView.current;
+        initialView.current = null;
+        const frame = requestAnimationFrame(() => (at ? void flow.setViewport(at) : selection?.kind === 'table' && positions[selection.id] && !focus ? center(selection.id) : fit()));
         return () => cancelAnimationFrame(frame);
         // Only a new layout refits; selecting later does not.
     }, [phase, positions]);
@@ -971,8 +980,12 @@ function Viewer({
         setFocus(null);
         setConnection((c) => ids[(ids.indexOf(c) + by + ids.length) % ids.length]);
     };
+    // The link opens this exact view: the hash, plus where the diagram is panned and zoomed (#at=x,y,zoom).
     const copyLink = () => {
-        void navigator.clipboard?.writeText(location.href).then(
+        const { x, y, zoom } = flow.getViewport();
+        const params = new URLSearchParams(location.hash.slice(1));
+        params.set('at', `${Math.round(x)},${Math.round(y)},${Math.round(zoom * 1000) / 1000}`);
+        void navigator.clipboard?.writeText(`${location.origin}${location.pathname}${location.search}#${params}`).then(
             () => setToast('Link copied'),
             () => setToast('Could not copy the link'),
         );
@@ -1147,6 +1160,12 @@ function Viewer({
                 if (ours && !typing) {
                     actions.current.Escape();
                 }
+                return;
+            }
+            // Cmd/Ctrl K searches, as in Laravel Schema Viewer, even while typing elsewhere in the viewer.
+            if (ours && (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+                event.preventDefault();
+                search.current?.focus();
                 return;
             }
             if (typing || !ours || event.metaKey || event.ctrlKey || event.altKey) {

@@ -94,6 +94,8 @@ All notable changes to this project are documented here. The format follows
   then the phone sheet.
 - The connection picker shows each connection's driver and table count, and the Tables menu the number of tables of
   each owner kind.
+- Copy link adds the viewport (`#at=x,y,zoom`), and a link with it opens panned and zoomed as it was; <kbd>⌘/Ctrl</kbd>
+  <kbd>K</kbd> focuses the search.
 
 ### Fixed
 
