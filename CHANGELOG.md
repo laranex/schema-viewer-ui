@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-Planned as 0.2.0.
+## [0.2.0] - 2026-10-17
 
 ### Added
 
@@ -18,7 +18,7 @@ Planned as 0.2.0.
 
 ### Changed
 
-- The validator rejects a foreign key whose target table is in another connection (`Foreign key crosses connections`), and `buildGraph()` never links one; `docs/contract.md` states that documents are multi-connection, foreign keys never cross connections and relationships may. Every existing valid document stays valid.
+- **Stricter validation:** the validator now rejects a foreign key whose target table is in another connection (`Foreign key crosses connections`), in strict and lenient mode alike, and `buildGraph()` never links one. Physical constraints live in one database; only ORM relationships may cross connections. A producer that wrote such a foreign key must drop it or write it as a relationship. Every 0.1.0 contract fixture stays valid, and the contract stays at `laranex-schema` 1.0. `docs/contract.md` now states that documents are multi-connection, foreign keys never cross connections, and relationships may.
 - An unknown `#connection=` (or `defaultConnection`) id opens every connection instead of an empty diagram, and a `#table=` deep link to another connection opens that table's connection. Opening a table on another connection from search, Browse or Details switches to its connection instead of to all connections.
 - The connection menu shows each connection's driver.
 
@@ -42,5 +42,6 @@ Planned as 0.2.0.
 - The standalone bundle (`dist/viewer`): `app.js`, `app.css`, lazily loaded ELK and fonts, `index.html` and a `manifest.json` with file hashes. It reads the document from an inline JSON script, `window.__SCHEMA_VIEWER__` or a snapshot URL, defines the `<laranex-schema-viewer>` element, and runs under `script-src 'self'`.
 - Contract documentation (`docs/contract.md`) and the roadmap for client-side exports and index analysis (`ROADMAP.md`).
 
-[Unreleased]: https://github.com/laranex/schema-viewer-ui/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/laranex/schema-viewer-ui/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/laranex/schema-viewer-ui/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/laranex/schema-viewer-ui/releases/tag/v0.1.0
