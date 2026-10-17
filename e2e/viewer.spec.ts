@@ -94,6 +94,13 @@ test.describe('standalone viewer under a strict CSP', () => {
         expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
     });
 
+    test('has no serious accessibility violations with several connections', async ({ page }) => {
+        await page.goto('/f/combined-multi-connection/#connection=connection%3Acache');
+        await loaded(page);
+        const results = await new AxeBuilder({ page }).exclude('.react-flow__renderer').analyze();
+        expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+    });
+
     test('picks several tables with Shift and moves them together', async ({ page, isMobile }) => {
         test.skip(isMobile, 'Shift-click needs a keyboard.');
         await page.goto('/f/combined-eloquent/');
@@ -183,5 +190,42 @@ test.describe('standalone viewer under a strict CSP', () => {
         await page.mouse.move(spot!.x + 60, spot!.y + 30, { steps: 8 });
         await page.mouse.up();
         await expect.poll(() => page.evaluate(() => (document.querySelector('.react-flow__viewport') as HTMLElement).style.transform)).not.toBe(before);
+    });
+
+    test('frames each connection and navigates across connections through reference nodes', async ({ page, isMobile }) => {
+        const violations: string[] = [];
+        page.on('console', (m) => m.type() === 'error' && violations.push(m.text()));
+        page.on('pageerror', (e) => violations.push(e.message));
+        await page.goto('/f/combined-multi-connection/');
+        await loaded(page);
+        await expect(page.locator('.region-node')).toHaveCount(3);
+        await expect(page.locator('.react-flow__node-table')).toHaveCount(5);
+        await expect(page.locator('.react-flow__node[data-id="app:public.users"] .table-title')).toContainText('app · public.users');
+        await expect(page.locator('.react-flow__node[data-id="analytics:users"] .table-title')).toContainText('analytics · users');
+
+        if (isMobile) {
+            await page.getByRole('button', { name: 'More' }).click();
+            await page.getByRole('menuitemradio', { name: /analytics/ }).click();
+        } else {
+            await page.getByRole('combobox', { name: 'Connection' }).selectOption('connection:analytics');
+        }
+        await expect(page.locator('.region-node')).toHaveCount(0);
+        const external = page.locator('.react-flow__node-external');
+        await expect(external).toHaveCount(1);
+        await expect(external).toContainText('On connection app');
+        await expect(page.locator('.react-flow__edge-path.cross-connection')).toHaveCount(1);
+        await expect(page.locator('.react-flow__edge-path.cross-connection.edge--relationship')).toHaveCount(1);
+        expect(page.url()).toContain('#connection=connection%3Aanalytics');
+
+        await external.getByRole('button').click();
+        await expect(page.getByRole('complementary', { name: 'Side panel' }).getByRole('heading', { name: /app · public\.users/ })).toBeVisible();
+        await expect.poll(() => page.url()).toContain('connection=connection%3Aapp');
+        await expect(page.locator('.react-flow__node-external')).toHaveCount(2);
+        if (!isMobile) {
+            await page.locator('.canvas').focus();
+            await page.keyboard.press(']');
+            await expect(page.getByRole('combobox', { name: 'Connection' })).toHaveValue('connection:analytics');
+        }
+        expect(violations).toEqual([]);
     });
 });

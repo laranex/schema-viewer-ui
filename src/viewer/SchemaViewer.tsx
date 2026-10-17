@@ -325,12 +325,12 @@ function Viewer({
 
     const fit = useCallback(
         (ids?: string[]) => {
-            const nodes = (ids ?? [...visibleIds]).map((id) => ({ id }));
+            const nodes = (ids ?? [...visibleIds, ...externals.keys()]).map((id) => ({ id }));
             if (nodes.length) {
                 void flow.fitView({ nodes, padding: 0.12, maxZoom: 1.2, minZoom: 0.05 });
             }
         },
-        [flow, visibleIds],
+        [flow, visibleIds, externals],
     );
 
     const placedIds = useMemo(() => [...visible.map(({ table }) => table.id), ...externals.keys()], [visible, externals]);
