@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { compareScopes, type SchemaDocument } from '../src/contract';
+import { buildGraph, compareScopes, type SchemaDocument } from '../src/contract';
 import { byCodePoint } from '../src/contract/serialize';
 import { root } from './helpers';
 
@@ -11,6 +11,32 @@ const valid = (name: string): SchemaDocument => JSON.parse(readFileSync(root('co
 const sorted = (doc: SchemaDocument): SchemaDocument => ({ ...doc, comparisons: [...doc.comparisons].sort((a, b) => byCodePoint(a.id, b.id)) });
 
 export const VIEWER_DOCUMENTS: Record<string, () => SchemaDocument> = {
+    // Three connections and a relationship through a table on another connection: teams → users through cache's
+    // sessions, so showing one connection must draw the intermediate table as a reference.
+    'viewer-cross-connection-through': () => {
+        const doc = valid('combined-multi-connection');
+        const team = doc.relationships.find((r) => r.id === 'App\\Models\\User::team');
+        if (!team) {
+            throw new Error('combined-multi-connection changed: no User::team relationship');
+        }
+        const through = {
+            ...team,
+            id: 'App\\Models\\Team::sessionUsers',
+            name: 'sessionUsers',
+            model: 'App\\Models\\Team',
+            table: 'app:public.teams',
+            relatedModel: 'App\\Models\\User',
+            relatedTable: 'app:public.users',
+            type: 'HasManyThrough',
+            cardinality: 'one-to-many' as const,
+            collection: true,
+            keys: null,
+            through: ['cache:sessions'],
+            source: null,
+        };
+        const relationships = [...doc.relationships, through].sort((a, b) => byCodePoint(a.id, b.id));
+        return { ...doc, relationships, ...buildGraph({ connections: doc.connections, relationships }) };
+    },
     // Both directions of the tenant comparison, so baseline and target can be chosen and swapped.
     'viewer-two-way-comparison': () => {
         const doc = valid('comparison-tenant-schemas');

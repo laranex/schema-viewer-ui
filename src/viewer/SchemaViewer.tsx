@@ -1,10 +1,11 @@
 import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, useStoreApi, useViewport, type EdgeChange, type NodeChange } from '@xyflow/react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
-import type { Diagnostic, SchemaDocument, Table } from '../contract/types';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import type { SchemaDocument, Table } from '../contract/types';
 import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
+import { BRAND_PATH, BRAND_RECTS, BRAND_VIEWBOX } from './brand';
 import { Browse, tableSubtitle, type BrowseMode } from './Browse';
-import { ComparePanel } from './Compare';
-import { ChangesPanel, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
+import { ComparePanel, FILTER_PARAM, filtersFrom, type CompareFilters } from './Compare';
+import { ChangesPanel, ColumnDetails, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, usesColumn, type DetailContext, type ExtensionRenderers } from './Details';
 import { boundsOf, clip, colorsOf, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
 import {
     cardHeight,
@@ -12,6 +13,7 @@ import {
     CARD_WIDTH,
     columnMarks,
     EDGE_KINDS,
+    diagnosticScope,
     edgesFor,
     FOLDS,
     isNote,
@@ -24,7 +26,7 @@ import {
     type Fold,
     type GraphEdge,
 } from './graph';
-import { ARRANGEMENTS, autoLayout, packRegions, type Arrangement, type LayoutRequest, type Positions, type Region } from './layout';
+import { ARRANGEMENTS, autoLayout, frameAround, packRegions, type Arrangement, type LayoutRequest, type Positions, type Region } from './layout';
 import { Resizer } from './Resizer';
 import { route, type Box } from './routing';
 import { InferredDetails } from './Inferred';
@@ -33,7 +35,7 @@ import { MigrationsPanel } from './Migrations';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { SearchBox, type SearchResult } from './Search';
 import { ShortcutsDialog } from './Shortcuts';
-import { EXTERNAL_HEIGHT, ExternalNodeView, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
+import { EXTERNAL_HEIGHT, ExternalNodeView, frameMeta, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
 import { Tour } from './Tour';
 import { useTheme, type Theme } from './theme';
 import { Icon, Menu, MenuCheck, MenuItem, MenuLabel, MenuRadio, MenuSeparator, TabList, type TabSpec } from './ui';
@@ -57,7 +59,8 @@ export type SchemaViewerProps = {
     // Remember the theme button's choice in localStorage.
     persistTheme?: boolean;
     // Keep the view in the URL hash (#table=…, #link=…, #inferred=…, #focus=…, #depth=…, #connection=…, #view=compare with
-    // #comparison=… and #difference=…, #view=migrations with #migration=…) and open on it.
+    // #comparison=…, #difference=… and the filters #object=…, #change=…, #severity=…, #certainty=…; #view=migrations with
+    // #migration=…) and open on it.
     deepLinks?: boolean;
     // Where Download JSON points; null hides it. By default it downloads the document shown.
     downloadHref?: string | null;
@@ -86,6 +89,8 @@ const ARRANGE_HINT: Record<Arrangement, string> = {
     snowflake: 'The most connected tables in the middle',
     compact: 'A tight rectangle, in name order',
 };
+
+const tablesText = (n: number) => `${n} ${n === 1 ? 'table' : 'tables'}`;
 
 // The viewer switches to its phone layout by its own width, so it works embedded in a narrow column too.
 const NARROW = 760;
@@ -164,27 +169,45 @@ function Viewer({
     const owners = useMemo(() => new Set(tables.map(({ table }) => table.owner.kind)), [tables]);
     const kindsPresent = useMemo(() => new Set(edges.map((e) => e.kind)), [edges]);
     const pivots = useMemo(() => new Set(doc.relationships.flatMap((r) => (r.pivot ? [r.pivot.table] : []))), [doc]);
+    const scope = useMemo(() => diagnosticScope(doc, lookup), [doc, lookup]);
     const issues = useMemo(() => {
         const counts = new Map<string, number>();
-        const tableOf = (d: Diagnostic): string | undefined => {
-            const id = d.subject.id;
-            if (id === null) {
-                return undefined;
-            }
-            if (lookup.tables.has(id)) {
-                return id;
-            }
-            return tables.find(({ table }) => table.indexes.some((i) => i.id === id) || table.foreignKeys.some((f) => f.id === id) || table.constraints.some((c) => c.id === id))?.table.id ?? lookup.relationships.get(id)?.table;
-        };
+        // Per connection, for the frames; diagnostics about the whole document count on none.
+        const perConnection = new Map<string, number>();
         doc.diagnostics.forEach((d) => {
-            const t = tableOf(d);
+            const t = scope.tableOf(d);
             if (t) {
                 counts.set(t, (counts.get(t) ?? 0) + 1);
             }
+            for (const c of scope.connectionsOf(d)) {
+                perConnection.set(c, (perConnection.get(c) ?? 0) + 1);
+            }
         });
-        return { counts, tableOf };
-    }, [doc, lookup, tables]);
-
+        return { counts, perConnection, tableOf: scope.tableOf };
+    }, [doc, scope]);
+    // What a deep link names that the document does not have: it is ignored, and a toast says so (as Laravel's does).
+    const missing = useMemo(() => {
+        const out: string[] = [];
+        const check = (key: string, what: string, known: (id: string) => boolean) => {
+            const id = initialHash.get(key);
+            if (id && !known(id)) {
+                out.push(what);
+            }
+        };
+        check('connection', 'a connection', (id) => lookup.connections.has(id));
+        check('table', 'a table', (id) => lookup.tables.has(id));
+        check('focus', 'a table or line to focus on', (id) => lookup.tables.has(id) || edges.some((e) => e.id === id));
+        check('link', 'a line', (id) => edges.some((e) => e.id === id));
+        check('inferred', 'an inferred association', (id) => doc.inferredAssociations.some((a) => a.id === id));
+        check('comparison', 'a comparison', (id) => doc.comparisons.some((c) => c.id === id));
+        check('migration', 'a migration track', (id) => doc.migrations.some((t) => t.id === id));
+        return out;
+        // Only the link the viewer opened on.
+    }, []);
+    const known = (key: string, has: (id: string) => boolean) => {
+        const id = initialHash.get(key);
+        return id && has(id) ? id : null;
+    };
     const [connection, setConnection] = useState(() => {
         const known = (id: string | null | undefined) => (id && doc.connections.some((c) => c.id === id) ? id : null);
         const wanted = known(initialHash.get('connection')) ?? known(defaultConnection) ?? '';
@@ -200,13 +223,13 @@ function Viewer({
     const [grid, setGrid] = useState(true);
     const [hiddenOwners, setHiddenOwners] = useState<Set<Owner>>(() => new Set());
     const [focus, setFocus] = useState<{ id: string; depth: number } | null>(() => {
-        const id = initialHash.get('focus');
+        const id = known('focus', (x) => lookup.tables.has(x) || edges.some((e) => e.id === x));
         return id ? { id, depth: Math.max(1, Math.min(3, Number(initialHash.get('depth')) || 1)) } : null;
     });
     const [selection, setSelection] = useState<Selection>(() => {
-        const table = initialHash.get('table');
-        const link = initialHash.get('link');
-        const inferred = initialHash.get('inferred');
+        const table = known('table', (id) => lookup.tables.has(id));
+        const link = known('link', (id) => edges.some((e) => e.id === id));
+        const inferred = known('inferred', (id) => doc.inferredAssociations.some((a) => a.id === id));
         return table ? { kind: 'table', id: table } : link ? { kind: 'edge', id: link } : inferred ? { kind: 'inferred', id: inferred } : null;
     });
     // The comparison shown in Compare and marked on the diagram, the difference chosen in it, and the migration track.
@@ -219,12 +242,18 @@ function Viewer({
         const id = initialHash.get('migration');
         return doc.migrations.some((t) => t.id === id) ? id : null;
     });
+    const [compareFilters, setCompareFilters] = useState<CompareFilters>(() => filtersFrom(initialHash));
     const [overlay, setOverlay] = useState(true);
     const [showInferred, setShowInferred] = useState(true);
     const [browseMode, setBrowseMode] = useState<BrowseMode>('tables');
-    const [column, setColumn] = useState<string | null>(null);
+    // A column of the selected table: its details, and the lines that use it lit on the diagram (#column=…).
+    const [column, setColumn] = useState<string | null>(() => {
+        const table = selection?.kind === 'table' ? lookup.tables.get(selection.id) : undefined;
+        const name = initialHash.get('column');
+        return name && table?.columns.some((c) => c.name === name) ? name : null;
+    });
     // Tables picked together with Shift: dragged together, listed together.
-    const [group, setGroup] = useState<string[]>([]);
+    const [group, setGroup] = useState<string[]>(() => (selection?.kind === 'table' ? [selection.id] : []));
     const groupRef = useRef(group);
     groupRef.current = group;
     const [tab, setTab] = useState<Tab>(() => {
@@ -235,7 +264,7 @@ function Viewer({
         if (view === 'migrations' && doc.migrations.length) {
             return 'migrations';
         }
-        return initialHash.get('table') || initialHash.get('link') || initialHash.get('inferred') ? 'details' : 'browse';
+        return known('table', (id) => lookup.tables.has(id)) || known('link', (id) => edges.some((e) => e.id === id)) || known('inferred', (id) => doc.inferredAssociations.some((a) => a.id === id)) ? 'details' : 'browse';
     });
     const comparison = doc.comparisons.find((c) => c.id === comparisonId) ?? doc.comparisons[0];
     const marks = useMemo(() => (overlay ? comparisonMarks(comparison) : new Map<string, TableMark>()), [overlay, comparison]);
@@ -253,10 +282,19 @@ function Viewer({
     const [spacePan, setSpacePan] = useState(false);
     const [shortcuts, setShortcuts] = useState(false);
     const [touring, setTouring] = useState(false);
-    const [toast, setToast] = useState<string | null>(null);
+    const [toast, setToast] = useState<string | null>(() => (missing.length ? `This link points at ${missing.join(' and ')} ${missing.length > 1 ? 'that are' : 'that is'} not in this document. Showing the whole diagram.` : null));
     const [panelWidth, setPanelWidth] = useState<number | null>(null);
     const [menu, setMenu] = useState<string | null>(null);
     const menuProps = (name: string) => ({ open: menu === name, onOpenChange: (open: boolean) => setMenu(open ? name : null) });
+
+    // On a phone, a deep link to a table, line, association or view opens the sheet on its tab.
+    useLayoutEffect(() => {
+        const width = root.current?.getBoundingClientRect().width ?? 0;
+        if (width > 0 && width < NARROW && !missing.length && ['table', 'link', 'inferred', 'view'].some((key) => initialHash.get(key))) {
+            setSheetOpen(true);
+        }
+        // Only the link the viewer opened on counts.
+    }, []);
 
     // The phone note gives way once the sheet is in use.
     useEffect(() => {
@@ -266,12 +304,14 @@ function Viewer({
     }, [sheetOpen]);
 
     useEffect(() => {
-        if (!toast) {
+        // A toast waits for the diagram, so one shown while it is laid out is still read.
+        if (!toast || phase === 'arranging') {
             return;
         }
-        const timer = setTimeout(() => setToast(null), 1800);
+        // Long enough to read.
+        const timer = setTimeout(() => setToast(null), Math.max(1800, toast.length * 60));
         return () => clearTimeout(timer);
-    }, [toast]);
+    }, [toast, phase]);
 
     // The view in the URL hash, so it can be shared.
     useEffect(() => {
@@ -290,6 +330,9 @@ function Viewer({
         }
         if (selection) {
             params.set(SELECTION_PARAM[selection.kind], selection.id);
+            if (selection.kind === 'table' && column) {
+                params.set('column', column);
+            }
         }
         if (tab === 'compare' && comparison) {
             params.set('view', 'compare');
@@ -307,11 +350,18 @@ function Viewer({
                 params.set('difference', differenceId);
             }
         }
+        if (tab === 'compare' && comparison) {
+            for (const [key, name] of Object.entries(FILTER_PARAM) as [keyof CompareFilters, string][]) {
+                if (compareFilters[key]) {
+                    params.set(name, compareFilters[key]);
+                }
+            }
+        }
         const hash = params.toString();
         if (hash !== location.hash.slice(1)) {
             history.replaceState(null, '', `${location.pathname}${location.search}${hash ? `#${hash}` : ''}`);
         }
-    }, [deepLinks, connection, focus, selection, tab, comparison, differenceId, trackId, overlay, doc]);
+    }, [deepLinks, connection, focus, selection, column, tab, comparison, differenceId, trackId, overlay, doc, compareFilters]);
 
     // A folded card still shows the columns the marked comparison names, as it shows drifted ones.
     const rows = useMemo(
@@ -336,14 +386,50 @@ function Viewer({
         [tables, rows],
     );
 
+    // Focus starts from a table, or from a line's tables: its ends and the tables it goes through.
+    const seedsOf = useCallback(
+        (id: string) => {
+            const edge = lookup.tables.has(id) ? undefined : edges.find((e) => e.id === id);
+            return edge ? [edge.source, edge.target, ...(edge.derived?.via ?? [])] : [id];
+        },
+        [lookup, edges],
+    );
     // The tables shown: connection, ownership and focus.
     const visible = useMemo(() => {
-        const near = focus ? within(focus.id, edges, focus.depth) : null;
+        const near = focus ? within(seedsOf(focus.id), edges, focus.depth) : null;
         return tables.filter(({ table, connection: c }) => (!connection || c.id === connection) && !hiddenOwners.has(table.owner.kind) && (!near || near.has(table.id)));
-    }, [tables, connection, hiddenOwners, focus, edges]);
+    }, [tables, connection, hiddenOwners, focus, edges, seedsOf]);
     const visibleIds = useMemo(() => new Set(visible.map(({ table }) => table.id)), [visible]);
-    // With one connection shown, the tables of other connections that its relationships reach: drawn as references,
-    // so a cross-connection relationship never silently disappears. Table id to connection id.
+    // Changes since the previous build, by the table they are about: the cards they mark and the connection they belong to.
+    const changedTables = useMemo(() => {
+        const out = new Map<string, 'new' | 'changed'>();
+        for (const c of changes ?? []) {
+            const table = c.subject ? scope.tableOfId(c.subject) : undefined;
+            if (table && c.change !== 'removed') {
+                out.set(table, c.change === 'added' && c.subject === table ? 'new' : (out.get(table) ?? 'changed'));
+            }
+        }
+        return out;
+    }, [changes, scope]);
+    const shownChanges = useMemo(
+        () =>
+            (changes ?? []).filter((c) => {
+                const table = connection && c.subject ? scope.tableOfId(c.subject) : undefined;
+                return !table || lookup.connectionOf.get(table) === connection;
+            }),
+        [changes, connection, scope, lookup],
+    );
+    // Tables per owner kind on the connection in view, for the Tables menu.
+    const ownerCounts = useMemo(() => {
+        const counts = new Map<Owner, number>();
+        tables.forEach(({ table, connection: c }) => (!connection || c.id === connection) && counts.set(table.owner.kind, (counts.get(table.owner.kind) ?? 0) + 1));
+        return counts;
+    }, [tables, connection]);
+    // The Diagnostics tab and counts follow the connection in view; those about the whole document always show.
+    const diagnostics = useMemo(() => (connection ? doc.diagnostics.filter((d) => { const on = scope.connectionsOf(d); return on.length === 0 || on.includes(connection); }) : doc.diagnostics), [doc, scope, connection]);
+    // With one connection shown, the tables of other connections that its relationships reach, or that a relationship
+    // in view goes through: drawn as references, so a cross-connection relationship never silently disappears. Table id
+    // to connection id.
     const externals = useMemo(() => {
         const out = new Map<string, string>();
         if (!connection) {
@@ -360,6 +446,15 @@ function Viewer({
                 const other = lookup.connectionOf.get(there);
                 if (visibleIds.has(here) && other !== undefined && other !== connection) {
                     out.set(there, other);
+                }
+            }
+            // A relationship through a table on another connection draws that table as a reference too.
+            if (e.derived && (visibleIds.has(e.source) || visibleIds.has(e.target))) {
+                for (const via of e.derived.via) {
+                    const other = lookup.connectionOf.get(via);
+                    if (other !== undefined && other !== connection) {
+                        out.set(via, other);
+                    }
                 }
             }
         }
@@ -392,12 +487,22 @@ function Viewer({
     const placedIds = useMemo(() => [...visible.map(({ table }) => table.id), ...externals.keys()], [visible, externals]);
     const layoutEdges = useMemo(() => edges.map((e) => ({ id: e.id, source: e.source, target: e.target })), [edges]);
     const pendingFit = useRef(false);
+    const initialView = useRef<{ x: number; y: number; zoom: number } | null>(
+        (() => {
+            const [x, y, zoom] = (initialHash.get('at') ?? '').split(',').map(Number);
+            return [x, y, zoom].every(Number.isFinite) && zoom > 0 ? { x, y, zoom: Math.max(0.05, Math.min(2.5, zoom)) } : null;
+        })(),
+    );
+    // Card heights are read when the layout runs, not watched: folding or unfolding one card keeps every position, dragged
+    // ones included, as in Laravel Schema Viewer. Folding every card (Columns), notes and comparison marks arrange again.
+    const sizeRef = useRef(sizeOf);
+    sizeRef.current = sizeOf;
     useEffect(() => {
         let cancelled = false;
         setPhase('arranging');
         const box = canvas.current?.getBoundingClientRect();
         const aspect = box && box.height > 0 ? Math.max(0.5, Math.min(2.4, box.width / box.height)) : 1.6;
-        const sizes = Object.fromEntries(placedIds.map((id) => [id, sizeOf(id)]));
+        const sizes = Object.fromEntries(placedIds.map((id) => [id, sizeRef.current(id)]));
         const request = (ids: string[]): LayoutRequest => ({ ids, heights: Object.fromEntries(ids.map((id) => [id, sizes[id]])), edges: layoutEdges, arrangement, aspect });
         const arranged = groups
             ? Promise.all(groups.map((g) => layout(request(g.ids)).then((positions) => ({ connection: g.connection, positions })))).then((blocks) => packRegions(blocks, sizes, aspect))
@@ -423,11 +528,14 @@ function Viewer({
         return () => {
             cancelled = true;
         };
-    }, [placedIds, groups, sizeOf, layoutEdges, arrangement, arrangeCount, layout]);
+    }, [placedIds, groups, layoutEdges, arrangement, arrangeCount, layout, notes, marks]);
 
     const related = useMemo(() => {
         if (group.length > 1) {
             return new Set(group);
+        }
+        if (selection?.kind === 'table' && column) {
+            return new Set([selection.id, ...shownEdges.filter((e) => usesColumn(e, selection.id, column)).flatMap((e) => [e.source, e.target])]);
         }
         if (selection?.kind === 'table') {
             return neighbors(selection.id, shownEdges);
@@ -438,7 +546,7 @@ function Viewer({
         }
         const edge = selection && edges.find((e) => e.id === selection.id);
         return new Set(edge ? [edge.source, edge.target, ...(edge.derived?.via ?? [])] : []);
-    }, [selection, shownEdges, edges, group, doc]);
+    }, [selection, shownEdges, edges, group, doc, column]);
     // The links an inferred association rests on, while it is selected.
     const inferredSelected = useMemo(() => new Set(selection?.kind === 'inferred' ? (doc.inferredAssociations.find((a) => a.id === selection.id)?.links ?? []) : []), [selection, doc]);
 
@@ -452,7 +560,7 @@ function Viewer({
         };
         const linked =
             selection?.kind === 'table'
-                ? shownEdges.filter((e) => e.source === selection.id || e.target === selection.id)
+                ? shownEdges.filter((e) => (column ? usesColumn(e, selection.id, column) : e.source === selection.id || e.target === selection.id))
                 : selection?.kind === 'edge'
                   ? edges.filter((e) => e.id === selection.id)
                   : edges.filter((e) => inferredSelected.has(e.id));
@@ -516,6 +624,11 @@ function Viewer({
         setGroup([id]);
         setFocus((f) => ({ id, depth: f?.depth ?? 1 }));
     }, []);
+    const focusEdge = useCallback((id: string) => {
+        setSelection({ kind: 'edge', id });
+        setGroup([]);
+        setFocus((f) => ({ id, depth: f?.depth ?? 1 }));
+    }, []);
     // A table in another connection, a hidden group, or outside focus is shown before it is opened.
     const reveal = useCallback(
         (id: string) => {
@@ -529,11 +642,11 @@ function Viewer({
             if (hiddenOwners.has(entry.table.owner.kind)) {
                 setHiddenOwners((o) => new Set([...o].filter((x) => x !== entry.table.owner.kind)));
             }
-            if (focus && !within(focus.id, edges, focus.depth).has(id)) {
+            if (focus && !within(seedsOf(focus.id), edges, focus.depth).has(id)) {
                 setFocus(null);
             }
         },
-        [tables, connection, hiddenOwners, focus, edges],
+        [tables, connection, hiddenOwners, focus, edges, seedsOf],
     );
     const openTable = (id: string, columnName: string | null = null) => {
         reveal(id);
@@ -573,7 +686,10 @@ function Viewer({
             return;
         }
         pendingFit.current = false;
-        const frame = requestAnimationFrame(() => (selection?.kind === 'table' && positions[selection.id] && !focus ? center(selection.id) : fit()));
+        // The first layout opens where a copied link was (#at=x,y,zoom), if it has one.
+        const at = initialView.current;
+        initialView.current = null;
+        const frame = requestAnimationFrame(() => (at ? void flow.setViewport(at) : selection?.kind === 'table' && positions[selection.id] && !focus ? center(selection.id) : fit()));
         return () => cancelAnimationFrame(frame);
         // Only a new layout refits; selecting later does not.
     }, [phase, positions]);
@@ -581,6 +697,14 @@ function Viewer({
     const combined = doc.source === 'combined';
     const picked = useMemo(() => new Set(group), [group]);
     const toggleCard = useCallback((id: string) => setCollapsed((c) => toggleIn(c, id)), []);
+    const selectColumn = useCallback(
+        (id: string, name: string) => {
+            rowClick.current = { id, name };
+            selectTable(id);
+            setColumn(name);
+        },
+        [selectTable],
+    );
     const empty = useMemo(() => new Set<string>(), []);
     const nodeData = useMemo(() => {
         const data = new Map<string, TableNodeType['data']>();
@@ -601,15 +725,30 @@ function Viewer({
                 onSelect: (id) => selectTable(id),
                 onFocus: focusOn,
                 onToggle: toggleCard,
+                onColumn: selectColumn,
+                changed: changedTables.get(table.id) ?? null,
             });
         }
         return data;
-    }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, marks, empty, selectTable, focusOn, toggleCard]);
+    }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, marks, empty, selectTable, focusOn, toggleCard, selectColumn, changedTables]);
+
+    // Each connection's frame, around its cards where they are now, so it follows a dragged table.
+    const frames = useMemo(
+        () =>
+            regions.map((r) => {
+                const boxes = visible.flatMap(({ table, connection: c }) => {
+                    const p = c.id === r.connection ? (dragging[table.id] ?? positions[table.id]) : undefined;
+                    return p ? [{ x: p.x, y: p.y, height: heights[table.id] }] : [];
+                });
+                return boxes.length ? frameAround(r.connection, boxes) : r;
+            }),
+        [regions, visible, positions, dragging, heights],
+    );
 
     const openExternal = useCallback((id: string) => openRef.current(id), []);
     const nodes = useMemo<FlowNode[]>(
         () => [
-            ...regions.map(
+            ...frames.map(
                 (r): RegionNodeType => ({
                     id: `lsv-region:${r.connection}`,
                     type: 'region',
@@ -624,6 +763,7 @@ function Viewer({
                         connection: lookup.connections.get(r.connection)?.name ?? r.connection,
                         driver: lookup.connections.get(r.connection)?.driver ?? null,
                         tables: visible.filter((v) => v.connection.id === r.connection).length,
+                        diagnostics: issues.perConnection.get(r.connection) ?? 0,
                     },
                 }),
             ),
@@ -665,7 +805,7 @@ function Viewer({
                     }),
                 ),
         ],
-        [regions, visible, externals, positions, dragging, nodeData, picked, heights, spacePan, lookup, related, openExternal],
+        [frames, visible, externals, positions, dragging, nodeData, picked, heights, spacePan, lookup, related, openExternal, issues],
     );
 
     // Routes over settled positions; edges touching a card being dragged float until it is dropped.
@@ -702,7 +842,8 @@ function Viewer({
                 .map((e) => {
                     const selected = (selection?.kind === 'edge' && selection.id === e.id) || inferredSelected.has(e.id);
                     const inferred = inferredOn(e) ? (inferredLinks.get(e.link?.id ?? '') ?? []) : [];
-                    const near = (selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id)) || (group.length > 1 && picked.has(e.source) && picked.has(e.target));
+                    const near =
+                        (selection?.kind === 'table' && (column ? usesColumn(e, selection.id, column) : e.source === selection.id || e.target === selection.id)) || (group.length > 1 && picked.has(e.source) && picked.has(e.target));
                     return {
                         id: e.id,
                         type: 'schema',
@@ -722,10 +863,11 @@ function Viewer({
                             route: dragging[e.source] || dragging[e.target] ? null : (routes.get(e.id) ?? null),
                             showLabel: labelled(e),
                             state: selected ? 'selected' : near ? 'related' : 'none',
+                            many: e.many,
                         },
                     };
                 }),
-        [shownEdges, positions, selection, dragging, routes, labelled, group, picked, inferredOn, inferredLinks, inferredSelected, lookup],
+        [shownEdges, positions, selection, column, dragging, routes, labelled, group, picked, inferredOn, inferredLinks, inferredSelected, lookup],
     );
 
     // React Flow reports selection as separate node and edge changes, and a box selection also picks the edges between
@@ -734,15 +876,19 @@ function Viewer({
     const selectionRef = useRef(selection);
     selectionRef.current = selection;
     const pending = useRef<{ added: string[]; removed: string[]; edge: string | null; scheduled: boolean }>({ added: [], removed: [], edge: null, scheduled: false });
+    const rowClick = useRef<{ id: string; name: string } | null>(null);
     const resolveSelection = useCallback(() => {
         const { added, removed, edge } = pending.current;
         pending.current = { added: [], removed: [], edge: null, scheduled: false };
         const g = groupRef.current;
         const next = [...g.filter((id) => !removed.includes(id)), ...added.filter((id) => !g.includes(id))];
+        // A click on a card's row picks the table and its column at once.
+        const row = rowClick.current;
+        rowClick.current = null;
         if (added.length || (removed.length && next.length)) {
             groupRef.current = next;
             setGroup(next);
-            setColumn(null);
+            setColumn(row && added[added.length - 1] === row.id ? row.name : null);
             setSelection({ kind: 'table', id: added[added.length - 1] ?? next[next.length - 1] });
             setTab('details');
         } else if (edge) {
@@ -834,8 +980,12 @@ function Viewer({
         setFocus(null);
         setConnection((c) => ids[(ids.indexOf(c) + by + ids.length) % ids.length]);
     };
+    // The link opens this exact view: the hash, plus where the diagram is panned and zoomed (#at=x,y,zoom).
     const copyLink = () => {
-        void navigator.clipboard?.writeText(location.href).then(
+        const { x, y, zoom } = flow.getViewport();
+        const params = new URLSearchParams(location.hash.slice(1));
+        params.set('at', `${Math.round(x)},${Math.round(y)},${Math.round(zoom * 1000) / 1000}`);
+        void navigator.clipboard?.writeText(`${location.origin}${location.pathname}${location.search}#${params}`).then(
             () => setToast('Link copied'),
             () => setToast('Could not copy the link'),
         );
@@ -889,20 +1039,20 @@ function Viewer({
                 declaredOnly: false,
                 external: true,
             }));
-        const frames = regions.map((r) => ({
+        const imageFrames = frames.map((r) => ({
             x: r.x,
             y: r.y,
             width: r.width,
             height: r.height,
             title: lookup.connections.get(r.connection)?.name ?? r.connection,
-            meta: `${lookup.connections.get(r.connection)?.driver ?? 'unknown driver'} · ${visible.filter((v) => v.connection.id === r.connection).length} tables`,
+            meta: frameMeta(lookup.connections.get(r.connection)?.driver ?? null, visible.filter((v) => v.connection.id === r.connection).length, issues.perConnection.get(r.connection) ?? 0),
         }));
         const allNodes = [...imageNodes, ...referenceNodes];
         const imageEdges = shownEdges.flatMap((e) => {
             const r = routes.get(e.id);
             return r ? [{ kind: e.kind, declaredOnly: e.declaredOnly, sx: r.sx, sy: r.sy, cx: r.channelX, tx: r.tx, ty: r.ty, label: labelled(e) ? { x: r.labelX, y: r.labelY, text: e.label } : null }] : [];
         });
-        return { nodes: allNodes, edges: imageEdges, frames, bounds: boundsOf([...allNodes, ...frames]) };
+        return { nodes: allNodes, edges: imageEdges, frames: imageFrames, bounds: boundsOf([...allNodes, ...imageFrames]) };
     };
     const exportImage = async (format: 'png' | 'svg', area: 'all' | 'visible') => {
         try {
@@ -946,9 +1096,9 @@ function Viewer({
         '+': () => zoomBy(1.2),
         '=': () => zoomBy(1.2),
         '-': () => zoomBy(1 / 1.2),
-        c: () => (setFold((f) => FOLDS[(FOLDS.findIndex((x) => x.value === f) + 1) % FOLDS.length].value), setCollapsed(new Set())),
+        c: () => (setFold((f) => FOLDS[(FOLDS.findIndex((x) => x.value === f) + 1) % FOLDS.length].value), setCollapsed(new Set()), setArrangeCount((n) => n + 1)),
         C: copyLink,
-        F: () => (focus ? setFocus(null) : selection?.kind === 'table' && focusOn(selection.id)),
+        F: () => (focus ? setFocus(null) : selection?.kind === 'table' ? focusOn(selection.id) : selection?.kind === 'edge' && focusEdge(selection.id)),
         n: () => setNotes((n) => !n),
         l: () => setAllLabels((l) => !l),
         '1': () => setKinds((k) => toggleIn(k, 'both')),
@@ -982,6 +1132,24 @@ function Viewer({
         s: () => setShortcuts(true),
         e: () => setMenu(narrow ? 'more' : 'download'),
         '?': () => setTouring(true),
+        // One layer at a time, as Laravel Schema Viewer does: a menu, a column, several picked tables, focus, the
+        // selection, then the phone sheet.
+        Escape: () => {
+            if (menu) {
+                setMenu(null);
+            } else if (column) {
+                setColumn(null);
+            } else if (group.length > 1) {
+                setGroup(selection?.kind === 'table' ? [selection.id] : []);
+            } else if (focus) {
+                setFocus(null);
+            } else if (selection) {
+                setSelection(null);
+                setGroup([]);
+            } else {
+                setSheetOpen(false);
+            }
+        },
     };
     useEffect(() => {
         const down = (event: globalThis.KeyboardEvent) => {
@@ -990,13 +1158,14 @@ function Viewer({
             const ours = !(target instanceof Element) || target === document.body || !!root.current?.contains(target);
             if (event.key === 'Escape') {
                 if (ours && !typing) {
-                    setMenu(null);
-                    setFocus(null);
-                    setSelection(null);
-                    setGroup([]);
-                    setColumn(null);
-                    setSheetOpen(false);
+                    actions.current.Escape();
                 }
+                return;
+            }
+            // Cmd/Ctrl K searches, as in Laravel Schema Viewer, even while typing elsewhere in the viewer.
+            if (ours && (event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === 'k') {
+                event.preventDefault();
+                search.current?.focus();
                 return;
             }
             if (typing || !ours || event.metaKey || event.ctrlKey || event.altKey) {
@@ -1044,31 +1213,28 @@ function Viewer({
     const statusText = phase === 'error' ? `Could not lay out the diagram: ${layoutError}` : phase === 'arranging' ? `Arranging ${visible.length} tables…` : null;
 
     const tabs: TabSpec<Tab>[] = [
-        { value: 'browse', label: 'Browse' },
-        { value: 'details', label: 'Details' },
-        { value: 'diagnostics', label: 'Diagnostics', count: doc.diagnostics.length, tone: 'warning' },
-        ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', count: changes.length }] : []),
+        { value: 'browse', label: 'Browse', icon: 'tables' },
+        { value: 'details', label: 'Details', icon: 'details' },
+        { value: 'diagnostics', label: 'Diagnostics', icon: 'warning', count: diagnostics.length, tone: 'warning' },
+        ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', icon: 'changes' as const, count: shownChanges.length }] : []),
         ...(doc.comparisons.length
             ? [
                   {
                       value: 'compare' as const,
-                      label: (
+                      label: 'Compare',
+                      icon: 'compare' as const,
+                      badge: comparison && !comparison.complete && (
                           <>
-                              Compare
-                              {comparison && !comparison.complete && (
-                                  <>
-                                      <span className="tab__count tab__count--warning" aria-hidden="true" title="Incomplete comparison">
-                                          !
-                                      </span>
-                                      <span className="sr-only">{' (incomplete)'}</span>
-                                  </>
-                              )}
+                              <span className="tab__count tab__count--warning" aria-hidden="true" title="Incomplete comparison">
+                                  !
+                              </span>
+                              <span className="sr-only">{' (incomplete)'}</span>
                           </>
                       ),
                   },
               ]
             : []),
-        ...(doc.migrations.length ? [{ value: 'migrations' as const, label: 'Migrations' }] : []),
+        ...(doc.migrations.length ? [{ value: 'migrations' as const, label: 'Migrations', icon: 'migrations' as const }] : []),
     ];
 
     const downloadMenu = (
@@ -1129,8 +1295,19 @@ function Viewer({
                             })}
                         </ul>
                     </>
+                ) : selectedTable && column && selectedTable.columns.some((c) => c.name === column) ? (
+                    <ColumnDetails
+                        ctx={ctx}
+                        table={selectedTable}
+                        column={column}
+                        edges={edges}
+                        onBack={() => setColumn(null)}
+                        onSelectEdge={selectEdge}
+                        onSelectTable={(id) => openTable(id)}
+                    />
                 ) : selectedTable ? (
                     <TableDetails
+                        onColumn={(name) => setColumn(name)}
                         ctx={ctx}
                         table={selectedTable}
                         edges={edges.filter((e) => e.source === selectedTable.id || e.target === selectedTable.id)}
@@ -1144,7 +1321,7 @@ function Viewer({
                         onMigration={showTrack}
                     />
                 ) : selectedEdge ? (
-                    <EdgeDetails edge={selectedEdge} ctx={ctx} onSelectTable={(id) => openTable(id)} onInferred={selectInferred} />
+                    <EdgeDetails edge={selectedEdge} ctx={ctx} onSelectTable={(id) => openTable(id)} onInferred={selectInferred} onFocus={() => focusEdge(selectedEdge.id)} />
                 ) : selectedInferred ? (
                     <InferredDetails association={selectedInferred} doc={doc} lookup={lookup} edges={edges} onSelectTable={(id) => openTable(id)} onSelectEdge={selectEdge} />
                 ) : (
@@ -1160,13 +1337,30 @@ function Viewer({
             {tab === 'diagnostics' && (
                 <DiagnosticsPanel
                     doc={doc}
+                    diagnostics={diagnostics}
+                    connection={connection ? (lookup.connections.get(connection)?.name ?? connection) : null}
+                    documentWide={(d) => scope.connectionsOf(d).length === 0}
+                    renderers={extensionRenderers}
                     lookup={lookup}
                     tableOf={issues.tableOf}
                     onShow={(id) => openTable(id)}
                     onSubject={{ comparison: (id) => showComparison(id, null), migration: showTrack, inferredAssociation: selectInferred }}
                 />
             )}
-            {tab === 'changes' && changes && <ChangesPanel changes={changes} />}
+            {tab === 'changes' && changes && (
+                <ChangesPanel
+                    changes={shownChanges}
+                    connection={connection ? (lookup.connections.get(connection)?.name ?? connection) : null}
+                    onSubject={(subject) => {
+                        const edge = edges.find((e) => e.id === subject);
+                        if (edge) {
+                            return () => (reveal(edge.source), selectEdge(edge));
+                        }
+                        const table = scope.tableOfId(subject);
+                        return table ? () => openTable(table) : null;
+                    }}
+                />
+            )}
             {tab === 'compare' && comparison && (
                 <ComparePanel
                     doc={doc}
@@ -1177,7 +1371,10 @@ function Viewer({
                     onOverlay={setOverlay}
                     onComparison={(id) => (setComparisonId(id), setDifferenceId(null))}
                     onDifference={setDifferenceId}
-                    onShowTable={(id, name) => openTable(id, name)}
+                    // The table's details list its differences; a column's details would not.
+                    onShowTable={(id) => openTable(id)}
+                    filters={compareFilters}
+                    onFilters={setCompareFilters}
                 />
             )}
             {tab === 'migrations' && <MigrationsPanel doc={doc} lookup={lookup} selected={trackId} onSelect={setTrackId} onShowTable={(id) => openTable(id)} />}
@@ -1196,9 +1393,7 @@ function Viewer({
         >
             <header className="lsv-header">
                 <div className="brand">
-                    <span className="brand-mark" aria-hidden="true">
-                        L
-                    </span>
+                    <BrandMark />
                     {!narrow && <h1>{title}</h1>}
                 </div>
                 <SearchBox ref={search} doc={doc} lookup={lookup} onPick={pickResult} placeholder={narrow ? 'Search the schema' : undefined} />
@@ -1211,7 +1406,7 @@ function Viewer({
                                     All connections
                                 </MenuRadio>
                                 {doc.connections.map((c) => (
-                                    <MenuRadio key={c.id} checked={connection === c.id} onSelect={() => (setFocus(null), setConnection(c.id))} hint={c.driver ?? undefined}>
+                                    <MenuRadio key={c.id} checked={connection === c.id} onSelect={() => (setFocus(null), setConnection(c.id))} hint={[c.driver, tablesText(c.tables.length)].filter(Boolean).join(' · ')}>
                                         {c.name}
                                     </MenuRadio>
                                 ))}
@@ -1228,10 +1423,10 @@ function Viewer({
                     <div className="actions">
                         {doc.connections.length > 1 && (
                             <select className="connection" value={connection} onChange={(e) => (setFocus(null), setConnection(e.target.value))} aria-label="Connection">
-                                <option value="">All connections</option>
+                                <option value="">All connections · {tablesText(tables.length)}</option>
                                 {doc.connections.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {c.driver ? `${c.name} · ${c.driver}` : c.name}
+                                        {[c.name, c.driver, tablesText(c.tables.length)].filter(Boolean).join(' · ')}
                                     </option>
                                 ))}
                             </select>
@@ -1270,6 +1465,7 @@ function Viewer({
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onNodeDragStop={onNodeDragStop}
+                        onEdgeDoubleClick={(_, edge) => focusEdge(edge.id)}
                         colorMode={theme}
                         minZoom={0.05}
                         maxZoom={2.5}
@@ -1292,6 +1488,10 @@ function Viewer({
                             <button type="button" className="unfocus" onClick={() => setFocus(null)}>
                                 ← Show all tables
                             </button>
+                            <span className="focus-label" role="status">
+                                Focus on <strong>{lookup.tables.has(focus.id) ? lookup.label(focus.id) : (edges.find((e) => e.id === focus.id)?.label ?? focus.id)}</strong> · {visible.length}{' '}
+                                {visible.length === 1 ? 'table' : 'tables'}
+                            </span>
                             <label className="focus-depth">
                                 Depth
                                 <select value={focus.depth} onChange={(e) => setFocus({ ...focus, depth: Number(e.target.value) })}>
@@ -1376,7 +1576,7 @@ function Viewer({
                             {(['application', 'framework', 'package'] as Owner[])
                                 .filter((o) => owners.has(o))
                                 .map((o) => (
-                                    <MenuCheck key={o} checked={!hiddenOwners.has(o)} onChange={() => setHiddenOwners((s) => toggleIn(s, o))} shortcut={OWNER_KEY[o]}>
+                                    <MenuCheck key={o} checked={!hiddenOwners.has(o)} onChange={() => setHiddenOwners((s) => toggleIn(s, o))} shortcut={OWNER_KEY[o]} hint={tablesText(ownerCounts.get(o) ?? 0)}>
                                         {OWNER_LABEL[o]}
                                     </MenuCheck>
                                 ))}
@@ -1410,7 +1610,7 @@ function Viewer({
                                 Columns <kbd>C</kbd>
                             </MenuLabel>
                             {FOLDS.map((f) => (
-                                <MenuRadio key={f.value} checked={fold === f.value} onSelect={() => (setFold(f.value), setCollapsed(new Set()))} hint={FOLD_HINT[f.value]}>
+                                <MenuRadio key={f.value} checked={fold === f.value} onSelect={() => (setFold(f.value), setCollapsed(new Set()), setArrangeCount((n) => n + 1))} hint={FOLD_HINT[f.value]}>
                                     {f.value === 'all' ? 'All' : f.value === 'keys' ? 'Keys' : 'Names'}
                                 </MenuRadio>
                             ))}
@@ -1453,9 +1653,9 @@ function Viewer({
                             <button type="button" className="sheet-bar__main" aria-expanded={sheetOpen} onClick={() => setSheetOpen(!sheetOpen)}>
                                 {sheetTitle}
                             </button>
-                            {doc.diagnostics.length > 0 && !(sheetOpen && tab === 'diagnostics') && (
-                                <button type="button" className="sheet-bar__issues" onClick={() => openTab('diagnostics')} aria-label={`${doc.diagnostics.length} diagnostics`}>
-                                    <Icon name="warning" size={14} /> {doc.diagnostics.length}
+                            {diagnostics.length > 0 && !(sheetOpen && tab === 'diagnostics') && (
+                                <button type="button" className="sheet-bar__issues" onClick={() => openTab('diagnostics')} aria-label={`${diagnostics.length} diagnostics`}>
+                                    <Icon name="warning" size={14} /> {diagnostics.length}
                                 </button>
                             )}
                             <button type="button" className="sheet-bar__action" onClick={() => (sheetOpen ? setSheetOpen(false) : openTab(selection ? 'details' : tab === 'compare' || tab === 'migrations' ? tab : 'browse'))}>
@@ -1474,6 +1674,18 @@ function Viewer({
             <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
             <Tour open={touring} root={root} onClose={() => setTouring(false)} />
         </div>
+    );
+}
+
+// The brand mark, two tables joined by a relationship (see brand.ts), in the theme's accent.
+function BrandMark() {
+    return (
+        <svg className="brand-mark" viewBox={BRAND_VIEWBOX} width="22" height="22" aria-hidden="true">
+            {BRAND_RECTS.map((r) => (
+                <rect key={r.x} {...r} />
+            ))}
+            <path d={BRAND_PATH} />
+        </svg>
     );
 }
 

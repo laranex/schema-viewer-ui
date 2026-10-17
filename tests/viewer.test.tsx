@@ -340,7 +340,7 @@ describe('multiple connections', () => {
     it('frames every connection in a labelled region, keeping tables of the same name apart', async () => {
         const { container } = await show(multi());
         await waitFor(() => expect(container.querySelectorAll('.region-node')).toHaveLength(3));
-        expect([...container.querySelectorAll('.region-node')].map((r) => r.textContent)).toEqual(['apppostgresql · 2 tables', 'analyticsmysql · 2 tables', 'cachesqlite · 1 table']);
+        expect([...container.querySelectorAll('.region-node')].map((r) => r.textContent)).toEqual(['apppostgresql · 2 tables · 1 diagnostic', 'analyticsmysql · 2 tables · 1 diagnostic', 'cachesqlite · 1 table · 1 diagnostic']);
         expect(card(container, 'app:public.users')).toHaveTextContent('app · public.users');
         expect(card(container, 'analytics:users')).toHaveTextContent('analytics · users');
         expect(container.querySelectorAll('[data-external]')).toHaveLength(0);

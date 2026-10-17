@@ -16,6 +16,17 @@ All notable changes to this project are documented here. The format follows
 - Diagnostics have a rule-based `id`; column diagnostics must name their columns.
 - `Connection.driver` uses one spelling per database (`postgresql`, `mysql`, `mariadb`, `sqlite`, `sqlsrv`,
   `oracle`); aliases such as `pgsql` are rejected.
+- Icons, the brand mark and the favicon come from Laranex Laravel Schema Viewer: one icon system (`Icon` in
+  `src/viewer/icons.tsx`, re-exported from `ui.tsx`) with Laravel's shapes on its 16-unit grid and 1.6 stroke in the
+  control's color, new icons in the same style for select, details, changes, compare, migrations and the migration
+  statuses, and an external-link mark on editor links and a note mark on cards with a note or comment. The unused
+  `arrange`, `focus` and `link` icons are gone. Colors and both themes are unchanged.
+- The header's brand mark is Laravel's two tables joined by a relationship, in the theme's accent.
+- `favicon.svg` and `favicon.ico` (now 16 and 32 pixels) are the same mark on a tile in the theme's surface, line and
+  accent colors, with a dark variant in the SVG; the Vite build writes them from `src/viewer/brand.ts`
+  (`scripts/favicon.mjs` is removed), byte-identical every build, under the same file names and in `manifest.json`.
+  `brand.ts` also exports `FAVICON_DATA_URI` for pages that inline everything. The docs site's logo and favicon are the
+  same file.
 
 ### Added
 
@@ -69,6 +80,46 @@ All notable changes to this project are documented here. The format follows
 - Deep links `#view=compare&comparison=…&difference=…`, `#view=migrations&migration=…` and `#inferred=…`; shortcuts
   <kbd>X</kbd> (Compare), <kbd>M</kbd> (Migrations) and <kbd>5</kbd>; diagnostics about a comparison, migration track
   or inferred association link to it.
+- Laravel Schema Viewer's line ends: crow's foot or single bar at the referencing end by the columns' uniqueness, a
+  double bar at the referenced table, an arrow for relationships through other tables.
+- Column details (click a card row or a column name in Details; `#column=`): facts, indexes, foreign keys in both
+  directions, the lines that use it, lit on the diagram, and diagnostics.
+- Focus on a line (double-click it, <kbd>Shift</kbd> <kbd>F</kbd>, or Focus in its details; `#focus=<line id>`), and a
+  focus bar naming what is focused and the number of tables shown.
+- Line details: the index that serves the foreign key (or "none") and the diagnostics about the line.
+- Changes: each change opens its subject, the list and count follow the connection in view, and cards new or changed
+  since the previous build carry a dot.
+- A deep link to something the document does not have opens the whole diagram with a toast saying so.
+- <kbd>Esc</kbd> steps back one layer at a time: an open menu, a column, several picked tables, focus, the selection,
+  then the phone sheet.
+- The connection picker shows each connection's driver and table count, and the Tables menu the number of tables of
+  each owner kind.
+- Copy link adds the viewport (`#at=x,y,zoom`), and a link with it opens panned and zoomed as it was; <kbd>⌘/Ctrl</kbd>
+  <kbd>K</kbd> focuses the search.
+
+### Fixed
+
+- Narrow side panel: text wraps between words, and long identifiers (`tenant_a.invoices`, paths, types) after their
+  separators, instead of anywhere ("mis sing"); the Compare counts go two by two when four do not fit.
+- Side-panel tabs: when the labels do not fit, the other tabs show an icon (their name stays the accessible name and
+  tooltip) and the row scrolls to keep the selected tab in view at the narrowest panel; <kbd>Home</kbd> and
+  <kbd>End</kbd> join the arrow keys.
+- Editor links keep the path's slashes (`encodeURI`, so `vscode://file/{file}:{line}` works) and a template with a
+  `javascript:`, `data:`, `vbscript:`, `blob:` or `file:` scheme shows the path as text instead of a link.
+- Folding or unfolding one card keeps every position, dragged ones included; folding every card (Columns, <kbd>C</kbd>),
+  notes and comparison marks arrange the diagram again.
+- Connection frames follow their tables: a table dragged out of its frame enlarges it, on the diagram and in images.
+- The Compare filters are kept in deep links (`#object=…&change=…&severity=…&certainty=…`).
+- On a phone, a deep link to a table, line, association or view opens the bottom sheet on its tab.
+- Menu hints wrap instead of being cut off at the menu's edge.
+- With one connection shown, a relationship through a table on another connection draws that table as a reference
+  node.
+- Diagnostics follow the connection in view: with one connection shown, the Diagnostics tab, its count and the phone
+  sheet's count cover that connection and the whole document (labelled "whole document"), with a note of how many are
+  on other connections. A diagnostic's connection comes from its subject (table, column, index, foreign key,
+  constraint, relationship, link, model, inferred association, migration track, or both sides of a comparison).
+- Connection frames show their diagnostic count, "postgresql · 12 tables · 3 diagnostics", on the diagram and in
+  images; a diagnostic's `extensions` are shown, through the host's `extensionRenderers` when it has one.
 
 ## [0.2.0] - 2026-10-17
 

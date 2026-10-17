@@ -36,7 +36,8 @@ The component fills its container; give the container a height. Styles are scope
 
 ## Hosts without Node.js (Laravel, Python)
 
-Ship `dist/viewer/` from the npm package inside the host package: `index.html`, `app.js`, `app.css`, `assets/`. Check
+Ship `dist/viewer/` from the npm package inside the host package: `index.html`, `app.js`, `app.css`, `assets/`, and
+the favicon `favicon.svg` and `favicon.ico` (16 and 32 pixels), which `index.html` links by relative URLs. Check
 the copy against `manifest.json`, which lists every file's size and SHA-256 and the contract major it reads. At runtime
 the host serves those files and gives the viewer the document in one of three ways.
 

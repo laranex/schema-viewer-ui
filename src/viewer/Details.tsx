@@ -6,6 +6,7 @@ import { relationshipsOf, type GraphEdge, type Lookup } from './graph';
 import { InferredItem, InferredTag, NO_ATTRIBUTE } from './Inferred';
 import { CHANGE_TEXT, comparisonLabel, inferredByLink, inferredOfTable, OBJECT_TEXT, scopeLabel, tableMarks, type TableMark } from './intelligence';
 import { StatusBadge } from './Migrations';
+import { Icon, Ident } from './ui';
 
 // Renders one extension namespace richly; the viewer falls back to a generic rendering for the rest.
 export type ExtensionRenderers = Record<string, (value: Extensions[string]) => ReactNode>;
@@ -64,18 +65,35 @@ export function ProvenanceBadge({ provenance, kind, ctx }: { provenance: Provena
     ) : null;
 }
 
+// Schemes an editor link must never carry: they run code or embed content. Browsers ignore control characters and
+// spaces before a scheme, so they are skipped here too. After Laranex Laravel Schema Viewer (MIT), SidePanel.tsx.
+const UNSAFE_HREF = /^[\s\0-\x1f]*(javascript|data|vbscript|blob|file):/i;
+
+// The editor link for a source location: {file} keeps its slashes (encodeURI), {line} defaults to 1. Null when there is no
+// template or it uses an unsafe scheme.
+export function editorHref(editor: string | null, source: Source): string | null {
+    if (!editor || UNSAFE_HREF.test(editor)) {
+        return null;
+    }
+    return editor.replace('{file}', () => encodeURI(source.file)).replace('{line}', () => String(source.line ?? 1));
+}
+
 function SourceLink({ source, editor }: { source: Source | null; editor: string | null }) {
     if (!source) {
         return null;
     }
     const text = `${source.file}${source.line ? `:${source.line}` : ''}`;
-    if (!editor) {
-        return <code className="source">{text}</code>;
+    const href = editorHref(editor, source);
+    if (!href) {
+        return (
+            <code className="source">
+                <Ident text={text} />
+            </code>
+        );
     }
-    const href = editor.replace('{file}', encodeURIComponent(source.file)).replace('{line}', String(source.line ?? 1));
     return (
-        <a className="source" href={href} title="Open in your editor">
-            {text}
+        <a className="source" href={href} title={`Open ${text} in your editor`}>
+            <Ident text={text} /> <Icon name="external" size={12} />
         </a>
     );
 }
@@ -154,7 +172,7 @@ function Section({ title, count, children, open = false }: { title: string; coun
     );
 }
 
-export function DiagnosticList({ diagnostics }: { diagnostics: Diagnostic[] }) {
+export function DiagnosticList({ diagnostics, renderers = {} }: { diagnostics: Diagnostic[]; renderers?: ExtensionRenderers }) {
     // Confirmed facts first, then heuristic recommendations, each by severity.
     const rank = { error: 0, warning: 1, info: 2 } as const;
     const ordered = [...diagnostics].sort((a, b) => (a.certainty === b.certainty ? rank[a.severity] - rank[b.severity] : a.certainty === 'certain' ? -1 : 1));
@@ -167,6 +185,7 @@ export function DiagnosticList({ diagnostics }: { diagnostics: Diagnostic[] }) {
                     </div>
                     <strong>{diagnosticTitle(d.kind)}</strong>
                     <p>{d.message}</p>
+                    <ExtensionsView extensions={d.extensions} renderers={renderers} />
                 </li>
             ))}
         </ul>
@@ -353,31 +372,54 @@ const SUBJECT_ACTION: Record<keyof SubjectActions, string> = { comparison: 'Show
 
 export function DiagnosticsPanel({
     doc,
+    diagnostics = doc.diagnostics,
+    connection = null,
+    documentWide,
     lookup,
     tableOf,
     onShow,
     onSubject,
+    renderers = {},
 }: {
     doc: SchemaDocument;
+    // The diagnostics to list: those of the connection in view and the whole document's.
+    diagnostics?: Diagnostic[];
+    // The connection in view, by name; null with every connection shown.
+    connection?: string | null;
+    documentWide?: (d: Diagnostic) => boolean;
     lookup: Lookup;
     tableOf: (d: Diagnostic) => string | undefined;
     onShow: (table: string) => void;
     onSubject?: SubjectActions;
+    renderers?: ExtensionRenderers;
 }) {
     const [certainty, setCertainty] = useState<'all' | 'certain' | 'likely'>('all');
     const rank = { error: 0, warning: 1, info: 2 } as const;
-    const shown = doc.diagnostics
+    const shown = diagnostics
         .filter((d) => certainty === 'all' || d.certainty === certainty)
         .sort((a, b) => (a.certainty === b.certainty ? rank[a.severity] - rank[b.severity] : a.certainty === 'certain' ? -1 : 1));
-    if (doc.diagnostics.length === 0) {
-        return <p className="muted empty-note">No diagnostics: nothing failed to read, and the producer reported no findings.</p>;
+    const elsewhere = doc.diagnostics.length - diagnostics.length;
+    const scopeNote = connection && (
+        <p className="muted diagnostics-scope">
+            Connection <strong>{connection}</strong> and the whole document
+            {elsewhere > 0 ? `; ${elsewhere} more on other connections` : ''}.
+        </p>
+    );
+    if (diagnostics.length === 0) {
+        return (
+            <>
+                {scopeNote}
+                <p className="muted empty-note">{doc.diagnostics.length === 0 ? 'No diagnostics: nothing failed to read, and the producer reported no findings.' : 'No diagnostics for this connection.'}</p>
+            </>
+        );
     }
     return (
         <>
+            {scopeNote}
             <div className="segmented" role="radiogroup" aria-label="Show diagnostics">
                 {(
                     [
-                        ['all', `All ${doc.diagnostics.length}`],
+                        ['all', `All ${diagnostics.length}`],
                         ['certain', 'Facts'],
                         ['likely', 'Heuristics'],
                     ] as const
@@ -396,9 +438,11 @@ export function DiagnosticsPanel({
                         <li key={d.id} className={`card card--${d.severity}`}>
                             <div className="card__eyebrow">
                                 {d.severity} · {d.certainty === 'certain' ? 'fact' : 'heuristic'} · {d.category}
+                                {connection && documentWide?.(d) ? ' · whole document' : ''}
                             </div>
                             <strong>{diagnosticTitle(d.kind)}</strong>
                             <p>{d.message}</p>
+                            <ExtensionsView extensions={d.extensions} renderers={renderers} />
                             {name && (
                                 <button type="button" className="link-button" onClick={() => onShow(name.id)}>
                                     Show {lookup.label(name.id)}
@@ -417,25 +461,49 @@ export function DiagnosticsPanel({
     );
 }
 
-export function ChangesPanel({ changes }: { changes: ViewerChange[] }) {
+// Changes since the host's previous build. Each change whose subject is still in the document opens it: its line, or
+// its table. With one connection shown, the changes of the others are left out (after Laravel Schema Viewer's).
+export function ChangesPanel({
+    changes,
+    connection = null,
+    onSubject,
+}: {
+    changes: ViewerChange[];
+    // The connection in view, by name, when only one is.
+    connection?: string | null;
+    // Opens a change's subject; null when it is not in the document.
+    onSubject?: (subject: string) => (() => void) | null;
+}) {
     return (
-        <ul className="cards">
-            {changes.map((c, i) => (
-                <li key={i} className="card">
-                    <div className="card__eyebrow">
-                        {c.change} · {c.type}
-                    </div>
-                    <strong>{c.label ?? c.subject ?? c.type}</strong>
-                    {c.message && <p>{c.message}</p>}
-                    {c.fields &&
-                        Object.entries(c.fields).map(([field, [before, after]]) => (
-                            <p key={field} className="muted">
-                                <code>{field}</code>: {JSON.stringify(before)} → {JSON.stringify(after)}
-                            </p>
-                        ))}
-                </li>
-            ))}
-        </ul>
+        <>
+            {connection && <p className="muted diagnostics-scope">Changes on connection {connection}, and those about no one table.</p>}
+            {changes.length === 0 && <p className="muted empty-note">No changes on this connection since the previous build.</p>}
+            <ul className="cards">
+                {changes.map((c, i) => {
+                    const open = c.subject ? onSubject?.(c.subject) : null;
+                    return (
+                        <li key={i} className="card">
+                            <div className="card__eyebrow">
+                                {c.change} · {c.type}
+                            </div>
+                            <strong>{c.label ?? c.subject ?? c.type}</strong>
+                            {c.message && <p>{c.message}</p>}
+                            {c.fields &&
+                                Object.entries(c.fields).map(([field, [before, after]]) => (
+                                    <p key={field} className="muted">
+                                        <code>{field}</code>: {JSON.stringify(before)} → {JSON.stringify(after)}
+                                    </p>
+                                ))}
+                            {open && (
+                                <button type="button" className="link-button" onClick={open}>
+                                    Show it
+                                </button>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+        </>
     );
 }
 
@@ -647,10 +715,13 @@ export function TableDetails({
     onCompare,
     onInferred,
     onMigration,
+    onColumn,
 }: {
     ctx: DetailContext;
     table: Table;
     edges: GraphEdge[];
+    // Opens one column's details.
+    onColumn?: (name: string) => void;
     onFocus: () => void;
     onClear: () => void;
     onCopyLink: () => void;
@@ -690,7 +761,7 @@ export function TableDetails({
     return (
         <>
             <h2 className="details__title">
-                {lookup.label(table.id)} <ProvenanceBadge provenance={table.provenance} kind="table" ctx={ctx} />
+                <Ident text={lookup.label(table.id)} /> <ProvenanceBadge provenance={table.provenance} kind="table" ctx={ctx} />
             </h2>
             <p className="details__subtitle">
                 {connection ? `${connection.name}${connection.driver ? ` (${connection.driver})` : ''}` : ''} · {table.columns.length} columns
@@ -734,7 +805,7 @@ export function TableDetails({
             )}
             {diagnostics.length > 0 && (
                 <Section title="Diagnostics" count={diagnostics.length} open>
-                    <DiagnosticList diagnostics={diagnostics} />
+                    <DiagnosticList diagnostics={diagnostics} renderers={ctx.renderers} />
                 </Section>
             )}
             <Section title="Columns" count={table.columns.length} open>
@@ -743,7 +814,13 @@ export function TableDetails({
                         {table.columns.map((c) => (
                             <tr key={c.name} className={c.drift?.length ? 'drift' : ''}>
                                 <th scope="row">
-                                    {c.name}
+                                    {onColumn ? (
+                                        <button type="button" className="inline-link column-link" onClick={() => onColumn(c.name)} title={`Details of ${c.name}`}>
+                                            <Ident text={c.name} />
+                                        </button>
+                                    ) : (
+                                        <Ident text={c.name} />
+                                    )}
                                     {table.primaryKey.includes(c.name) && <Badge tone="pk">PK</Badge>}
                                     {columnMarks(c.name).map((d) => (
                                         <Badge key={d.id} tone={`cmp-${d.change}`} title={`${CHANGE_TEXT[d.change].meaning} (${d.certainty})`}>
@@ -753,7 +830,9 @@ export function TableDetails({
                                     ))}
                                 </th>
                                 <td>
-                                    <code>{c.type}</code>
+                                    <code>
+                                        <Ident text={c.type} />
+                                    </code>
                                     {c.nullable ? <span className="muted"> null</span> : null}
                                     {c.autoIncrement ? <Badge>auto</Badge> : null}
                                     <ProvenanceBadge provenance={c.provenance} kind="column" ctx={ctx} />
@@ -904,14 +983,148 @@ const KIND_TAG: Record<GraphEdge['kind'], string> = {
 
 const connectionName = (ctx: DetailContext, table: string) => ctx.lookup.connections.get(ctx.lookup.connectionOf.get(table) ?? '')?.name ?? '?';
 
-export function EdgeDetails({ edge, ctx, onSelectTable, onInferred }: { edge: GraphEdge; ctx: DetailContext; onSelectTable: (id: string) => void; onInferred?: (id: string) => void }) {
+// The lines a column takes part in: links whose foreign-key or relationship endpoint on its table includes it.
+export const usesColumn = (edge: GraphEdge, table: string, column: string) =>
+    !!edge.link && ((edge.link.from.table === table && edge.link.from.columns.includes(column)) || (edge.link.to.table === table && edge.link.to.columns.includes(column)));
+
+// One column: its facts, the indexes and foreign keys it is part of in both directions, the lines that use it and the
+// diagnostics about it. After Laranex Laravel Schema Viewer's column details (ui/src/components/Details.tsx).
+export function ColumnDetails({
+    ctx,
+    table,
+    column: name,
+    edges,
+    onBack,
+    onSelectEdge,
+    onSelectTable,
+}: {
+    ctx: DetailContext;
+    table: Table;
+    column: string;
+    edges: GraphEdge[];
+    onBack: () => void;
+    onSelectEdge: (edge: GraphEdge) => void;
+    onSelectTable: (id: string) => void;
+}) {
+    const { doc, lookup } = ctx;
+    const column = table.columns.find((c) => c.name === name);
+    if (!column) {
+        return null;
+    }
+    const indexes = table.indexes.filter((i) => i.parts.some((p) => p.column === name));
+    const outgoing = table.foreignKeys.filter((f) => f.columns.includes(name));
+    const incoming = [...lookup.tables.values()].flatMap((t) => t.foreignKeys.filter((f) => f.foreignTable === table.id && f.foreignColumns.includes(name)).map((fk) => ({ table: t, fk })));
+    const lines = edges.filter((e) => usesColumn(e, table.id, name));
+    const diagnostics = doc.diagnostics.filter((d) => d.subject.id === table.id && d.subject.columns?.includes(name));
+    const facts: [string, ReactNode][] = [
+        ['Type', <code key="t">{column.type}</code>],
+        ['Nullable', column.nullable ? 'yes' : 'no'],
+        ['Default', column.default ? <code key="d">{column.default.value}</code> : '—'],
+        ['Primary key', table.primaryKey.includes(name) ? (table.primaryKey.length > 1 ? `part of (${table.primaryKey.join(', ')})` : 'yes') : 'no'],
+    ];
+    if (column.comment) {
+        facts.push(['Comment', column.comment]);
+    }
+    if (column.note) {
+        facts.push(['Note', column.note]);
+    }
+    return (
+        <>
+            <button type="button" className="link-button" onClick={onBack}>
+                ← {lookup.label(table.id)}
+            </button>
+            <h2 className="details__title">
+                <Ident text={`${lookup.label(table.id)}.${name}`} /> <ProvenanceBadge provenance={column.provenance} kind="column" ctx={ctx} />
+            </h2>
+            <p className="details__subtitle">Column · {lines.length === 1 ? '1 line uses it' : `${lines.length} lines use it`}</p>
+            <dl className="facts">
+                {facts.map(([k, v]) => (
+                    <div key={k} className="fact">
+                        <dt>{k}</dt>
+                        <dd>{v}</dd>
+                    </div>
+                ))}
+            </dl>
+            {column.drift && <DriftView drift={column.drift} />}
+            <Section title="Indexes" count={indexes.length} open={indexes.length > 0}>
+                {indexes.length ? (
+                    <ul className="indexes">
+                        {indexes.map((i) => (
+                            <IndexItem key={i.id} index={i} ctx={ctx} />
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="muted">No index includes this column.</p>
+                )}
+            </Section>
+            <Section title="Foreign keys" count={outgoing.length + incoming.length} open={outgoing.length + incoming.length > 0}>
+                {outgoing.length + incoming.length ? (
+                    <ul className="plain">
+                        {outgoing.map((fk) => (
+                            <ForeignKeyItem key={fk.id} fk={fk} ctx={ctx} onSelectTable={onSelectTable} />
+                        ))}
+                        {incoming.map(({ table: from, fk }) => (
+                            <li key={fk.id}>
+                                <strong>{fk.name ?? 'unnamed'}</strong> <span className="muted">references it from</span>{' '}
+                                <button type="button" className="inline-link" onClick={() => onSelectTable(from.id)}>
+                                    {lookup.label(from.id)}
+                                </button>{' '}
+                                <code>{fk.columns.join(', ')}</code>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="muted">No foreign key uses this column.</p>
+                )}
+            </Section>
+            <Section title="Lines" count={lines.length} open={lines.length > 0}>
+                {lines.length ? (
+                    <ul className="plain">
+                        {lines.map((e) => (
+                            <li key={e.id}>
+                                <button type="button" className="detail-link" onClick={() => onSelectEdge(e)}>
+                                    {e.label}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="muted">No foreign key or relationship line uses this column.</p>
+                )}
+            </Section>
+            {diagnostics.length > 0 && (
+                <Section title="Diagnostics" count={diagnostics.length} open>
+                    <DiagnosticList diagnostics={diagnostics} renderers={ctx.renderers} />
+                </Section>
+            )}
+            <ExtensionsView extensions={column.extensions} renderers={ctx.renderers} />
+        </>
+    );
+}
+
+export function EdgeDetails({ edge, ctx, onSelectTable, onInferred, onFocus }: { edge: GraphEdge; ctx: DetailContext; onSelectTable: (id: string) => void; onInferred?: (id: string) => void; onFocus?: () => void }) {
     const fk = edge.link?.foreignKey ? ctx.lookup.foreignKeys.get(edge.link.foreignKey) : undefined;
     const inferred = edge.link ? (inferredByLink(ctx.doc).get(edge.link.id) ?? []) : [];
     const relationships = (edge.link?.relationships ?? (edge.derived ? [edge.derived.relationship] : [])).map((id) => ctx.lookup.relationships.get(id)).filter((r): r is Relationship => !!r);
+    // The index that serves the foreign key: one whose leading columns are the key's, in order.
+    const fkTable = fk ? ctx.lookup.tables.get(edge.source) : undefined;
+    const fkIndex = fk && fkTable?.indexes.find((i) => fk.columns.every((c, n) => i.parts[n]?.column === c));
+    // Diagnostics about this line, its foreign key or its relationships.
+    const subjects = new Set([edge.id, ...(fk ? [fk.id] : []), ...relationships.map((r) => r.id)]);
+    const diagnostics = ctx.doc.diagnostics.filter((d) => d.subject.id !== null && subjects.has(d.subject.id));
     return (
         <>
             <span className="tag">{KIND_TAG[edge.kind]}</span>
-            <h2>{edge.label}</h2>
+            <h2>
+                <Ident text={edge.label} />
+            </h2>
+            {onFocus && (
+                <div className="detail-actions">
+                    <button type="button" onClick={onFocus}>
+                        Focus <kbd>⇧F</kbd>
+                    </button>
+                </div>
+            )}
             {edge.kind === 'relationship' && !edge.crossConnection && <p className="muted">The ORM declares this relationship; no foreign-key constraint enforces it.</p>}
             {edge.crossConnection && (
                 <p className="muted cross-note">
@@ -926,6 +1139,18 @@ export function EdgeDetails({ edge, ctx, onSelectTable, onInferred }: { edge: Gr
                     <ul className="plain">
                         <ForeignKeyItem fk={fk} ctx={ctx} onSelectTable={onSelectTable} />
                     </ul>
+                    <dl>
+                        <div className="fact">
+                            <dt>Index</dt>
+                            <dd>{fkIndex ? (fkIndex.name ?? 'unnamed index') : <span className="muted">none: no index starts with {fk.columns.join(', ')}</span>}</dd>
+                        </div>
+                    </dl>
+                </>
+            )}
+            {diagnostics.length > 0 && (
+                <>
+                    <h3>Diagnostics</h3>
+                    <DiagnosticList diagnostics={diagnostics} renderers={ctx.renderers} />
                 </>
             )}
             {inferred.length > 0 && (

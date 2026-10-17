@@ -22,8 +22,13 @@ The viewer displays the comparisons, migration tracks and inferred associations 
 Migrations tabs, difference marks on the diagram, inferred marks on foreign-key edges) and never computes them; see
 [docs/views.md](docs/views.md).
 
-Hosts without Node.js serve `node_modules/laranex-schema-viewer-ui/dist/viewer/` as static files with a
-`snapshot.json` beside `index.html`, or use `<laranex-schema-viewer src="snapshot.json">`.
+Hosts without Node.js serve `node_modules/laranex-schema-viewer-ui/dist/viewer/` as static files (including its
+`favicon.svg` and `favicon.ico`) with a `snapshot.json` beside `index.html`, or use
+`<laranex-schema-viewer src="snapshot.json">`. Using the viewer (layout, connections, line ends, column details,
+shortcuts and deep links) is described in [docs/viewer.md](docs/viewer.md).
+
+Its icons, brand mark and favicon come from Laranex Laravel Schema Viewer, drawn in this package's own theme colors
+(see NOTICE).
 
 ## License
 
