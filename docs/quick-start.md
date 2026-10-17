@@ -53,4 +53,4 @@ Open `schema/index.html` through a web server (not `file://`, which blocks `fetc
 node node_modules/laranex-schema-viewer-ui/contract/check.mjs snapshot.json
 ```
 
-`check.mjs` validates strictly, compares the stored links with the shared graph builder, and checks canonical form.
+`check.mjs` validates strictly, compares the stored links and inferred associations with the shared builders, and checks canonical form.

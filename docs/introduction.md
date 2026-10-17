@@ -12,7 +12,7 @@ read schemas in very different ways: Laravel inspects the live database and Eloq
 declarations from SQLAlchemy, SQLModel, Django, Tortoise ORM and Peewee, and Node.js reads Prisma, TypeORM, Drizzle,
 Sequelize and MikroORM. This package gives them one place to meet:
 
-- **The contract.** Every producer writes a [`laranex-schema` 1.0](./contract.md) document. Framework-specific
+- **The contract.** Every producer writes a [`laranex-schema` 2.0](./contract.md) document. Framework-specific
   normalization happens in the producer; the viewer never detects or converts framework formats.
 - **The viewer.** One React component and one static bundle render any `laranex-schema` document, so a feature added
   here reaches every framework at once.

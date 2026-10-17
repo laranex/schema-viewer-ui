@@ -25,7 +25,7 @@ export function Schema({ document }) {
 
 | Prop | Meaning |
 |---|---|
-| `document` | A `laranex-schema` 1.x document. Validate untrusted input with `validateDocument()` first. |
+| `document` | A `laranex-schema` 2.x document. Validate untrusted input with `validateDocument()` first. |
 | `changes`, `downloads`, `editor`, `defaultConnection` | Host settings, as in `ViewerConfig`. |
 | `extensionRenderers` | `{ [namespace]: (value) => ReactNode }` for rich rendering of one extension namespace. Others render generically. |
 | `theme`, `onThemeChange`, `persistTheme` | Controlled or remembered theme. |
@@ -66,6 +66,5 @@ names carry content hashes. `app.js`, `app.css` and `index.html` keep fixed name
 
 ## Versions
 
-The viewer reads every 1.x document and refuses others with a clear message. Hosts that still write an older format
-(Laravel `format: 2`, Python `laranex-schema-viewer` version 1) convert to `laranex-schema` in their own code before
-handing the document over; the viewer has no adapters.
+The viewer reads every 2.x document and refuses others, including `laranex-schema` 1.0, with a clear message. Hosts
+write 2.0 directly; the viewer has no adapters or converters.

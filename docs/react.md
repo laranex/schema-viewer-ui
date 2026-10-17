@@ -9,7 +9,7 @@ import 'laranex-schema-viewer-ui/styles.css';
 
 | Prop | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `document` | `SchemaDocument` | — | A `laranex-schema` 1.x document. Validate untrusted input first. |
+| `document` | `SchemaDocument` | — | A `laranex-schema` 2.x document. Validate untrusted input first. |
 | `changes` | `ViewerChange[] \| null` | — | Changes since the previous build, listed in the guide. |
 | `downloads` | `ViewerDownload[]` | — | Files the host prepared, offered in the guide. |
 | `editor` | `string \| null` | `null` | Editor URL template with `{file}` and `{line}` for source links. |
@@ -26,13 +26,16 @@ import 'laranex-schema-viewer-ui/styles.css';
 ## Contract helpers
 
 ```ts
-import { validateDocument, assertDocument, buildGraph, canonicalJson, documentRevision, jsonSchema } from 'laranex-schema-viewer-ui/contract';
+import { validateDocument, assertDocument, buildGraph, inferAssociations, canonicalJson, documentRevision, jsonSchema } from 'laranex-schema-viewer-ui/contract';
 
 const result = validateDocument(data, { strict: true }); // { ok, document, errors }
 const { links, derivedLinks } = buildGraph(document);     // the shared graph rules
+const associations = inferAssociations(document);         // the shared inference rules (producers only)
 const bytes = canonicalJson(document);                    // sorted keys, two spaces, trailing newline
 const revision = documentRevision(document);              // SHA-256 of the canonical bytes
 ```
 
-Strict validation rejects properties the version does not define (for producers); the default lenient mode ignores
-them (for readers of a later 1.x minor).
+Strict validation accepts exactly version 2.0 and rejects properties it does not define: producers and tests use it.
+The default lenient mode reads any 2.x minor and ignores properties it does not know, so a viewer keeps working when a
+producer writes a newer minor. `compareScopes`, `migrationState` and `inferAssociations` are producer algorithms with
+conformance cases; viewers show the stored results and never compute them.

@@ -1,4 +1,4 @@
-# The `laranex-schema` contract, version 1.0
+# The `laranex-schema` contract, version 2.0
 
 One framework-neutral JSON document describes a project's schema for every Laranex schema viewer: the Laravel, Python
 and Node.js packages produce it, and the shared viewer, MCP tools and exporters read it. This page is the normative
@@ -15,21 +15,30 @@ it, and the fixtures in `contract/` are the shared test suite.
 - **Explicit provenance.** Every physical entity says which sources observed it, and each connection says what each
   source covered. An incomplete inspection is never reported as complete.
 - **Opaque, stable ids.** Every entity has an id, unique among entities of its kind (connections, tables, indexes,
-  foreign keys, constraints, models, relationships, links), and refers to others by id. Consumers
-  compare ids; they never parse them.
+  foreign keys, constraints, models, relationships, links, diagnostics, comparisons, differences, migration tracks,
+  inferred associations), and refers to others by id. Consumers compare ids; they never parse them.
+- **Facts, inferences and comparisons stay apart.** Physical foreign keys, ORM-declared relationships and inferred
+  associations are three collections; an inference is never a relationship and never adds a link. Comparisons and
+  migration tracks are computed by producers with the shared algorithms below; viewers display them and never
+  compute them.
+- **The contract is the serialization boundary.** Producers keep ORM and database extraction, a normalized
+  in-memory schema model, and canonical serialization separate: extractors fill the model, and only the serializer
+  knows this document's field names. Nothing converts between versions or formats.
 - **Deterministic bytes.** Equal schemas serialize to equal bytes: no timestamps, canonical key order, specified array
   order.
 
 ## Versions
 
-`format` is `"laranex-schema"`; `version` is `"major.minor"`, currently `"1.0"`.
+`format` is `"laranex-schema"`; `version` is `"major.minor"`, currently `"2.0"`. 2.0 replaces 1.0; nothing reads or
+converts 1.0 documents (see [Changes from 1.0](#changes-from-1-0)).
 
 - A minor version only adds optional fields or new enum-like string values documented as open (diagnostic kinds,
-  relationship types). A major version is any other change.
-- Producers validate strictly against the version they write (`validateDocument(doc, { strict: true })`): unknown
-  properties are errors.
-- Readers accept every minor version of their major and ignore properties they do not know (the default, lenient
-  mode). A reader rejects other majors with a clear error.
+  relationship types, ambiguities, providers). A major version is any other change.
+- Producers and tests validate strictly (`validateDocument(doc, { strict: true })`): the version must be exactly
+  the one the validator implements (`"2.0"`), and unknown properties are errors.
+- Readers accept every minor of their major and ignore properties they do not know (the default, lenient mode), so a
+  deployed viewer keeps reading documents from a newer producer. Any other major, 1.x included, is rejected with one
+  clear error.
 
 ## Document
 
@@ -46,6 +55,9 @@ it, and the fixtures in `contract/` are the shared test suite.
 | `links` | Link[] | Graph edges between column sets; see [Graph](#graph) |
 | `derivedLinks` | DerivedLink[] | Through relationships as edges |
 | `diagnostics` | Diagnostic[] | What could not be read, what disagrees, and advice |
+| `comparisons` | Comparison[] | Schema comparisons between two scopes; see [Comparisons](#comparisons) |
+| `migrations` | MigrationTrack[] | Migration history and status per scope; see [Migrations](#migrations) |
+| `inferredAssociations` | InferredAssociation[] | Associations foreign keys imply without a declared relationship; see [Inferred associations](#inferred-associations) |
 | `extensions` | object, optional | See [Extensions](#extensions) |
 
 Host-specific viewer settings (changes since the last build, prepared downloads, editor links, the connection to open
@@ -90,7 +102,10 @@ each with its own driver, default schema, coverage and tables, in any mix of dia
 the one-element case; nothing in the contract assumes there is only one.
 
 **Connection** `{ id, name, driver, defaultSchema, coverage, tables, extensions? }`. `name` is unique. `driver` is the
-dialect (`pgsql`, `postgresql`, `mysql`, `mariadb`, `sqlite`, `sqlsrv`, …) or null when the source does not know it.
+lower-case dialect, or null when the source does not know it. The list is open, but these databases have one
+spelling: `postgresql`, `mysql`, `mariadb`, `sqlite`, `sqlsrv`, `oracle`. Producers map framework names to them
+(Laravel's `pgsql` is `postgresql`); the validator rejects the known aliases `pgsql`, `postgres`, `mssql` and
+`sqlserver`.
 
 - Table ids are unique across the whole document, so producers qualify them by connection (`analytics:users`). Table
   names, and schema-qualified names, may repeat across connections: `users` in two connections are two tables, told
@@ -125,16 +140,16 @@ comment, note, provenance, drift?, extensions? }`
 
 Indexes are first-class entities, never drawn as graph nodes by default.
 
-**Index** `{ id, name, parts, columns, expression, unique, primary, backs, method, partial, predicate, included,
-dialectOptions?, provenance, drift?, extensions? }`
+**Index** `{ id, name, parts, expression, unique, backs, method, partial, predicate, included, dialectOptions?,
+provenance, drift?, extensions? }`
 
 - `parts` lists every key part in order. A part is a column or an expression, never both:
   `{ column, expression, order, nulls, length, collation, opclass }`, with `order` `asc`/`desc`, `nulls` `first`/`last`,
   `length` a prefix length (MySQL `name(10)`), and `opclass` an operator class (PostgreSQL `text_pattern_ops`).
-- `columns` repeats the column parts' names in order, for convenience. The validator checks it.
 - `expression` is true when any key part is an expression, including one whose text the source does not report (the
   part is then left out of `parts`).
-- `primary` marks the primary key's index; it is unique and `backs.kind` is `primary_key`.
+- The primary key's index is the one with `backs.kind` `primary_key`: it is unique, has no expression parts, and
+  its column parts are exactly the table's `primaryKey`.
 - `backs` is the constraint the index enforces: `{ kind: primary_key | unique_constraint, constraint }`, where
   `constraint` is the unique constraint's id when the document has it as an entity. An index created on its own has
   `backs: null`, so a unique index and a unique constraint stay distinguishable.
@@ -212,26 +227,244 @@ pivot, polymorphic, through, join, constraints, inverse, note, source, extension
 
 ## Diagnostics
 
-**Diagnostic** `{ kind, category, severity, certainty, subject, message, extensions? }`
+**Diagnostic** `{ id, kind, category, severity, certainty, subject, message, extensions? }`
+
+- `id` is `"n"` + the first 16 hex digits of the SHA-256 of `["diagnostic", kind, subject.type, subject.id,
+  subject.columns, message]`, so two equal diagnostics cannot both be listed and gate reports can name one.
 
 - `category`: `extraction` (ORM metadata could not be read), `inspection` (database metadata could not be read),
   `reconciliation` (one source has what the other lacks), `drift` (both have it and disagree), `lint` (advice).
 - `severity`: `error`, `warning`, `info`. `certainty`: `certain` for a confirmed fact read from metadata, `likely` for
   a heuristic recommendation inferred from names, conventions or usage. Viewers show the two apart.
 - `subject`: `{ type, id, columns, label }`, where `type` is `document`, `connection`, `table`, `column`, `index`,
-  `foreignKey`, `constraint`, `model`, `relationship` or `link`. For `column`, `id` is the table's id and `columns`
-  names the columns. `id` must exist in the document, except for `unresolved_*` kinds, which name what is missing.
+  `foreignKey`, `constraint`, `model`, `relationship`, `link`, `comparison`, `migration` or `inferredAssociation`.
+  For `column`, `id` is the table's id and `columns` names at least one column; other subjects may name columns as
+  context. `id` is null for `document`, and must exist in the document otherwise, except for `unresolved_*` kinds,
+  which name what is missing. A `link` subject may be a link or a derived link.
   `label` is a readable name for when the id does not resolve.
 - Named kinds producers share (open list): `unresolved_foreign_key`, `unresolved_relationship`, `unsupported_metadata`,
   `inspection_unavailable`, `model_without_table`, `table_without_model`, `declared_only`, `database_only`,
   `column_drift`, `index_drift`, `foreign_key_drift`, `missing_index`, `duplicate_index`, `redundant_index`,
-  `relationship_without_foreign_key`, `foreign_key_without_relationship`.
+  `relationship_without_foreign_key`, `foreign_key_without_relationship`, and for the sections below
+  `comparison_incomplete` (inspection, subject `comparison`), `migration_history_unavailable` (extraction),
+  `migration_version_table_unreadable` (inspection), `migration_multiple_heads` (lint),
+  `migration_unknown_revision` (reconciliation), all with subject `migration`, and `inference_ambiguous` (lint,
+  subject `inferredAssociation`).
+
+## Comparisons
+
+A comparison lists how one scope's schema differs from another's: two tenant schemas of one connection, a
+connection against another (a primary and a replica, PostgreSQL against MySQL), or a release against production.
+Producers compute it with the algorithm below, which `compareScopes()` implements and
+`contract/conformance/comparison/` checks. Viewers display stored comparisons and never compute them.
+
+**Scope** `{ connection, schema }`: a connection id, and a schema of it or null. A table is in scope when its schema
+equals `schema`, or is null while the connection's `defaultSchema` equals `schema`. With `schema` null, the tables
+whose schema is null or the default schema are in scope. A scope must not hold two tables of one name.
+
+**Comparison** `{ id, baseline, target, complete, omitted, summary, differences, extensions? }`
+
+- `id` is `"c"` + the digest of `["comparison", baseline.connection, baseline.schema, target.connection,
+  target.schema]`. The two scopes differ.
+- `summary` `{ missing, extra, changed }` counts every difference found, listed or not; `omitted` is how many were
+  left out of `differences` (a producer's limit, in difference order). The validator checks `summary` sums to
+  `differences.length + omitted` and covers the listed ones.
+- `complete` is false when `omitted > 0`, or when either side's coverage (`database` coverage, or `declared` in a
+  declared document) is not `complete` or `not_applicable` for every feature the comparison reads (`tables`,
+  `columns`, `columnTypes`, `defaults`, `comments`, `primaryKeys`, `foreignKeys`, `referentialActions`, `indexes`,
+  `indexExpressions`, `indexPredicates`, `uniqueConstraints`, `checkConstraints`) or did not read the scope's schema
+  (`schema`, else `defaultSchema`, when both it and `coverage.schemas` are known). An incomplete comparison is never
+  reported as passing; see [Gate reports](#gate-reports).
+
+**Difference** `{ id, change, objectType, key, baseline, target, fields, severity, certainty, extensions? }`
+
+- `change`: `missing` (in the baseline, not the target; `target` null), `extra` (in the target only; `baseline`
+  null), `changed` (both sides; `fields` lists the differing fields, sorted by `field`, at least one). Missing and
+  extra differences list no fields, and a missing or extra table's contents are not listed.
+- `objectType`: `table`, `column`, `primaryKey`, `index`, `foreignKey`, `constraint`.
+- `key` is the normalized identity both sides share. It never contains a schema name, so tenant schemas are never
+  drift (the validator rejects a key element equal to either compared schema when they differ).
+- `baseline` and `target` are refs `{ table, id, label }`: the table id in that side's scope; `id` the index,
+  foreign-key or constraint id (null for table, column and primary-key differences); `label` the readable name:
+  `schema.table` (or `table`), with `.column`, ` primary key`, or `.name` (`.definition` when unnamed).
+- `id` is `"x"` + the digest of `["difference", comparisonId, objectType, key]`.
+- Differences are sorted by object type in the order above, then `key` element-wise, then change (`missing`,
+  `extra`, `changed`).
+
+### The comparison algorithm
+
+In a combined document only entities whose provenance includes `database` take part. SQL text is compared
+normalized: lower case; the side's own schema qualifier removed (`tenant_a.f(x)` and `"tenant_a".f(x)` become
+`f(x)`); on MariaDB `octet_length(` read as `length(`; casts (`::type`) removed; whitespace, parentheses, backticks and
+double quotes removed.
+
+1. **Tables** match by name. Key `[table]`. A matched table's field: `comment`.
+2. **Columns** of matched tables match by name. Key `[table, column]`. Fields, each compared as stated:
+   - `type`: on two connections with the same non-null driver, the text lower-cased with whitespace collapsed
+     (certain); otherwise the normalized type (likely): lower case, whitespace collapsed, `unsigned`/`signed`/
+     `zerofill` dropped, the base name mapped through the synonyms below, `timestamp` with `timezone: true` as
+     `timestamptz`, `tinyint(1)` as `boolean`, and arguments dropped for integer types and `double(53)`. A type that
+     does not parse compares by its collapsed text.
+   - `nullable`; `default`: identity and sequence defaults, and no default with `autoIncrement: true`, are one value
+     (`auto`), whatever the sequence; other defaults compare as normalized SQL (likely); `collation`, when both are
+     known, case-insensitively; `enum` values in order; `generated` kind and normalized expression (likely);
+     `comment`.
+3. **Primary key**: `[table]`, compared by its ordered columns. Missing when only the baseline has one, extra when
+   only the target has one, else field `columns`.
+4. **Indexes** match by name, then the rest by signature, `unique ` (when unique) + `(` + the parts joined by `,` +
+   `)`, a part being its column or `expr:` + normalized expression, with ` desc` for descending order, and `,?` for
+   an expression part the source did not report. Indexes backing the primary key, or a unique constraint present as an
+   entity, are compared as those, not as indexes. Keys: `[table, "name", name]` for a name match or an unmatched
+   named index, `[table, "parts", signature]` otherwise. Fields: `name` (signature match, both named), `unique`,
+   `parts` (the signature without `unique`), `method` (both known, case-insensitive), `predicate` (partial flag or
+   normalized predicate; likely), `included` (as sets). A `parts` change involving an expression part is likely.
+5. **Foreign keys** match by signature `columns,…->referencedTableName(referencedColumns,…)` (the referenced table by
+   name, never id or schema), then the rest by name. Keys: `[table, "references", signature]` for a signature match,
+   `[table, "name", name]` for a name match or an unmatched named key, else the signature form. Fields: `name`
+   (signature match, both named); `columns`, `foreignTable` (the name), `foreignColumns` (name match); `onDelete`,
+   `onUpdate`, where null is `NO ACTION` and, when either side is MySQL or MariaDB, `RESTRICT` is `NO ACTION`;
+   `deferrable` and `initially` when both are known. Certain.
+6. **Constraints** match by kind and name, then the rest by kind and definition (a unique constraint's columns joined
+   by `,`, else the normalized expression). Keys: `[table, kind, "name", name]` or `[table, kind, "definition",
+   definition]`. Fields: `columns` (unique, name match), `expression` (check, name match; likely), `name` (definition
+   match, both named).
+7. Pairs within a pass are made in entity-id order. Keys that still coincide (unnamed duplicates) get `"#2"`, `"#3"`,
+   … appended in the order of their entity ids.
+
+Certainty: missing and extra differences are `certain`; a changed one is `likely` when any of its fields was compared
+as normalized text as marked above, else `certain`.
+
+Type synonyms: `int`, `int4`, `integer`, `mediumint`, `serial` → `integer`; `bigint`, `int8`, `bigserial` → `bigint`;
+`smallint`, `int2`, `smallserial` → `smallint`; `tinyint`; `bool`, `boolean` → `boolean`; `character varying`,
+`varchar`, `nvarchar` → `varchar`; `character`, `char`, `bpchar`, `nchar` → `char`; `text`, `clob` → `text`;
+`datetime`, `timestamp`, `timestamp without time zone` → `timestamp`; `timestamptz`, `timestamp with time zone` →
+`timestamptz`; `time without time zone` → `time`; `time with time zone`, `timetz` → `timetz`; `float`, `float8`,
+`double`, `double precision` → `double`; `real`, `float4` → `real`; `numeric`, `decimal` → `numeric`; `blob`,
+`bytea`, `varbinary`, `largebinary` → `blob`.
+
+### Severity
+
+Producers assign severity from these defaults and let users override them per `(objectType, change)` or
+`(objectType, change, field)`; a field override wins over a general one. A changed difference takes its most severe
+field.
+
+| Object | missing / extra | changed |
+|---|---|---|
+| table | error | info (`comment`) |
+| column | error | warning; `comment`: info |
+| primaryKey | error | error |
+| index, foreignKey, constraint | warning | warning |
+
+## Migrations
+
+A migration track is one migration tool's history and the database's position in it, for one scope (`connection`,
+`schema`, as for comparisons): one track per tenant schema when each tenant has its own version table. Producers
+compute `status`, `pending` and `unknownRevisions` with the rules below (`migrationState()`,
+`contract/conformance/migrations/`); the validator recomputes them, and viewers display them.
+
+**MigrationTrack** `{ id, provider, connection, schema, versionTable, history, current, status, pending,
+unknownRevisions, coverage, extensions? }`
+
+- `id` is `"m"` + the digest of `["migration", provider, connection, schema]`. `provider` is the tool, lower case
+  (`alembic`; open).
+- `versionTable` is the version table's id, in the track's scope, or null when the database has none; then `current`
+  is `[]`.
+- `history` `{ revisions, heads, missing }` or null when the scripts could not be read. `revisions` are `{ id,
+  parents, branchLabels }` sorted by id, with sorted parents and labels. `heads` are exactly the revisions no
+  revision names as a parent (several when branches are not merged); `missing` the parents named but not present (a
+  partial history, which is valid). Both sorted.
+- `current` is the sorted revisions the version table records, `[]` when it records none, or null when it could not
+  be read.
+
+Status, in order (an ancestor-or-equal of `x` is `x` or any revision reachable through `parents`, missing ones
+included):
+
+1. `current` null: `unknown`.
+2. `current` empty: `uninitialized`; `pending` is every ancestor-or-equal of a head (null when `history` is null or
+   that includes a missing revision).
+3. `history` null: `unknown`.
+4. A current revision not in `revisions`: `unknown`, listed in `unknownRevisions` (sorted). It is never a validation
+   error: a database ahead of the scripts is representable.
+5. A current revision that is an ancestor of another current revision (an overlapping version table): `diverged`.
+6. `pending`: the ancestors-or-equal of the heads that are no current revision's ancestor-or-equal, sorted. If it
+   holds a missing revision: `unknown`. Otherwise `behind` when non-empty, `up_to_date` when empty (the current
+   revisions are then exactly the heads).
+
+`pending` is null whenever it cannot be determined (`unknown`, `diverged`); `unknownRevisions` is empty except in
+rule 4.
+
+**Coverage rows** `{ table, name, declared, autogenerate, migrationManaged, certainty, evidence }` say, per table,
+whether it is under migration control, sorted by `(name, table)`. `table` is the table id in the track's scope, or
+null for a table only migrations know (created and dropped). `declared`: an ORM model declares it. `autogenerate`
+(`included`, `excluded`, `unknown`) is whether the tool's autogenerate compares it; `migrationManaged` (`yes`, `no`,
+`unknown`) whether migration scripts create it. They are separate facts: `excluded` never means "not migrated". A
+row with an `unknown` answer is `likely`. `evidence` `{ kind, detail }` (`create_table`, `drop_table`,
+`include_filter`, `version_table`, `model`) is sorted by kind and detail.
+
+## Inferred associations
+
+An inferred association is what an uncovered foreign key implies between two ORM models that declare no
+relationship over it. It is never a relationship, never adds or changes a link, and viewers present it as "inferred,
+no ORM attribute declared". Producers compute them with the algorithm below (`inferAssociations()`,
+`contract/conformance/inference/`); `check.mjs` recomputes them.
+
+**InferredAssociation** `{ id, kind, model, relatedModel, table, relatedTable, via, cardinality, foreignKeys, links,
+confidence, evidence, ambiguities, extensions? }`
+
+- `id` is `"i"` + the digest of `["inferred", kind, sortedForeignKeyIds, via]`.
+- `kind` `foreign_key` has one foreign key, `via` null, and cardinality `many-to-one` or `one-to-one` from the
+  referencing model; `association_table` has two foreign keys, `via` the association table, and `many-to-many`.
+- `foreignKeys` and `links` (the foreign keys' existing links) are sorted. No declared relationship covers any of the
+  foreign keys: the validator rejects one whose link has relationships.
+- `evidence` `{ kind, id, confirmed }`, sorted by kind and id: `foreign_key` (each foreign key), `primary_key` (the
+  table id), `unique_constraint`, `unique_index`, `model_mapping` (each model mapping either table). `confirmed` is
+  whether the fact was read from metadata: provenance includes `database`, or the document is `declared`. Model
+  mappings are confirmed.
+- `confidence` (`high`, `medium`, `low`) is the inference's: `high`, one level lower for each ambiguity and each
+  unconfirmed foreign key, at most `low`. Confirmed evidence and inferred confidence are separate.
+- `ambiguities` (sorted, open): `multiple_foreign_keys`, `self_reference`, `multiple_models`.
+
+### The inference algorithm
+
+1. Candidates are the links with a foreign key and no relationships (each link's foreign key stands for duplicates).
+   A table is mapped when a model lists it; its models are taken in id order.
+2. Keys of a table: its primary key; its unique constraints with columns; its unique indexes that are not partial,
+   have no expression part and back neither the primary key nor a unique-constraint entity.
+3. Association tables: for each unmapped table, each pair of its candidates (in foreign-key id order) with disjoint
+   columns whose union is exactly a key of the table, both referenced tables mapped, is an `association_table`
+   between the first and second referenced tables, with the matching keys as evidence. Their foreign keys are used.
+4. Every other candidate whose table and referenced table are both mapped is a `foreign_key` inference from its
+   table: `one-to-one` when its columns are exactly a key of its table (the keys are evidence), else `many-to-one`.
+   `multiple_foreign_keys` when more than one foreign-key link goes from its table to the referenced table.
+5. `self_reference` when both tables are one; `multiple_models` when either is mapped by several models (`model` and
+   `relatedModel` are then the smallest ids). Nothing involving an unmapped table is inferred, apart from step 3.
+
+## Gate reports
+
+A gate checks a document in CI and prints a `laranex-schema-gate` report, a separate format with its own JSON Schema
+(`contract/gate-report.schema.json`) and validator (`validateGateReport()`).
+
+`{ format: "laranex-schema-gate", version: "1.0", passed, exitCode, thresholds, counts, findings, errors }`
+
+- `thresholds` `{ severity, certainty }`: a finding qualifies when its severity is at least `severity` and, with
+  certainty `certain`, it is certain (with `likely`, both qualify).
+- `findings` `{ source, id, kind, severity, certainty, label, message }`, sorted by source, id and kind: `diagnostic`
+  (a diagnostic id, its kind), `comparison` (a difference id, kind `<object_type>_<change>` in snake case, such as
+  `primary_key_missing`), `migration` (a track id, kind `migration_<status>`; defaults: `behind` and `diverged`
+  error, `uninitialized` warning, certain).
+- `errors` `{ kind, message }`, sorted: what kept the check from completing: `comparison_incomplete` (any comparison
+  with `complete` false), `migration_unknown` (a checked track with status `unknown`), `inspection_failed`,
+  `validation_incomplete`, `invalid_document` (open list).
+- `counts` `{ findings, qualifying, error, warning, info }` count the findings.
+- `exitCode`: **2** when `errors` is non-empty, whatever the findings: an incomplete check never passes; else **1**
+  when a finding qualifies; else **0**. `passed` is true exactly when it is 0.
 
 ## Extensions
 
 `extensions` is an object keyed by a lower-case namespace (`eloquent`, `laravel`, `sqlalchemy`, `django`, `prisma`,
-`typeorm`, …) holding any JSON object. It is allowed on the document, connections, tables, columns, indexes,
-constraints, foreign keys, models, relationships and diagnostics.
+`typeorm`, `alembic`, …) holding any JSON object. It is allowed on the document, connections, tables, columns,
+indexes, constraints, foreign keys, models, relationships, diagnostics, comparisons, differences, migration tracks
+and inferred associations.
 
 - Extensions carry what only one ORM or framework means, such as Eloquent casts, fillable attributes, SQLAlchemy's
   `autoincrement="ignore_fk"` or a Laravel hint's ignore rule.
@@ -249,9 +482,25 @@ Producers write the document as UTF-8 JSON with:
 - no `undefined` or absent-versus-null ambiguity: required fields are always present, null when unknown.
 
 Arrays keep the order this page gives them. Where it gives none, producers sort by id (tables within a connection,
-models, relationships), keep declaration order for columns and key parts, and sort diagnostics by
-`(category, kind, subject.type, subject.id, message)`. A document's revision is the SHA-256 of its canonical bytes
+models, relationships, comparisons, migration tracks, inferred associations), keep declaration order for columns and
+key parts, and sort diagnostics by `(category, kind, subject.type, subject.id, message)`. "Sorted" strings are in
+Unicode code point order; string lists compare element-wise, a prefix first. A document's revision is the SHA-256 of its canonical bytes
 (`documentRevision()`).
+
+## Changes from 1.0
+
+For the record; nothing reads or converts 1.0.
+
+- `version` is `"2.0"`; validators reject 1.x, and strict validation accepts exactly 2.0.
+- New required arrays `comparisons`, `migrations`, `inferredAssociations` (empty allowed), with new diagnostic kinds and
+  subject types `comparison`, `migration`, `inferredAssociation` (and `link` subjects may name derived links).
+- Diagnostics have an `id` by rule, so reports can name one and duplicates are impossible.
+- `Index.columns` is gone: it repeated the column parts of `parts`, and the validator had to keep them in step.
+- `Index.primary` is gone: it repeated `backs.kind == "primary_key"`. The primary index must also have exactly the
+  primary key's columns.
+- `Connection.driver` has one spelling per database (`postgresql`, not `pgsql`), since comparisons depend on equal
+  drivers; known aliases are rejected.
+- A column diagnostic must name its columns.
 
 ## Checking a producer
 
@@ -260,6 +509,7 @@ npm install --no-save laranex-schema-viewer-ui@<version>
 node node_modules/laranex-schema-viewer-ui/contract/check.mjs path/to/snapshot.json
 ```
 
-`check.mjs` runs strict validation, compares the stored links with the shared graph builder, and checks canonical
-form. Producers in other languages also run `contract/conformance/graph/*.json` through their own graph builders and
-`contract/fixtures/invalid/*.json` through their own validators, where they have them.
+`check.mjs` runs strict validation (which checks comparison ids, order and summaries and recomputes migration
+statuses), compares the stored links and inferred associations with the shared builders, and checks canonical form.
+Producers in other languages also run `contract/conformance/{graph,comparison,migrations,inference}/*.json` through
+their own implementations and `contract/fixtures/invalid/*.json` through their own validators, where they have them.

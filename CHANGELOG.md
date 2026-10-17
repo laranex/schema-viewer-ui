@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the contract is `laranex-schema` 2.0. Validators accept only 2.x (1.x is rejected with one clear
+  error) and strict validation accepts exactly 2.0; nothing reads or converts 1.0. `docs/contract.md` lists every
+  change under "Changes from 1.0".
+- `Index.columns` and `Index.primary` are removed: the column parts of `parts` and `backs.kind: "primary_key"` say
+  the same. The primary index must have exactly the primary key's columns.
+- Diagnostics have a rule-based `id`; column diagnostics must name their columns.
+- `Connection.driver` uses one spelling per database (`postgresql`, `mysql`, `mariadb`, `sqlite`, `sqlsrv`,
+  `oracle`); aliases such as `pgsql` are rejected.
+
+### Added
+
+- Required document arrays `comparisons` (schema comparisons between two scopes, such as tenant schemas or
+  connections on different drivers, with normalized identities, severity defaults and certainty), `migrations`
+  (migration history and status per scope: `up_to_date`, `behind`, `diverged`, `uninitialized`, `unknown`, with
+  partial histories, multiple heads, unknown revisions and autogenerate/migration coverage) and
+  `inferredAssociations` (associations uncovered foreign keys imply, kept apart from relationships and links).
+- Shared producer algorithms `compareScopes`, `migrationHistory`, `migrationState` and `inferAssociations` with
+  conformance cases in `contract/conformance/{comparison,migrations,inference}/`; `check.mjs` also checks stored
+  inferred associations. The viewer never computes these.
+- The `laranex-schema-gate` CI report: `contract/gate-report.schema.json`, `validateGateReport()` and fixtures, with
+  exit codes 0 (pass), 1 (qualifying drift) and 2 (incomplete comparison, failed inspection or validation).
+- Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`, `migrations-alembic`
+  and `inferred-associations`, and invalid fixtures for each new rule.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added
