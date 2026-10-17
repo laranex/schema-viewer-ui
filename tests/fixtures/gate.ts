@@ -1,61 +1,24 @@
-import type { GateFinding, GateReport } from '../../src/contract/gate';
+import { gateDocument, type GateReport } from '../../src/contract/gate';
 import { VALID } from './documents';
 
-// Gate report fixtures, written to contract/fixtures/gate/{valid,invalid}/<name>.json. The findings come from the
-// synthetic documents, so their ids are real.
+// Gate report fixtures, written to contract/fixtures/gate/{valid,invalid}/<name>.json: gateDocument's reports on the
+// synthetic documents, and broken copies of them. contract/conformance/gate/ checks gateDocument itself.
 
 type Mutable = any;
 export type InvalidGateCase = { description: string; errors: string[]; report: unknown };
 
-const tenants = VALID['comparison-tenant-schemas']();
-const migrations = VALID['migrations-alembic']();
-const incomplete = VALID['comparison-incomplete']();
-
-const snake = (s: string) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
-const differences = (doc: typeof tenants): GateFinding[] =>
-    doc.comparisons.flatMap((c) =>
-        c.differences.map((d) => ({
-            source: 'comparison' as const,
-            id: d.id,
-            kind: `${snake(d.objectType)}_${d.change}`,
-            severity: d.severity,
-            certainty: d.certainty,
-            label: (d.baseline ?? d.target)?.label ?? d.key.join('.'),
-            message: d.change === 'changed' ? `${d.fields.map((f) => f.field).join(', ')} differ` : d.change === 'missing' ? 'Only in the baseline' : 'Only in the target',
-        })),
-    );
-
-function report(thresholds: GateReport['thresholds'], findings: GateFinding[], errors: GateReport['errors'] = []): GateReport {
-    const rank = { info: 0, warning: 1, error: 2 };
-    const qualifying = findings.filter((f) => rank[f.severity] >= rank[thresholds.severity] && (thresholds.certainty === 'likely' || f.certainty === 'certain')).length;
-    const sorted = [...findings].sort((a, b) => (a.source < b.source ? -1 : a.source > b.source ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : a.kind < b.kind ? -1 : 1));
-    const exitCode = errors.length ? 2 : qualifying ? 1 : 0;
-    const by = (s: GateFinding['severity']) => findings.filter((f) => f.severity === s).length;
-    return {
-        format: 'laranex-schema-gate',
-        version: '1.0',
-        passed: exitCode === 0,
-        exitCode,
-        thresholds,
-        counts: { findings: findings.length, qualifying, error: by('error'), warning: by('warning'), info: by('info') },
-        findings: sorted,
-        errors,
-    };
-}
-
-const behind = migrations.migrations.find((m) => m.status === 'behind') as (typeof migrations.migrations)[number];
-const migrationFinding: GateFinding = { source: 'migration', id: behind.id, kind: 'migration_behind', severity: 'error', certainty: 'certain', label: `alembic · ${behind.schema}`, message: `${behind.pending?.length} revisions are not applied` };
-const infoOnly = differences(tenants).filter((f) => f.severity === 'info');
-
 export const GATE_VALID: Record<string, GateReport> = {
-    // Only info findings, below the warning threshold.
-    passed: report({ severity: 'warning', certainty: 'certain' }, infoOnly),
-    // Tenant drift and a migration behind its head.
-    drift: report({ severity: 'warning', certainty: 'certain' }, [...differences(tenants), migrationFinding]),
-    // An incomplete comparison never passes, whatever it found.
-    incomplete: report({ severity: 'error', certainty: 'likely' }, differences(incomplete), [
-        { kind: 'comparison_incomplete', message: `Comparison ${incomplete.comparisons[0].id} is incomplete: ${incomplete.comparisons[0].omitted} differences omitted, and check constraints were not read.` },
-    ]),
+    // Only info and warning findings, below the error threshold.
+    passed: gateDocument(VALID['inferred-associations'](), { thresholds: { severity: 'error' } }),
+    // Tenant drift and a migration track behind its head.
+    drift: gateDocument(VALID['comparison-tenant-schemas']()),
+    // Only the requested comparisons, here every tenant compared with tenant_a.
+    requested: gateDocument(VALID['comparison-tenant-schemas'](), { requested: [{ baseline: { connection: 'app', schema: 'tenant_a' }, target: { connection: 'app', schema: '*' } }] }),
+    // An incomplete comparison and unavailable coverage never pass, whatever was found.
+    incomplete: gateDocument(VALID['comparison-incomplete'](), { thresholds: { severity: 'error', certainty: 'likely' } }),
+    // Migration tracks in every status: findings, unknown statuses and a failed inspection.
+    migrations: gateDocument(VALID['migrations-alembic']()),
+    invalid: gateDocument({ ...VALID['database-sqlite-indexes'](), version: '3.0' }),
 };
 
 const from = (name: string, change: (r: Mutable) => void) => {
@@ -99,5 +62,40 @@ export const GATE_INVALID: Record<string, InvalidGateCase> = {
         description: 'An exit code the gate does not define',
         errors: ['$.exitCode: expected 0, 1 or 2, got 3'],
         report: from('incomplete', (r) => (r.exitCode = 3)),
+    },
+    'unknown-error-kind': {
+        description: 'An error kind the gate does not define',
+        errors: ['$.errors[0].kind: expected one of'],
+        report: from('incomplete', (r) => (r.errors[0].kind = 'comparison_failed')),
+    },
+    'comparison-finding-kind': {
+        description: 'A comparison finding whose kind is not <object_type>_<change>',
+        errors: ["A comparison finding's kind is <object_type>_<change>"],
+        report: from('drift', (r) => (r.findings[0].kind = 'column_renamed')),
+    },
+    'migration-finding-severity': {
+        description: 'A behind migration track reported as a warning',
+        errors: ['A migration finding is migration_behind or migration_diverged (error) or migration_uninitialized (warning), and certain'],
+        report: from('drift', (r) => {
+            const f = r.findings.find((x: Mutable) => x.source === 'migration');
+            f.severity = 'warning';
+            r.counts.error -= 1;
+            r.counts.warning += 1;
+        }),
+    },
+    'invalid-document-with-findings': {
+        description: 'A report on an invalid document that lists findings',
+        errors: ['A report on an invalid document has no other error, no findings and no checked comparisons'],
+        report: from('invalid', (r) => (r.comparisons = ['c0000000000000000'])),
+    },
+    'checked-comparisons-unsorted': {
+        description: 'Checked comparison ids out of order',
+        errors: ['Checked comparisons are unique and sorted'],
+        report: from('drift', (r) => r.comparisons.push(r.comparisons[0])),
+    },
+    'requested-unsorted': {
+        description: 'Requested comparisons out of order',
+        errors: ['Requested comparisons are unique and sorted'],
+        report: from('requested', (r) => r.requested.push({ baseline: { connection: 'app', schema: null }, target: { connection: 'app', schema: 'tenant_b' } })),
     },
 };

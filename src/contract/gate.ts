@@ -1,13 +1,28 @@
-import { array, boolean, integer, literal, object, oneOf, string, type JsonSchema, type Shape } from './shape';
-import { byList } from './ids';
-import type { Certainty, Severity } from './types';
+import { scopeCovered, tableLabel } from './comparison';
+import { byCodePoint, byList } from './ids';
+import { array, boolean, integer, literal, nullable, object, oneOf, string, type JsonSchema, type Shape } from './shape';
+import { CHANGES, FEATURES, MAJOR, OBJECT_TYPES, VERSION, type Certainty, type Comparison, type Connection, type Diagnostic, type MigrationTrack, type SchemaDocument, type Scope, type Severity, type Table } from './types';
+import { validateDocument } from './validate';
 
-// The CI gate report: what a producer's gate command (Python, Node.js, Laravel) prints as JSON after checking a
-// document's diagnostics, comparisons and migration tracks against thresholds. It is a separate format from the
-// document; docs/contract.md, "Gate reports", gives the rules.
+// The CI drift gate: gateDocument() checks a document's comparisons, drift and reconciliation diagnostics and
+// migration tracks against thresholds and returns a laranex-schema-gate report, a separate format from the document.
+// docs/contract.md, "Gate reports", is the normative description; contract/conformance/gate/ checks it.
 
 export const GATE_FORMAT = 'laranex-schema-gate';
 export const GATE_VERSION = '1.0';
+
+export type GateThresholds = { severity: Severity; certainty: Certainty };
+
+// A comparison the gate is asked to check, by connection name. A target schema "*" stands for every schema the target
+// connection's inspection read, except the baseline's own scope.
+export type RequestedComparison = { baseline: { connection: string; schema: string | null }; target: { connection: string; schema: string | null } };
+
+export type GateOptions = {
+    // Each one defaults separately: severity "warning", certainty "certain".
+    thresholds?: Partial<GateThresholds> | null;
+    // Empty or absent: every stored comparison is checked. Otherwise only these, and each must be in the document.
+    requested?: RequestedComparison[] | null;
+};
 
 export type GateFinding = {
     source: 'diagnostic' | 'comparison' | 'migration';
@@ -22,9 +37,11 @@ export type GateFinding = {
     message: string;
 };
 
-// What kept the gate from checking: an incomplete comparison, an unknown migration status, a failed inspection or
-// a validation that could not be completed. Any error makes the exit code 2.
-export type GateError = { kind: string; message: string };
+export const GATE_ERROR_KINDS = ['comparison_incomplete', 'comparison_not_found', 'coverage_incomplete', 'inspection_failed', 'invalid_document', 'migration_unknown', 'validation_incomplete'] as const;
+export type GateErrorKind = (typeof GATE_ERROR_KINDS)[number];
+
+// What kept the gate from completing the check. Any error makes the exit code 2.
+export type GateError = { kind: GateErrorKind; message: string };
 
 export type GateReport = {
     format: typeof GATE_FORMAT;
@@ -34,7 +51,11 @@ export type GateReport = {
     exitCode: 0 | 1 | 2;
     // A finding qualifies when its severity is at least thresholds.severity and, with certainty "certain", it is
     // certain (with "likely", certain and likely findings both qualify).
-    thresholds: { severity: Severity; certainty: Certainty };
+    thresholds: GateThresholds;
+    // The requested comparisons, sorted and without duplicates; empty when none was requested.
+    requested: RequestedComparison[];
+    // The ids of the stored comparisons the gate checked, sorted.
+    comparisons: string[];
     counts: { findings: number; qualifying: number; error: number; warning: number; info: number };
     findings: GateFinding[];
     errors: GateError[];
@@ -43,6 +64,8 @@ export type GateReport = {
 const severity = oneOf(['error', 'warning', 'info']);
 const certainty = oneOf(['certain', 'likely']);
 const count = () => integer({ minimum: 0 });
+const KIND = '^[a-z][a-z0-9_]*$';
+const requestedScope = object({ connection: string({ minLength: 1 }), schema: nullable(string()) });
 
 export const gateReportShape: Shape = object({
     format: literal(GATE_FORMAT),
@@ -57,19 +80,21 @@ export const gateReportShape: Shape = object({
         },
     },
     thresholds: object({ severity, certainty }),
+    requested: array(object({ baseline: requestedScope, target: requestedScope })),
+    comparisons: array(string({ minLength: 1 })),
     counts: object({ findings: count(), qualifying: count(), error: count(), warning: count(), info: count() }),
     findings: array(
         object({
             source: oneOf(['diagnostic', 'comparison', 'migration']),
             id: string({ minLength: 1 }),
-            kind: string({ pattern: '^[a-z][a-z0-9_]*$' }),
+            kind: string({ pattern: KIND }),
             severity,
             certainty,
             label: string(),
             message: string(),
         }),
     ),
-    errors: array(object({ kind: string({ pattern: '^[a-z][a-z0-9_]*$' }), message: string({ minLength: 1 }) })),
+    errors: array(object({ kind: oneOf(GATE_ERROR_KINDS), message: string({ minLength: 1 }) })),
 });
 
 export function gateReportJsonSchema(): JsonSchema {
@@ -83,9 +108,255 @@ export function gateReportJsonSchema(): JsonSchema {
 
 const RANK: Record<Severity, number> = { info: 0, warning: 1, error: 2 };
 const PREFIX: Record<GateFinding['source'], string> = { diagnostic: 'n', comparison: 'x', migration: 'm' };
+const snake = (name: string) => name.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+const COMPARISON_KINDS = OBJECT_TYPES.flatMap((o) => CHANGES.map((c) => `${snake(o)}_${c}`));
+// The migration statuses that are findings, with their severity; up_to_date is none, unknown an error.
+const MIGRATION_SEVERITY: Partial<Record<MigrationTrack['status'], Severity>> = { behind: 'error', diverged: 'error', uninitialized: 'warning' };
+export const DEFAULT_THRESHOLDS: GateThresholds = { severity: 'warning', certainty: 'certain' };
+const WILDCARD = '*';
+const REQUIRED_FEATURES: string[] = ['tables', 'columns'];
 
-export const qualifies = (finding: Pick<GateFinding, 'severity' | 'certainty'>, thresholds: GateReport['thresholds']) =>
+export const qualifies = (finding: Pick<GateFinding, 'severity' | 'certainty'>, thresholds: GateThresholds) =>
     RANK[finding.severity] >= RANK[thresholds.severity] && (thresholds.certainty === 'likely' || finding.certainty === 'certain');
+
+// null sorts before any string.
+const byNullable = (a: string | null, b: string | null) => (a === b ? 0 : a === null ? -1 : b === null ? 1 : byCodePoint(a, b));
+const byScope = (a: RequestedComparison['baseline'], b: RequestedComparison['baseline']) => byCodePoint(a.connection, b.connection) || byNullable(a.schema, b.schema);
+const byRequest = (a: RequestedComparison, b: RequestedComparison) => byScope(a.baseline, b.baseline) || byScope(a.target, b.target);
+
+// A scope as people write it: the connection's name, then ":schema".
+const spell = (connection: string, schema: string | null) => (schema === null ? connection : `${connection}:${schema}`);
+
+// The report for what was found. Findings are sorted by source, id and kind; errors by kind and message, each listed once.
+function report(thresholds: GateThresholds, requested: RequestedComparison[], comparisons: string[], findings: GateFinding[], errors: GateError[]): GateReport {
+    const sortedFindings = [...findings].sort((a, b) => byList([a.source, a.id, a.kind], [b.source, b.id, b.kind]));
+    const unique = new Map(errors.map((e) => [JSON.stringify([e.kind, e.message]), e]));
+    const sortedErrors = [...unique.values()].sort((a, b) => byList([a.kind, a.message], [b.kind, b.message]));
+    const qualifying = findings.filter((f) => qualifies(f, thresholds)).length;
+    const exitCode = sortedErrors.length ? 2 : qualifying ? 1 : 0;
+    const by = (s: Severity) => findings.filter((f) => f.severity === s).length;
+    return {
+        format: GATE_FORMAT,
+        version: GATE_VERSION,
+        passed: exitCode === 0,
+        exitCode,
+        thresholds,
+        requested,
+        comparisons,
+        counts: { findings: findings.length, qualifying, error: by('error'), warning: by('warning'), info: by('info') },
+        findings: sortedFindings,
+        errors: sortedErrors,
+    };
+}
+
+// The document's validity, as the gate reads it: null when it validates strictly (2.0) or leniently (a newer 2.x),
+// else the invalid_document message.
+function invalid(input: unknown): string | null {
+    if (input === undefined) {
+        return 'The input could not be parsed as JSON.';
+    }
+    const doc = input as { format?: unknown; version?: unknown } | null;
+    if (typeof doc !== 'object' || doc === null || Array.isArray(doc) || doc.format !== 'laranex-schema' || typeof doc.version !== 'string') {
+        return 'The input is not a laranex-schema document.';
+    }
+    if (Number(doc.version.split('.')[0]) !== MAJOR) {
+        return `The document is laranex-schema ${doc.version}; the gate reads ${MAJOR}.x.`;
+    }
+    return validateDocument(input, { strict: doc.version === VERSION }).ok ? null : `The document fails laranex-schema ${doc.version} validation.`;
+}
+
+// Gates a document: input is the parsed JSON (undefined when the text could not be parsed). Never throws for any
+// input; an input that is not a valid laranex-schema 2.x document gives an invalid_document report.
+export function gateDocument(input: unknown, options: GateOptions = {}): GateReport {
+    const thresholds: GateThresholds = { ...DEFAULT_THRESHOLDS, ...Object.fromEntries(Object.entries(options.thresholds ?? {}).filter(([, v]) => v !== undefined && v !== null)) };
+    const requested: RequestedComparison[] = [];
+    for (const r of [...(options.requested ?? [])].sort(byRequest)) {
+        if (requested.length === 0 || byRequest(requested[requested.length - 1], r) !== 0) {
+            requested.push({ baseline: { connection: r.baseline.connection, schema: r.baseline.schema }, target: { connection: r.target.connection, schema: r.target.schema } });
+        }
+    }
+    const problem = invalid(input);
+    if (problem) {
+        return report(thresholds, requested, [], [], [{ kind: 'invalid_document', message: problem }]);
+    }
+    const doc = input as SchemaDocument;
+    const errors: GateError[] = [];
+    if (doc.version !== VERSION) {
+        errors.push({ kind: 'validation_incomplete', message: `The document is laranex-schema ${doc.version}; only ${VERSION} is validated strictly, so what ${doc.version} adds was not checked.` });
+    }
+
+    const connections = new Map(doc.connections.map((c) => [c.id, c]));
+    const byName = new Map(doc.connections.map((c) => [c.name, c]));
+    const nameOf = (id: string) => connections.get(id)?.name ?? id;
+    const pair = (baseline: Scope, target: Scope) => `${spell(nameOf(baseline.connection), baseline.schema)} → ${spell(nameOf(target.connection), target.schema)}`;
+    const sideCoverage = (c: Connection) => (doc.source === 'declared' ? c.coverage.declared : c.coverage.database);
+
+    // The comparisons to check: every stored one, or only the requested ones.
+    let checked: Comparison[] = doc.comparisons;
+    if (requested.length) {
+        const wanted = new Set<string>();
+        for (const r of requested) {
+            const request = `${spell(r.baseline.connection, r.baseline.schema)} → ${spell(r.target.connection, r.target.schema)}`;
+            const baseline = byName.get(r.baseline.connection);
+            const target = byName.get(r.target.connection);
+            const unknown = [...new Set([r.baseline.connection, r.target.connection])].filter((n) => !byName.has(n));
+            unknown.forEach((n) => errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${request} names connection ${n}, which the document does not have.` }));
+            if (!baseline || !target) {
+                continue;
+            }
+            let schemas: (string | null)[] = [r.target.schema];
+            if (r.target.schema === WILDCARD) {
+                const read = sideCoverage(target)?.schemas ?? null;
+                if (read === null) {
+                    errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${request} cannot be expanded: the inspection of connection ${target.name} lists no schemas.` });
+                    continue;
+                }
+                const own = (s: string) => target.id === baseline.id && (s === r.baseline.schema || (r.baseline.schema === null && s === target.defaultSchema));
+                schemas = [...new Set(read)].sort(byCodePoint).filter((s) => !own(s));
+                if (schemas.length === 0) {
+                    errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${request} matches no schema.` });
+                }
+            }
+            for (const schema of schemas) {
+                const found = doc.comparisons.find((c) => c.baseline.connection === baseline.id && c.baseline.schema === r.baseline.schema && c.target.connection === target.id && c.target.schema === schema);
+                if (found) {
+                    wanted.add(found.id);
+                } else {
+                    errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${spell(baseline.name, r.baseline.schema)} → ${spell(target.name, schema)} is not in the document.` });
+                }
+            }
+        }
+        checked = doc.comparisons.filter((c) => wanted.has(c.id));
+    }
+
+    const findings: GateFinding[] = [];
+    for (const c of checked) {
+        const label = pair(c.baseline, c.target);
+        for (const d of c.differences) {
+            findings.push({
+                source: 'comparison',
+                id: d.id,
+                kind: `${snake(d.objectType)}_${d.change}`,
+                severity: d.severity,
+                certainty: d.certainty,
+                label: `${label} · ${(d.baseline ?? d.target)?.label ?? d.key.join('.')}`,
+                message: d.change === 'missing' ? 'Only in the baseline' : d.change === 'extra' ? 'Only in the target' : `Differs in ${d.fields.map((f) => f.field).join(', ')}`,
+            });
+        }
+        if (!c.complete) {
+            const reasons: string[] = [];
+            if (c.omitted > 0) {
+                reasons.push(`${c.omitted} of ${c.summary.missing + c.summary.extra + c.summary.changed} differences omitted`);
+            }
+            for (const [side, scope] of [['baseline', c.baseline], ['target', c.target]] as const) {
+                const connection = connections.get(scope.connection) as Connection;
+                if (!scopeCovered(sideCoverage(connection), connection, scope.schema)) {
+                    reasons.push(`the ${side} ${spell(connection.name, scope.schema)} was not inspected completely`);
+                }
+            }
+            errors.push({ kind: 'comparison_incomplete', message: `Comparison ${label} is incomplete${reasons.length ? `: ${reasons.join('; ')}` : ''}.` });
+        }
+    }
+
+    // Required database coverage in database and combined documents: tables and columns complete, and no feature
+    // unavailable. A partial feature (a dialect's known limit) is judged by the comparisons that read it.
+    if (doc.source !== 'declared') {
+        for (const c of doc.connections) {
+            const features = c.coverage.database?.features ?? {};
+            const gaps = FEATURES.filter((f) => features[f] === 'unavailable' || (REQUIRED_FEATURES.includes(f) && features[f] !== 'complete')).map((f) => `${f} ${features[f] ?? 'unknown'}`);
+            if (gaps.length) {
+                errors.push({ kind: 'coverage_incomplete', message: `Connection ${c.name}: the database inspection is incomplete: ${gaps.join(', ')}.` });
+            }
+        }
+    }
+
+    const label = diagnosticLabel(doc, pair);
+    for (const d of doc.diagnostics) {
+        if (d.category === 'drift' || d.category === 'reconciliation') {
+            findings.push({ source: 'diagnostic', id: d.id, kind: d.kind, severity: d.severity, certainty: d.certainty, label: label(d), message: d.message });
+        } else if (d.category === 'inspection' && d.severity === 'error') {
+            errors.push({ kind: 'inspection_failed', message: `${d.kind} on ${label(d)}: ${d.message}` });
+        }
+    }
+
+    for (const t of doc.migrations) {
+        const where = trackLabel(t, nameOf);
+        const severity = MIGRATION_SEVERITY[t.status];
+        if (severity) {
+            const message =
+                t.status === 'behind'
+                    ? `${t.provider} revisions not applied: ${(t.pending ?? []).join(', ')}`
+                    : t.status === 'diverged'
+                      ? `The ${t.provider} version table records overlapping revisions, one an ancestor of another: ${(t.current ?? []).join(', ')}`
+                      : t.versionTable === null
+                        ? `The database has no ${t.provider} version table`
+                        : `The ${t.provider} version table records no revision`;
+            findings.push({ source: 'migration', id: t.id, kind: `migration_${t.status}`, severity, certainty: 'certain', label: where, message });
+        } else if (t.status === 'unknown') {
+            const reason =
+                t.current === null
+                    ? 'the version table could not be read'
+                    : t.history === null
+                      ? 'the migration scripts could not be read'
+                      : t.unknownRevisions.length
+                        ? `the database records revisions the scripts do not have: ${t.unknownRevisions.join(', ')}`
+                        : 'the history is missing revisions it needs';
+            errors.push({ kind: 'migration_unknown', message: `Migration track ${where} (${t.provider}) has an unknown status: ${reason}.` });
+        }
+    }
+
+    return report(thresholds, requested, checked.map((c) => c.id).sort(byCodePoint), findings, errors);
+}
+
+const trackLabel = (t: MigrationTrack, nameOf: (id: string) => string) => (t.schema === null ? nameOf(t.connection) : `${nameOf(t.connection)} · ${t.schema}`);
+
+// A diagnostic's label: the subject's own label, else the name its id resolves to, else the id ("document" for the
+// document).
+function diagnosticLabel(doc: SchemaDocument, pair: (baseline: Scope, target: Scope) => string): (d: Diagnostic) => string {
+    const tables = new Map<string, { table: Table; connection: Connection }>();
+    doc.connections.forEach((connection) => connection.tables.forEach((table) => tables.set(table.id, { table, connection })));
+    const where = ({ table, connection }: { table: Table; connection: Connection }) => `${connection.name} · ${tableLabel(table)}`;
+    const nameOf = (id: string) => doc.connections.find((c) => c.id === id)?.name ?? id;
+    const resolve = (d: Diagnostic): string | undefined => {
+        const { type, id, columns } = d.subject;
+        if (id === null) {
+            return undefined;
+        }
+        if (type === 'connection') {
+            return doc.connections.find((c) => c.id === id)?.name;
+        }
+        if (type === 'table' || type === 'column') {
+            const t = tables.get(id);
+            return t && (type === 'table' ? where(t) : `${where(t)}.${(columns ?? []).join(', ')}`);
+        }
+        if (type === 'index' || type === 'foreignKey' || type === 'constraint') {
+            for (const t of tables.values()) {
+                const entity = (type === 'index' ? t.table.indexes : type === 'foreignKey' ? t.table.foreignKeys : t.table.constraints).find((e: { id: string }) => e.id === id);
+                if (entity) {
+                    return `${where(t)}.${entity.name ?? entity.id}`;
+                }
+            }
+            return undefined;
+        }
+        if (type === 'model') {
+            return doc.models.find((m) => m.id === id)?.className;
+        }
+        if (type === 'relationship') {
+            const r = doc.relationships.find((x) => x.id === id);
+            return r && `${doc.models.find((m) => m.id === r.model)?.className ?? r.model}.${r.name}`;
+        }
+        if (type === 'comparison') {
+            const c = doc.comparisons.find((x) => x.id === id);
+            return c && pair(c.baseline, c.target);
+        }
+        if (type === 'migration') {
+            const t = doc.migrations.find((x) => x.id === id);
+            return t && trackLabel(t, nameOf);
+        }
+        return undefined;
+    };
+    return (d) => d.subject.label ?? resolve(d) ?? d.subject.id ?? 'document';
+}
 
 export type GateValidationResult = { ok: true; report: GateReport; errors: [] } | { ok: false; errors: string[] };
 
@@ -113,6 +384,12 @@ export function validateGateReport(value: unknown, options: { strict?: boolean }
             if (!f.id.startsWith(PREFIX[f.source])) {
                 errors.push(`A ${f.source} finding names a ${f.source === 'diagnostic' ? 'diagnostic' : f.source === 'comparison' ? 'difference' : 'migration track'} id: findings[${i}]`);
             }
+            if (f.source === 'comparison' && !COMPARISON_KINDS.includes(f.kind)) {
+                errors.push(`A comparison finding's kind is <object_type>_<change>: findings[${i}]`);
+            }
+            if (f.source === 'migration' && (MIGRATION_SEVERITY[f.kind.replace(/^migration_/, '') as MigrationTrack['status']] !== f.severity || !f.kind.startsWith('migration_') || f.certainty !== 'certain')) {
+                errors.push(`A migration finding is migration_behind or migration_diverged (error) or migration_uninitialized (warning), and certain: findings[${i}]`);
+            }
             if (i > 0 && byList([r.findings[i - 1].source, r.findings[i - 1].id, r.findings[i - 1].kind], [f.source, f.id, f.kind]) >= 0) {
                 errors.push(`Findings are unique and sorted by source, id and kind: findings[${i}]`);
             }
@@ -120,6 +397,19 @@ export function validateGateReport(value: unknown, options: { strict?: boolean }
         r.errors.forEach((e, i) => {
             if (i > 0 && byList([r.errors[i - 1].kind, r.errors[i - 1].message], [e.kind, e.message]) >= 0) {
                 errors.push(`Errors are unique and sorted by kind and message: errors[${i}]`);
+            }
+        });
+        if (r.errors.some((e) => e.kind === 'invalid_document') && (r.errors.length > 1 || r.findings.length || r.comparisons.length)) {
+            errors.push('A report on an invalid document has no other error, no findings and no checked comparisons');
+        }
+        r.requested.forEach((q, i) => {
+            if (i > 0 && byRequest(r.requested[i - 1], q) >= 0) {
+                errors.push(`Requested comparisons are unique and sorted: requested[${i}]`);
+            }
+        });
+        r.comparisons.forEach((c, i) => {
+            if (i > 0 && byCodePoint(r.comparisons[i - 1], c) >= 0) {
+                errors.push(`Checked comparisons are unique and sorted: comparisons[${i}]`);
             }
         });
     }
