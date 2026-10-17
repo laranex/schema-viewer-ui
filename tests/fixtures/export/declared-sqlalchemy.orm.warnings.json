@@ -1,0 +1,69 @@
+{
+  "mermaid": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "table:default.sales.orders:fk:fk_orders_legacy",
+        "label": "sales.orders"
+      },
+      "message": "Foreign key fk_orders_legacy on sales.orders references legacy_code, which customers does not have; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "foreignKey",
+        "id": "table:default.sales.order_lines:fk:fk_order_lines_product",
+        "label": "sales.order_lines"
+      },
+      "message": "Composite foreign key fk_order_lines_product on sales.order_lines is one relationship labelled with its columns; Mermaid cannot pair them with sku, region."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: sales.order_lines → sales_order_lines, sales.orders → sales_orders."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:default",
+        "label": "default"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of default: 3 indexes, 1 check constraint, 1 column default, 1 enum value list, 2 comments and notes, 4 referential action sets."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    },
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "table:default.sales.orders:fk:fk_orders_legacy",
+        "label": "sales.orders"
+      },
+      "message": "Foreign key fk_orders_legacy on sales.orders references legacy_code, which customers does not have; it is left out."
+    }
+  ]
+}

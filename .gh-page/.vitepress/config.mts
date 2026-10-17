@@ -53,6 +53,7 @@ export default defineConfig({
       { text: 'THE VIEWER', items: [
         { text: 'Using the viewer', link: '/viewer' },
         { text: 'Comparisons, migrations, inferences', link: '/views' },
+        { text: 'Downloads and exports', link: '/exports' },
         { text: 'Integrating a host', link: '/integration' },
         { text: 'React API', link: '/react' },
       ] },
@@ -61,6 +62,7 @@ export default defineConfig({
         { text: 'Validation & conformance', link: '/conformance' },
       ] },
       { text: 'REFERENCE', items: [
+        { text: 'Feature parity with Laravel', link: '/parity' },
         { text: 'Roadmap', link: '/roadmap' },
         { text: 'Troubleshooting', link: '/troubleshooting' },
       ] },

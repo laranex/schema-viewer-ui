@@ -36,7 +36,8 @@ The component fills its container; give the container a height. Styles are scope
 
 ## Hosts without Node.js (Laravel, Python)
 
-Ship `dist/viewer/` from the npm package inside the host package: `index.html`, `app.js`, `app.css`, `assets/`. Check
+Ship `dist/viewer/` from the npm package inside the host package: `index.html`, `app.js`, `app.css`, `assets/`, and
+the favicon `favicon.svg` and `favicon.ico` (16 and 32 pixels), which `index.html` links by relative URLs. Check
 the copy against `manifest.json`, which lists every file's size and SHA-256 and the contract major it reads. At runtime
 the host serves those files and gives the viewer the document in one of three ways.
 
@@ -55,13 +56,16 @@ include `app.css` and `app.js`, or call `window.LaranexSchemaViewer.mount(elemen
 
 The bundle runs under `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'` (the Python server's
 policy; the browser tests use it). It uses no inline scripts, `eval`, workers or blob/data images: ELK lays out on the
-page from a lazily loaded module, and PNG export draws straight onto a canvas. `style-src 'unsafe-inline'` covers React
+page from a lazily loaded module, and PNG export draws straight onto a canvas. The Download dialog's exports run in the
+page; the offline HTML export and the SVG's embedded fonts only fetch `offline.js`, `app.css`, `favicon.svg` and the
+fonts from the bundle's own directory (same origin). `style-src 'unsafe-inline'` covers React
 Flow's positioning styles.
 
 ### Assets
 
 `app.js` (≈145 kB gzipped) loads `assets/elk.bundled-*.js` (≈440 kB gzipped) when it first lays out. Fonts are IBM
-Plex Sans and Mono, latin subset, in `assets/`. Serve `assets/*` as static files with long cache lifetimes; their
+Plex Sans and Mono, latin subset, in `assets/`. `offline.js` (≈2 MB, ≈620 kB gzipped) is the viewer as one script
+with ELK inlined; it is only fetched when someone saves the page as offline HTML. Serve `assets/*` as static files with long cache lifetimes; their
 names carry content hashes. `app.js`, `app.css` and `index.html` keep fixed names, so serve them with revalidation.
 
 ## Versions

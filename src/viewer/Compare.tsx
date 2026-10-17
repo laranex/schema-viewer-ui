@@ -1,16 +1,28 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { CHANGES, OBJECT_TYPES, type Certainty, type Change, type Comparison, type Coverage, type Difference, type ObjectType, type SchemaDocument, type Severity } from '../contract/types';
 import { Badge, DiagnosticList } from './Details';
 import type { Lookup } from './graph';
 import { CERTAINTY_TEXT, CHANGE_TEXT, OBJECT_TEXT, scopeKey, scopeLabel, valueText } from './intelligence';
-import { Icon } from './ui';
+import { Icon, Ident } from './ui';
 
 // The Compare tab: the comparisons the document stores, one baseline → target pair at a time. Everything shown is the
 // producer's result; nothing is compared here.
 
-type Filters = { objectType: ObjectType | ''; change: Change | ''; severity: Severity | ''; certainty: Certainty | '' };
-const NO_FILTERS: Filters = { objectType: '', change: '', severity: '', certainty: '' };
+export type CompareFilters = { objectType: ObjectType | ''; change: Change | ''; severity: Severity | ''; certainty: Certainty | '' };
+type Filters = CompareFilters;
+export const NO_FILTERS: Filters = { objectType: '', change: '', severity: '', certainty: '' };
 const SEVERITIES: Severity[] = ['error', 'warning', 'info'];
+const CERTAINTIES: Certainty[] = ['certain', 'likely'];
+
+// The filters' names in a deep link (#object=…&change=…&severity=…&certainty=…), and reading them back: unknown values are dropped.
+export const FILTER_PARAM: Record<keyof Filters, string> = { objectType: 'object', change: 'change', severity: 'severity', certainty: 'certainty' };
+export function filtersFrom(params: URLSearchParams): Filters {
+    const pick = <V extends string>(key: keyof Filters, allowed: readonly V[]): V | '' => {
+        const value = params.get(FILTER_PARAM[key]);
+        return allowed.includes(value as V) ? (value as V) : '';
+    };
+    return { objectType: pick('objectType', OBJECT_TYPES), change: pick('change', CHANGES), severity: pick('severity', SEVERITIES), certainty: pick('certainty', CERTAINTIES) };
+}
 
 export function ChangeMark({ change, likely = false }: { change: Change; likely?: boolean }) {
     return (
@@ -47,9 +59,11 @@ export function DifferenceSides({ difference: d, baseline, target }: { differenc
             <tbody>
                 {rows.map(([field, before, after]) => (
                     <tr key={field}>
-                        <th scope="row">{field}</th>
-                        <td className={before === null ? 'absent' : ''}>{before === null ? 'absent' : <code>{before}</code>}</td>
-                        <td className={after === null ? 'absent' : ''}>{after === null ? 'absent' : <code>{after}</code>}</td>
+                        <th scope="row">
+                            <Ident text={field} />
+                        </th>
+                        <td className={before === null ? 'absent' : ''}>{before === null ? 'absent' : <code><Ident text={before} /></code>}</td>
+                        <td className={after === null ? 'absent' : ''}>{after === null ? 'absent' : <code><Ident text={after} /></code>}</td>
                     </tr>
                 ))}
             </tbody>
@@ -95,10 +109,11 @@ type Props = {
     onComparison: (id: string) => void;
     onDifference: (id: string | null) => void;
     onShowTable: (table: string, column: string | null) => void;
+    filters: Filters;
+    onFilters: (filters: Filters) => void;
 };
 
-export function ComparePanel({ doc, lookup, comparison: c, difference, overlay, onOverlay, onComparison, onDifference, onShowTable }: Props) {
-    const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+export function ComparePanel({ doc, lookup, comparison: c, difference, overlay, onOverlay, onComparison, onDifference, onShowTable, filters, onFilters: setFilters }: Props) {
     const id = useId();
     const list = useRef<HTMLDivElement>(null);
     const baselines = useMemo(() => [...new Map(doc.comparisons.map((x) => [scopeKey(x.baseline), x.baseline])).values()], [doc]);
@@ -339,7 +354,7 @@ function DifferenceCard({
                 <ChangeMark change={d.change} likely={d.certainty === 'likely'} /> {CHANGE_TEXT[d.change].label} · {OBJECT_TEXT[d.objectType]} · {d.severity}
             </div>
             <button type="button" className="diff__title" aria-pressed={selected} onClick={() => onSelect(selected ? null : d.id)}>
-                {(d.baseline ?? d.target)?.label}
+                <Ident text={(d.baseline ?? d.target)?.label ?? ''} />
             </button>{' '}
             <CertaintyBadge certainty={d.certainty} />
             <DifferenceSides difference={d} baseline={baseline} target={target} />

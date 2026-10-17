@@ -1,0 +1,16 @@
+Table notes {
+  id INTEGER [pk, increment, not null]
+  title TEXT [not null]
+  slug TEXT [not null, unique]
+  archived INTEGER [not null, default: `0`]
+
+  indexes {
+    title [name: 'notes_active_title']
+    `lower(title)` [name: 'notes_lower_title']
+    title [name: 'notes_title_nocase']
+  }
+
+  checks {
+    `archived IN (0, 1)` [name: 'notes_archived_flag']
+  }
+}

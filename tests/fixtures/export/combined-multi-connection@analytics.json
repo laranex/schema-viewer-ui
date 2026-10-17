@@ -1,0 +1,432 @@
+{
+  "comparisons": [],
+  "connections": [
+    {
+      "coverage": {
+        "database": {
+          "complete": false,
+          "features": {
+            "checkConstraints": "unavailable",
+            "columnTypes": "complete",
+            "columns": "complete",
+            "comments": "complete",
+            "defaults": "complete",
+            "foreignKeys": "complete",
+            "includedColumns": "not_applicable",
+            "indexExpressions": "partial",
+            "indexPredicates": "not_applicable",
+            "indexes": "complete",
+            "models": "not_applicable",
+            "primaryKeys": "complete",
+            "referentialActions": "complete",
+            "relationships": "not_applicable",
+            "tables": "complete",
+            "uniqueConstraints": "complete"
+          },
+          "schemas": [
+            "analytics"
+          ]
+        },
+        "declared": {
+          "complete": true,
+          "features": {
+            "models": "complete",
+            "relationships": "complete",
+            "tables": "not_applicable"
+          },
+          "schemas": null
+        }
+      },
+      "defaultSchema": "analytics",
+      "driver": "mysql",
+      "id": "connection:analytics",
+      "name": "analytics",
+      "tables": [
+        {
+          "columns": [
+            {
+              "autoIncrement": true,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "id",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "user_id",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "name",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "varchar(80)",
+              "typeName": "varchar"
+            }
+          ],
+          "comment": null,
+          "constraints": [],
+          "foreignKeys": [
+            {
+              "columns": [
+                "user_id"
+              ],
+              "deferrable": null,
+              "foreignColumns": [
+                "id"
+              ],
+              "foreignTable": "analytics:users",
+              "id": "analytics:events:fk:events_user_id_foreign",
+              "initially": null,
+              "name": "events_user_id_foreign",
+              "onDelete": "CASCADE",
+              "onUpdate": null,
+              "provenance": [
+                "database"
+              ]
+            }
+          ],
+          "id": "analytics:events",
+          "indexes": [
+            {
+              "backs": {
+                "constraint": null,
+                "kind": "primary_key"
+              },
+              "expression": false,
+              "id": "analytics:events:index:PRIMARY",
+              "included": [],
+              "method": "btree",
+              "name": "PRIMARY",
+              "partial": false,
+              "parts": [
+                {
+                  "collation": null,
+                  "column": "id",
+                  "expression": null,
+                  "length": null,
+                  "nulls": null,
+                  "opclass": null,
+                  "order": null
+                }
+              ],
+              "predicate": null,
+              "provenance": [
+                "database"
+              ],
+              "unique": true
+            },
+            {
+              "backs": null,
+              "expression": false,
+              "id": "analytics:events:index:events_user_id_index",
+              "included": [],
+              "method": "btree",
+              "name": "events_user_id_index",
+              "partial": false,
+              "parts": [
+                {
+                  "collation": null,
+                  "column": "user_id",
+                  "expression": null,
+                  "length": null,
+                  "nulls": null,
+                  "opclass": null,
+                  "order": null
+                }
+              ],
+              "predicate": null,
+              "provenance": [
+                "database"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "events",
+          "note": null,
+          "owner": {
+            "kind": "application",
+            "package": null
+          },
+          "primaryKey": [
+            "id"
+          ],
+          "provenance": [
+            "database"
+          ],
+          "schema": null
+        },
+        {
+          "columns": [
+            {
+              "autoIncrement": true,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "id",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "app_user_id",
+              "note": null,
+              "nullable": true,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "segment",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "varchar(40)",
+              "typeName": "varchar"
+            }
+          ],
+          "comment": "Visitors, signed in or not",
+          "constraints": [],
+          "foreignKeys": [],
+          "id": "analytics:users",
+          "indexes": [
+            {
+              "backs": {
+                "constraint": null,
+                "kind": "primary_key"
+              },
+              "expression": false,
+              "id": "analytics:users:index:PRIMARY",
+              "included": [],
+              "method": "btree",
+              "name": "PRIMARY",
+              "partial": false,
+              "parts": [
+                {
+                  "collation": null,
+                  "column": "id",
+                  "expression": null,
+                  "length": null,
+                  "nulls": null,
+                  "opclass": null,
+                  "order": null
+                }
+              ],
+              "predicate": null,
+              "provenance": [
+                "database"
+              ],
+              "unique": true
+            }
+          ],
+          "name": "users",
+          "note": null,
+          "owner": {
+            "kind": "application",
+            "package": null
+          },
+          "primaryKey": [
+            "id"
+          ],
+          "provenance": [
+            "database"
+          ],
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "derivedLinks": [],
+  "diagnostics": [
+    {
+      "category": "inspection",
+      "certainty": "certain",
+      "id": "n543f54e951c8571e",
+      "kind": "unsupported_metadata",
+      "message": "MySQL reports functional index key parts without their expressions.",
+      "severity": "info",
+      "subject": {
+        "columns": null,
+        "id": "connection:analytics",
+        "label": "analytics",
+        "type": "connection"
+      }
+    }
+  ],
+  "format": "laranex-schema",
+  "generator": {
+    "name": "laravel-schema-viewer",
+    "orm": "eloquent"
+  },
+  "inferredAssociations": [],
+  "links": [
+    {
+      "id": "l2cdd6081ab6c4fe7",
+      "from": {
+        "table": "analytics:events",
+        "columns": [
+          "user_id"
+        ]
+      },
+      "to": {
+        "table": "analytics:users",
+        "columns": [
+          "id"
+        ]
+      },
+      "foreignKey": "analytics:events:fk:events_user_id_foreign",
+      "relationships": [
+        "App\\Models\\Analytics\\Event::visitor"
+      ],
+      "state": "both",
+      "polymorphic": false,
+      "note": null
+    }
+  ],
+  "migrations": [],
+  "models": [
+    {
+      "className": "App\\Models\\Analytics\\Event",
+      "extensions": {
+        "eloquent": {
+          "connection": "analytics"
+        }
+      },
+      "id": "App\\Models\\Analytics\\Event",
+      "primaryKey": [
+        "id"
+      ],
+      "source": {
+        "file": "app/Models/Analytics/Event.php",
+        "line": 9
+      },
+      "tables": [
+        "analytics:events"
+      ]
+    },
+    {
+      "className": "App\\Models\\Analytics\\Visitor",
+      "extensions": {
+        "eloquent": {
+          "connection": "analytics"
+        }
+      },
+      "id": "App\\Models\\Analytics\\Visitor",
+      "primaryKey": [
+        "id"
+      ],
+      "source": {
+        "file": "app/Models/Analytics/Visitor.php",
+        "line": 9
+      },
+      "tables": [
+        "analytics:users"
+      ]
+    }
+  ],
+  "note": "Synthetic application with three database connections.",
+  "relationships": [
+    {
+      "cardinality": "many-to-one",
+      "collection": false,
+      "constraints": [],
+      "id": "App\\Models\\Analytics\\Event::visitor",
+      "inverse": null,
+      "join": null,
+      "keys": {
+        "from": {
+          "columns": [
+            "user_id"
+          ],
+          "table": "analytics:events"
+        },
+        "to": {
+          "columns": [
+            "id"
+          ],
+          "table": "analytics:users"
+        }
+      },
+      "model": "App\\Models\\Analytics\\Event",
+      "name": "visitor",
+      "note": null,
+      "pivot": null,
+      "polymorphic": null,
+      "readOnly": false,
+      "relatedModel": "App\\Models\\Analytics\\Visitor",
+      "relatedTable": "analytics:users",
+      "source": {
+        "file": "app/Models/Analytics/Event.php",
+        "line": 18
+      },
+      "table": "analytics:events",
+      "through": null,
+      "type": "BelongsTo"
+    }
+  ],
+  "source": "combined",
+  "version": "2.0"
+}

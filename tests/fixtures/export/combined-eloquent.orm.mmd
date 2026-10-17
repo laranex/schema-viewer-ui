@@ -1,0 +1,88 @@
+erDiagram
+    categories {
+        bigint id PK
+        bigint parent_id FK
+        varchar name
+    }
+    comments {
+        bigint id PK
+        bigint user_id FK
+        varchar commentable_type
+        bigint commentable_id
+        text body
+        timestamp created_at
+        timestamp updated_at
+    }
+    countries {
+        bigint id PK
+        char code UK
+    }
+    jobs {
+        bigint id PK
+        varchar queue
+        longtext payload
+    }
+    oauth_clients {
+        bigint id PK
+        bigint user_id
+        varchar name
+    }
+    posts {
+        bigint id PK
+        bigint user_id FK
+        bigint editor_id
+        bigint category_id FK
+        varchar title
+        enum status
+        timestamp published_at
+        timestamp created_at
+        timestamp updated_at
+    }
+    role_user {
+        bigint user_id PK, FK
+        bigint role_id PK, FK
+        timestamp assigned_at
+    }
+    roles {
+        bigint id PK
+        varchar name
+    }
+    taggables {
+        bigint tag_id FK
+        varchar taggable_type
+        bigint taggable_id
+    }
+    tags {
+        bigint id PK
+        varchar name
+    }
+    users {
+        bigint id PK
+        bigint country_id FK
+        varchar email UK
+        varchar remember_token
+        timestamp created_at
+        timestamp updated_at
+    }
+    categories ||--o{ categories : "parent_id"
+    users ||--o{ comments : "user_id"
+    users ||--o{ posts : "user_id"
+    categories |o--o{ posts : "category_id"
+    users ||--o{ role_user : "user_id"
+    roles ||--o{ role_user : "role_id"
+    tags ||--o{ taggables : "tag_id"
+    countries ||--o{ users : "country_id"
+    categories |o..o{ categories : "ORM: Category::children (HasMany)"
+    categories }o..o| categories : "ORM: Category::parent (BelongsTo)"
+    comments }o..o| users : "ORM: Comment::author (BelongsTo)"
+    countries |o..o{ posts : "ORM: Country::posts (HasManyThrough through users)"
+    posts }o..o| categories : "ORM: Post::category (BelongsTo)"
+    posts |o..o{ comments : "ORM: Post::comments (MorphMany)"
+    posts }o..o| users : "ORM: Post::editor (BelongsTo)"
+    posts }o..o{ tags : "ORM: Post::tags (MorphToMany via taggables)"
+    posts }o..o| users : "ORM: Post::user (BelongsTo)"
+    roles }o..o{ users : "ORM: Role::users (BelongsToMany via role_user)"
+    users |o..o| posts : "ORM: User::latestPost (HasOne)"
+    users |o..o{ posts : "ORM: User::posts (HasMany)"
+    users }o..o{ roles : "ORM: User::roles (BelongsToMany via role_user)"
+    users }o..o| countries : "inferred: User → Country (no ORM attribute declared)"

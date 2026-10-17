@@ -32,12 +32,14 @@ test.describe('standalone viewer under a strict CSP', () => {
         const svg = await request.get('/page/database-sqlite-indexes/favicon.svg');
         expect(svg.status()).toBe(200);
         expect(svg.headers()['content-type']).toBe('image/svg+xml');
-        expect(await svg.text()).toContain('<svg');
+        expect(await svg.text()).toContain('M10.5 7 H14 a2 2 0 0 1 2 2 V13.5');
         const ico = await request.get('/page/database-sqlite-indexes/favicon.ico');
         expect(ico.status()).toBe(200);
         const bytes = await ico.body();
-        expect(bytes.subarray(0, 4).toString('hex')).toBe('00000100');
-        expect(bytes.subarray(22, 30).toString('hex')).toBe('89504e470d0a1a0a');
+        expect(bytes.subarray(0, 6).toString('hex')).toBe('000001000200');
+        expect([bytes[6], bytes[22]]).toEqual([16, 32]);
+        const first = bytes.readUInt32LE(18);
+        expect(bytes.subarray(first, first + 8).toString('hex')).toBe('89504e470d0a1a0a');
     });
 
     test('refuses a document that is not laranex-schema 2.x', async ({ page }) => {
@@ -140,13 +142,14 @@ test.describe('standalone viewer under a strict CSP', () => {
         await page.goto('/f/combined-eloquent/');
         await loaded(page);
         await page.getByRole('button', { name: 'Download' }).click();
-        const [png] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'PNG · whole diagram' }).click()]);
-        expect(png.suggestedFilename()).toBe('schema-diagram.png');
+        const dialog = page.getByRole('dialog', { name: 'Download' });
+        const [png] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: /^PNG/ }).click()]);
+        expect(png.suggestedFilename()).toBe('schema-mysql.png');
         const bytes = await (await png.createReadStream()).toArray();
         const head = Buffer.concat(bytes).subarray(0, 8);
         expect(head.toString('hex')).toBe('89504e470d0a1a0a');
-        await page.keyboard.press('e');
-        const [svg] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'SVG · visible area' }).click()]);
+        await dialog.getByText("What's on screen").click();
+        const [svg] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: /^SVG/ }).click()]);
         const text = Buffer.concat(await (await svg.createReadStream()).toArray()).toString('utf8');
         expect(text).toContain('<svg');
         expect(text).toContain('posts');

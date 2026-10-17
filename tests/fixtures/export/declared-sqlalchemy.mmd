@@ -1,0 +1,39 @@
+erDiagram
+    customer_tags {
+        integer customer_id PK, FK
+        integer tag_id PK, FK
+    }
+    customers {
+        integer id PK
+        varchar email UK
+        boolean active
+        enum status
+        datetime created_at
+    }
+    products {
+        varchar sku PK
+        char region PK
+        numeric price
+    }
+    sales_order_lines {
+        integer order_id PK, FK
+        integer line_no PK
+        varchar product_sku FK
+        char product_region FK
+        integer quantity
+    }
+    sales_orders {
+        integer id PK
+        integer customer_id FK
+        varchar referrer_email
+        varchar legacy_ref
+    }
+    tags {
+        integer id PK
+        varchar label UK
+    }
+    customers ||--o{ customer_tags : "customer_id"
+    tags ||--o{ customer_tags : "tag_id"
+    sales_orders ||--o{ sales_order_lines : "order_id"
+    products ||--o{ sales_order_lines : "product_sku, product_region"
+    customers ||--o{ sales_orders : "customer_id"

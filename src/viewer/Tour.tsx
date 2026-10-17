@@ -16,7 +16,12 @@ export const TOUR: Step[] = [
         text: 'Zoom, fit, and switch between panning and box selection. Relationships turns each kind of line on or off: a solid line is a database constraint, a dashed one an ORM relationship without one. Tables and Show fold columns, show notes, hide framework tables and re-arrange.',
     },
     { target: '.tabs', title: 'Side panel', text: 'Browse every table, relationship and column; read the selection in Details; and see Diagnostics, with confirmed facts apart from heuristic advice. Documents with stored comparisons or migration tracks add Compare and Migrations.' },
-    { target: '.lsv-header .actions, .lsv-header .header-menu', title: 'Downloads and shortcuts', text: 'Download the snapshot or an image of the diagram, switch the theme, and list every shortcut (S).' },
+    {
+        target: '.lsv-header .header-download, .lsv-header .header-menu',
+        title: 'Downloads',
+        text: 'Save a connection as Mermaid, DBML, Markdown or JSON with a preview and notes on what each format leaves out, the diagram as SVG or PNG, or this page as one HTML file that works offline (E).',
+    },
+    { target: '.lsv-header .actions, .lsv-header .header-menu', title: 'Theme and shortcuts', text: 'Switch between the light and dark theme, and list every shortcut (S).' },
 ];
 
 type Rect = { x: number; y: number; width: number; height: number };

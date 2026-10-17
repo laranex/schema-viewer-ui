@@ -1,0 +1,15 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: tenant_behind.alembic_version → tenant_behind_alembic_version, tenant_behind.users → tenant_behind_users, tenant_branches.alembic_version → tenant_branches_alembic_version, tenant_branches.users → tenant_branches_users, tenant_current.alembic_version → tenant_current_alembic_version, tenant_current.audit_log → tenant_current_audit_log, tenant_current.legacy_import → tenant_current_legacy_import, tenant_current.users → tenant_current_users, tenant_diverged.alembic_version → tenant_diverged_alembic_version, tenant_diverged.users → tenant_diverged_users, tenant_locked.alembic_version → tenant_locked_alembic_version, tenant_locked.users → tenant_locked_users, tenant_new.users → tenant_new_users, tenant_partial.alembic_version → tenant_partial_alembic_version, tenant_partial.users → tenant_partial_users, tenant_partial_new.users → tenant_partial_new_users, tenant_scriptless.alembic_version → tenant_scriptless_alembic_version, tenant_scriptless.users → tenant_scriptless_users, tenant_unknown.alembic_version → tenant_unknown_alembic_version, tenant_unknown.users → tenant_unknown_users."
+    }
+  ],
+  "dbml": [],
+  "markdown": []
+}

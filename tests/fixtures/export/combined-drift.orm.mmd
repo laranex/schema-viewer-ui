@@ -1,0 +1,15 @@
+erDiagram
+    public_audit_log {
+        bigint id PK
+        jsonb payload
+    }
+    public_teams {
+        integer id PK
+    }
+    public_users {
+        integer id PK
+        varchar email UK
+        integer team_id
+        boolean legacy_flag
+    }
+    public_users }o..o| public_teams : "ORM: User::team (MANYTOONE)"

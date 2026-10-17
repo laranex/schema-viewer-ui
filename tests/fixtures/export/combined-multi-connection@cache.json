@@ -1,0 +1,184 @@
+{
+  "comparisons": [],
+  "connections": [
+    {
+      "coverage": {
+        "database": {
+          "complete": true,
+          "features": {
+            "checkConstraints": "not_applicable",
+            "columnTypes": "complete",
+            "columns": "complete",
+            "comments": "not_applicable",
+            "defaults": "complete",
+            "foreignKeys": "complete",
+            "includedColumns": "not_applicable",
+            "indexExpressions": "complete",
+            "indexPredicates": "not_applicable",
+            "indexes": "complete",
+            "models": "not_applicable",
+            "primaryKeys": "complete",
+            "referentialActions": "complete",
+            "relationships": "not_applicable",
+            "tables": "complete",
+            "uniqueConstraints": "complete"
+          },
+          "schemas": null
+        },
+        "declared": {
+          "complete": true,
+          "features": {
+            "models": "complete",
+            "relationships": "complete",
+            "tables": "not_applicable"
+          },
+          "schemas": null
+        }
+      },
+      "defaultSchema": null,
+      "driver": "sqlite",
+      "id": "connection:cache",
+      "name": "cache",
+      "tables": [
+        {
+          "columns": [
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "id",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "varchar",
+              "typeName": "varchar"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "user_id",
+              "note": null,
+              "nullable": true,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "bigint",
+              "typeName": "bigint"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "payload",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "database"
+              ],
+              "timezone": null,
+              "type": "text",
+              "typeName": "text"
+            }
+          ],
+          "comment": null,
+          "constraints": [],
+          "foreignKeys": [],
+          "id": "cache:sessions",
+          "indexes": [
+            {
+              "backs": null,
+              "expression": false,
+              "id": "cache:sessions:index:sessions_user_id_index",
+              "included": [],
+              "method": null,
+              "name": "sessions_user_id_index",
+              "partial": false,
+              "parts": [
+                {
+                  "collation": null,
+                  "column": "user_id",
+                  "expression": null,
+                  "length": null,
+                  "nulls": null,
+                  "opclass": null,
+                  "order": null
+                }
+              ],
+              "predicate": null,
+              "provenance": [
+                "database"
+              ],
+              "unique": false
+            }
+          ],
+          "name": "sessions",
+          "note": null,
+          "owner": {
+            "kind": "application",
+            "package": null
+          },
+          "primaryKey": [
+            "id"
+          ],
+          "provenance": [
+            "database"
+          ],
+          "schema": null
+        }
+      ]
+    }
+  ],
+  "derivedLinks": [],
+  "diagnostics": [],
+  "format": "laranex-schema",
+  "generator": {
+    "name": "laravel-schema-viewer",
+    "orm": "eloquent"
+  },
+  "inferredAssociations": [],
+  "links": [],
+  "migrations": [],
+  "models": [
+    {
+      "className": "App\\Models\\Session",
+      "extensions": {
+        "eloquent": {
+          "connection": "cache",
+          "keyType": "string"
+        }
+      },
+      "id": "App\\Models\\Session",
+      "primaryKey": [
+        "id"
+      ],
+      "source": {
+        "file": "app/Models/Session.php",
+        "line": 9
+      },
+      "tables": [
+        "cache:sessions"
+      ]
+    }
+  ],
+  "note": "Synthetic application with three database connections.",
+  "relationships": [],
+  "source": "combined",
+  "version": "2.0"
+}

@@ -44,6 +44,12 @@ try {
         if (canonicalJson(storeComparisons(store.input.document, store.input.comparisons)) !== canonicalJson(store.expected.document)) throw new Error('stored comparisons differ');
         const gate = JSON.parse(readFileSync(require.resolve('laranex-schema-viewer-ui/contract/conformance/gate/requested-wildcard.json'), 'utf8'));
         if (canonicalJson(gateDocument(gate.input.document, gate.input)) !== canonicalJson(gate.expected)) throw new Error('gate report differs');
+        const { EXPORTERS, dbml, exportFileName } = await import('laranex-schema-viewer-ui/export');
+        const exported = dbml.export(fixture);
+        if (EXPORTERS.length !== 4 || !exported.content.includes('Ref ') || !Array.isArray(exported.warnings)) throw new Error('export');
+        if (exportFileName(fixture, 'dbml') !== 'schema-mysql.dbml') throw new Error('export file name');
+        const { offlineHtml } = await import('laranex-schema-viewer-ui');
+        if (typeof offlineHtml !== 'function') throw new Error('offlineHtml');
         const schema = require('laranex-schema-viewer-ui/schema.json');
         if (!schema.$id || FORMAT !== 'laranex-schema') throw new Error('schema export');
         require.resolve('laranex-schema-viewer-ui/viewer/app.js');
@@ -66,13 +72,13 @@ try {
             fail(`${file.path} does not match the manifest`);
         }
     }
-    for (const icon of ['favicon.svg', 'favicon.ico']) {
+    for (const icon of ['favicon.svg', 'favicon.ico', 'offline.js']) {
         if (!manifest.files.some((f) => f.path === icon)) {
             fail(`the manifest does not list ${icon}`);
         }
     }
     const page = readFileSync(join(installed, 'dist/viewer/index.html'), 'utf8');
-    if (!page.includes('<link rel="icon" href="favicon.svg" type="image/svg+xml">') || !page.includes('<link rel="icon" href="favicon.ico" sizes="32x32">')) {
+    if (!page.includes('<link rel="icon" href="favicon.svg" type="image/svg+xml">') || !page.includes('<link rel="icon" href="favicon.ico" sizes="16x16 32x32">')) {
         fail('index.html does not link the favicon by relative URLs');
     }
     for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/check.mjs', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'contract/conformance/gate', 'docs/contract.md', 'LICENSE', 'NOTICE']) {

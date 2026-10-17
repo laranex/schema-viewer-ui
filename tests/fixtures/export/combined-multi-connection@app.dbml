@@ -1,0 +1,16 @@
+Project app {
+  Note: 'Synthetic application with three database connections.'
+}
+
+Table public.teams {
+  id bigint [pk, increment, not null]
+  name "character varying(255)" [not null]
+}
+
+Table public.users {
+  id bigint [pk, increment, not null]
+  team_id bigint
+  email "character varying(320)" [not null]
+}
+
+Ref users_team_id_foreign: public.users.team_id > public.teams.id [delete: set null]

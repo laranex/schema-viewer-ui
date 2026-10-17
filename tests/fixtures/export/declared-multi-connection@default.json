@@ -1,0 +1,114 @@
+{
+  "comparisons": [],
+  "connections": [
+    {
+      "coverage": {
+        "database": null,
+        "declared": {
+          "complete": true,
+          "features": {
+            "columnTypes": "complete",
+            "columns": "complete",
+            "foreignKeys": "complete",
+            "models": "complete",
+            "primaryKeys": "complete",
+            "relationships": "complete",
+            "tables": "complete"
+          },
+          "schemas": null
+        }
+      },
+      "defaultSchema": "public",
+      "driver": "postgresql",
+      "id": "connection:default",
+      "name": "default",
+      "tables": [
+        {
+          "columns": [
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "id",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "declared"
+              ],
+              "timezone": null,
+              "type": "INTEGER",
+              "typeName": "integer"
+            },
+            {
+              "autoIncrement": false,
+              "collation": null,
+              "comment": null,
+              "default": null,
+              "enum": null,
+              "generated": null,
+              "name": "email",
+              "note": null,
+              "nullable": false,
+              "ormDefault": null,
+              "provenance": [
+                "declared"
+              ],
+              "timezone": null,
+              "type": "VARCHAR(255)",
+              "typeName": "varchar"
+            }
+          ],
+          "comment": null,
+          "constraints": [],
+          "foreignKeys": [],
+          "id": "table:default.public.users",
+          "indexes": [],
+          "name": "users",
+          "note": null,
+          "owner": {
+            "kind": "application",
+            "package": null
+          },
+          "primaryKey": [
+            "id"
+          ],
+          "provenance": [
+            "declared"
+          ],
+          "schema": "public"
+        }
+      ]
+    }
+  ],
+  "derivedLinks": [],
+  "diagnostics": [],
+  "format": "laranex-schema",
+  "generator": {
+    "name": "python-schema-viewer",
+    "orm": "sqlalchemy"
+  },
+  "inferredAssociations": [],
+  "links": [],
+  "migrations": [],
+  "models": [
+    {
+      "className": "app.models.User",
+      "id": "model:app.models.User",
+      "primaryKey": [
+        "id"
+      ],
+      "source": null,
+      "tables": [
+        "table:default.public.users"
+      ]
+    }
+  ],
+  "note": null,
+  "relationships": [],
+  "source": "declared",
+  "version": "2.0"
+}

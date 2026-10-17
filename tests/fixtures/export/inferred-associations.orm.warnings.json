@@ -1,0 +1,51 @@
+{
+  "mermaid": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "app:public.users:fk:users_team_id_fkey",
+        "label": "public.users"
+      },
+      "message": "Foreign key users_team_id_fkey on public.users is declared only by the ORM, not in the database; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "foreignKey",
+        "id": "app:public.order_lines:fk:order_lines_order_fkey",
+        "label": "public.order_lines"
+      },
+      "message": "Composite foreign key order_lines_order_fkey on public.order_lines is one relationship labelled with its columns; Mermaid cannot pair them with region, number."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: public.accounts → public_accounts, public.friendships → public_friendships, public.import_rows → public_import_rows, public.invoices → public_invoices, public.messages → public_messages, public.order_lines → public_order_lines, public.orders → public_orders, public.passports → public_passports, public.post_tags → public_post_tags, public.posts → public_posts, public.profiles → public_profiles, public.tags → public_tags, public.teams → public_teams, public.users → public_users."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:app",
+        "label": "app"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of app: 1 index."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "app:public.users:fk:users_team_id_fkey",
+        "label": "public.users"
+      },
+      "message": "Foreign key users_team_id_fkey on public.users is declared only by the ORM, not in the database; it is left out."
+    }
+  ]
+}
