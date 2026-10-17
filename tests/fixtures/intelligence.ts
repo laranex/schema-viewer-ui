@@ -1,4 +1,4 @@
-import { compareScopes } from '../../src/contract/comparison';
+import { compareScopes, comparisonDiagnostics } from '../../src/contract/comparison';
 import { byList, migrationTrackId } from '../../src/contract/ids';
 import { migrationHistory, migrationState } from '../../src/contract/migration';
 import type { Column, Connection, Coverage, MigrationCoverage, MigrationRevision, MigrationTrack, Provenance, SchemaDocument, Table } from '../../src/contract/types';
@@ -163,7 +163,7 @@ function comparisonIncomplete(): SchemaDocument {
         comparisons: [comparison],
         diagnostics: [
             diagnostic('inspection_unavailable', 'inspection', { type: 'connection', id: app.id, label: 'app' }, 'Check constraints could not be read: the inspection role lacks access to pg_constraint.'),
-            diagnostic('comparison_incomplete', 'inspection', { type: 'comparison', id: comparison.id, label: 'app tenant_b → app tenant_a' }, `Check constraints were not compared, and ${comparison.omitted} differences were left out of the listing.`),
+            ...comparisonDiagnostics(base, comparison),
         ],
     });
 }
