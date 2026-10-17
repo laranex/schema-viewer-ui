@@ -53,6 +53,7 @@ export default defineConfig({
       { text: 'THE VIEWER', items: [
         { text: 'Using the viewer', link: '/viewer' },
         { text: 'Comparisons, migrations, inferences', link: '/views' },
+        { text: 'Downloads and exports', link: '/exports' },
         { text: 'Integrating a host', link: '/integration' },
         { text: 'React API', link: '/react' },
       ] },
