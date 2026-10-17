@@ -6,6 +6,8 @@ import { Icon } from './ui';
 
 export type TableNodeData = {
     table: Table;
+    // The connection's name when the document has several, shown before the table's name.
+    connection: string | null;
     // Model names, or what the table is when it has none.
     subtitle: string;
     rows: string[];
@@ -36,7 +38,7 @@ const zoomedOut = (s: { transform: [number, number, number] }) => s.transform[2]
 
 // One table card. A Shift-click is left to React Flow, which adds the table to the selection. Edges are drawn from routes computed outside the card, so its handles only satisfy React Flow.
 function TableNode({ data }: NodeProps<TableNodeType>) {
-    const { table, subtitle, rows, state, picked, issues, combined, pivot, collapsed, highlighted, onSelect, onFocus, onToggle } = data;
+    const { table, connection, subtitle, rows, state, picked, issues, combined, pivot, collapsed, highlighted, onSelect, onFocus, onToggle } = data;
     const picture = useStore(zoomedOut);
     const byName = new Map(table.columns.map((c) => [c.name, c]));
     const marks = columnMarks(table);
@@ -50,7 +52,8 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
             <Handle type="target" position={Position.Left} className="table-handle" isConnectable={false} />
             <Handle type="source" position={Position.Right} className="table-handle" isConnectable={false} />
             <div className="table-title">
-                <button type="button" onClick={(event) => !event.shiftKey && onSelect(table.id)} title={tableLabel(table)}>
+                <button type="button" onClick={(event) => !event.shiftKey && onSelect(table.id)} title={connection ? `${connection} · ${tableLabel(table)}` : tableLabel(table)}>
+                    {connection && <span className="table-connection">{connection} · </span>}
                     {tableLabel(table)}
                     <small>
                         {subtitle || ' '}
@@ -111,3 +114,47 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
 }
 
 export const TableNodeView = memo(TableNode);
+
+// Card geometry of a table from another connection, drawn while one connection is shown.
+export const EXTERNAL_HEIGHT = 76;
+
+export type ExternalNodeData = { tableId: string; table: Table; connection: string; driver: string | null; state: 'related' | 'none'; onOpen: (id: string) => void };
+export type ExternalNodeType = Node<ExternalNodeData, 'external'>;
+
+// A table on a connection out of view that a relationship in view points at: a reference, not a card. It cannot be
+// edited, folded or dragged; opening it shows its own connection with the table selected.
+function ExternalNode({ data }: NodeProps<ExternalNodeType>) {
+    const { tableId, table, connection, driver, state, onOpen } = data;
+    return (
+        <div className={`external-node${state === 'related' ? ' related' : ''}`} data-table-id={tableId} data-external="true">
+            <Handle type="target" position={Position.Left} className="table-handle" isConnectable={false} />
+            <Handle type="source" position={Position.Right} className="table-handle" isConnectable={false} />
+            <button type="button" className="nodrag" onClick={() => onOpen(tableId)} title={`Open ${tableLabel(table)} on connection ${connection}`}>
+                <span className="external-node__label">On connection {connection}{driver ? ` · ${driver}` : ''}</span>
+                <span className="external-node__name">{tableLabel(table)}</span>
+                <span className="external-node__hint">Open in its connection</span>
+            </button>
+        </div>
+    );
+}
+
+export const ExternalNodeView = memo(ExternalNode);
+
+export type RegionNodeData = { connection: string; driver: string | null; tables: number };
+export type RegionNodeType = Node<RegionNodeData, 'region'>;
+
+// The frame around one connection's tables while every connection is on the diagram, after Laravel Schema Viewer's.
+function RegionNode({ data }: NodeProps<RegionNodeType>) {
+    return (
+        <div className="region-node" data-connection={data.connection}>
+            <span className="region-node__label">
+                <span className="region-node__name">{data.connection}</span>
+                <span className="region-node__meta">
+                    {data.driver ?? 'unknown driver'} · {data.tables} {data.tables === 1 ? 'table' : 'tables'}
+                </span>
+            </span>
+        </div>
+    );
+}
+
+export const RegionNodeView = memo(RegionNode);

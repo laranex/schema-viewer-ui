@@ -18,19 +18,18 @@ import {
     lookup as buildLookup,
     neighbors,
     NOTE,
-    tableLabel,
     within,
     type EdgeKind,
     type Fold,
     type GraphEdge,
 } from './graph';
-import { ARRANGEMENTS, autoLayout, type Arrangement, type LayoutRequest, type Positions } from './layout';
+import { ARRANGEMENTS, autoLayout, packRegions, type Arrangement, type LayoutRequest, type Positions, type Region } from './layout';
 import { Resizer } from './Resizer';
 import { route, type Box } from './routing';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { SearchBox, type SearchResult } from './Search';
 import { ShortcutsDialog } from './Shortcuts';
-import { TableNodeView, type TableNodeType } from './TableNode';
+import { EXTERNAL_HEIGHT, ExternalNodeView, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
 import { Tour } from './Tour';
 import { useTheme, type Theme } from './theme';
 import { Icon, Menu, MenuCheck, MenuItem, MenuLabel, MenuRadio, MenuSeparator, TabList, type TabSpec } from './ui';
@@ -66,7 +65,10 @@ type Selection = { kind: 'table' | 'edge'; id: string } | null;
 type Owner = Table['owner']['kind'];
 type Tab = 'browse' | 'details' | 'diagnostics' | 'changes';
 
-const nodeTypes = { table: TableNodeView };
+type FlowNode = TableNodeType | ExternalNodeType | RegionNodeType;
+
+const nodeTypes = { table: TableNodeView, external: ExternalNodeView, region: RegionNodeView };
+const minimapClass = (node: FlowNode) => node.type ?? '';
 const edgeTypes = { schema: SchemaEdgeView };
 
 const KIND_LABEL: Record<EdgeKind, string> = { both: 'FK + relationship', foreign_key: 'FK only', relationship: 'Relationship only', through: 'Through' };
@@ -143,6 +145,8 @@ function Viewer({
     const canvas = useRef<HTMLElement>(null);
     const panel = useRef<HTMLElement>(null);
     const search = useRef<HTMLInputElement>(null);
+    // Opens a table from a reference node; set once openTable exists, so the nodes need not change with it.
+    const openRef = useRef<(id: string) => void>(() => undefined);
     const panelId = `lsv${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
     const narrow = useWidth(root) < NARROW;
     const initialHash = useMemo(() => (deepLinks ? readHash() : new URLSearchParams()), [deepLinks]);
@@ -175,7 +179,13 @@ function Viewer({
         return { counts, tableOf };
     }, [doc, lookup, tables]);
 
-    const [connection, setConnection] = useState(() => initialHash.get('connection') ?? defaultConnection ?? '');
+    const [connection, setConnection] = useState(() => {
+        const known = (id: string | null | undefined) => (id && doc.connections.some((c) => c.id === id) ? id : null);
+        const wanted = known(initialHash.get('connection')) ?? known(defaultConnection) ?? '';
+        // A deep-linked table on another connection opens on its own connection.
+        const own = lookup.connectionOf.get(initialHash.get('table') ?? '');
+        return wanted && own && own !== wanted ? own : wanted;
+    });
     const [kinds, setKinds] = useState<Set<EdgeKind>>(() => new Set(EDGE_KINDS));
     const [fold, setFold] = useState<Fold>('keys');
     const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
@@ -203,6 +213,7 @@ function Viewer({
     const [arrangement, setArrangement] = useState<Arrangement>('left-right');
     const [arrangeCount, setArrangeCount] = useState(0);
     const [positions, setPositions] = useState<Positions>({});
+    const [regions, setRegions] = useState<Region[]>([]);
     const [dragging, setDragging] = useState<Record<string, { x: number; y: number }>>({});
     const [phase, setPhase] = useState<'arranging' | 'ready' | 'error'>('arranging');
     const [layoutError, setLayoutError] = useState<string | null>(null);
@@ -275,7 +286,42 @@ function Viewer({
         return tables.filter(({ table, connection: c }) => (!connection || c.id === connection) && !hiddenOwners.has(table.owner.kind) && (!near || near.has(table.id)));
     }, [tables, connection, hiddenOwners, focus, edges]);
     const visibleIds = useMemo(() => new Set(visible.map(({ table }) => table.id)), [visible]);
-    const shownEdges = useMemo(() => edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target) && kinds.has(e.kind)), [edges, visibleIds, kinds]);
+    // With one connection shown, the tables of other connections that its relationships reach: drawn as references,
+    // so a cross-connection relationship never silently disappears. Table id to connection id.
+    const externals = useMemo(() => {
+        const out = new Map<string, string>();
+        if (!connection) {
+            return out;
+        }
+        for (const e of edges) {
+            if (!kinds.has(e.kind)) {
+                continue;
+            }
+            for (const [here, there] of [
+                [e.source, e.target],
+                [e.target, e.source],
+            ]) {
+                const other = lookup.connectionOf.get(there);
+                if (visibleIds.has(here) && other !== undefined && other !== connection) {
+                    out.set(there, other);
+                }
+            }
+        }
+        return out;
+    }, [connection, edges, kinds, visibleIds, lookup]);
+    const shownEdges = useMemo(() => {
+        const drawn = (id: string) => visibleIds.has(id) || externals.has(id);
+        return edges.filter((e) => kinds.has(e.kind) && drawn(e.source) && drawn(e.target) && (visibleIds.has(e.source) || visibleIds.has(e.target)));
+    }, [edges, visibleIds, externals, kinds]);
+    const sizeOf = useCallback((id: string) => (externals.has(id) ? EXTERNAL_HEIGHT : heights[id]), [externals, heights]);
+    // With every connection shown, one group per connection with tables in view, each framed in its own region.
+    const groups = useMemo(() => {
+        if (connection || doc.connections.length < 2) {
+            return null;
+        }
+        const byConnection = doc.connections.map((c) => ({ connection: c.id, ids: visible.filter((v) => v.connection.id === c.id).map((v) => v.table.id) })).filter((g) => g.ids.length > 0);
+        return byConnection.length > 1 ? byConnection : null;
+    }, [connection, doc, visible]);
 
     const fit = useCallback(
         (ids?: string[]) => {
@@ -287,7 +333,7 @@ function Viewer({
         [flow, visibleIds],
     );
 
-    const placedIds = useMemo(() => visible.map(({ table }) => table.id), [visible]);
+    const placedIds = useMemo(() => [...visible.map(({ table }) => table.id), ...externals.keys()], [visible, externals]);
     const layoutEdges = useMemo(() => edges.map((e) => ({ id: e.id, source: e.source, target: e.target })), [edges]);
     const pendingFit = useRef(false);
     useEffect(() => {
@@ -295,12 +341,18 @@ function Viewer({
         setPhase('arranging');
         const box = canvas.current?.getBoundingClientRect();
         const aspect = box && box.height > 0 ? Math.max(0.5, Math.min(2.4, box.width / box.height)) : 1.6;
-        layout({ ids: placedIds, heights: Object.fromEntries(placedIds.map((id) => [id, heights[id]])), edges: layoutEdges, arrangement, aspect })
+        const sizes = Object.fromEntries(placedIds.map((id) => [id, sizeOf(id)]));
+        const request = (ids: string[]): LayoutRequest => ({ ids, heights: Object.fromEntries(ids.map((id) => [id, sizes[id]])), edges: layoutEdges, arrangement, aspect });
+        const arranged = groups
+            ? Promise.all(groups.map((g) => layout(request(g.ids)).then((positions) => ({ connection: g.connection, positions })))).then((blocks) => packRegions(blocks, sizes, aspect))
+            : layout(request(placedIds)).then((positions) => ({ positions, regions: [] as Region[] }));
+        arranged
             .then((result) => {
                 if (cancelled) {
                     return;
                 }
-                setPositions(result);
+                setPositions(result.positions);
+                setRegions(result.regions);
                 setDragging({});
                 setPhase('ready');
                 setLayoutError(null);
@@ -315,7 +367,7 @@ function Viewer({
         return () => {
             cancelled = true;
         };
-    }, [placedIds, heights, layoutEdges, arrangement, arrangeCount, layout]);
+    }, [placedIds, groups, sizeOf, layoutEdges, arrangement, arrangeCount, layout]);
 
     const related = useMemo(() => {
         if (group.length > 1) {
@@ -391,7 +443,7 @@ function Viewer({
                 return;
             }
             if (connection && entry.connection.id !== connection) {
-                setConnection('');
+                setConnection(entry.connection.id);
             }
             if (hiddenOwners.has(entry.table.owner.kind)) {
                 setHiddenOwners((o) => new Set([...o].filter((x) => x !== entry.table.owner.kind)));
@@ -410,6 +462,7 @@ function Viewer({
             setSheetOpen(true);
         }
     };
+    openRef.current = (id: string) => openTable(id);
     const pickResult = (r: SearchResult) => {
         if (r.kind === 'table') {
             openTable(r.id);
@@ -450,9 +503,10 @@ function Viewer({
     const empty = useMemo(() => new Set<string>(), []);
     const nodeData = useMemo(() => {
         const data = new Map<string, TableNodeType['data']>();
-        for (const { table } of visible) {
+        for (const { table, connection: c } of visible) {
             data.set(table.id, {
                 table,
+                connection: lookup.qualified ? c.name : null,
                 subtitle: tableSubtitle(doc, table),
                 rows: rows.get(table.id) ?? [],
                 state: selection?.kind === 'table' && selection.id === table.id ? 'selected' : related.has(table.id) ? 'related' : 'none',
@@ -468,24 +522,68 @@ function Viewer({
             });
         }
         return data;
-    }, [doc, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, empty, selectTable, focusOn, toggleCard]);
+    }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, empty, selectTable, focusOn, toggleCard]);
 
-    const nodes = useMemo<TableNodeType[]>(
-        () =>
-            visible
+    const openExternal = useCallback((id: string) => openRef.current(id), []);
+    const nodes = useMemo<FlowNode[]>(
+        () => [
+            ...regions.map(
+                (r): RegionNodeType => ({
+                    id: `lsv-region:${r.connection}`,
+                    type: 'region',
+                    position: { x: r.x, y: r.y },
+                    width: r.width,
+                    height: r.height,
+                    zIndex: -1,
+                    draggable: false,
+                    selectable: false,
+                    focusable: false,
+                    data: {
+                        connection: lookup.connections.get(r.connection)?.name ?? r.connection,
+                        driver: lookup.connections.get(r.connection)?.driver ?? null,
+                        tables: visible.filter((v) => v.connection.id === r.connection).length,
+                    },
+                }),
+            ),
+            ...visible
                 .filter(({ table }) => positions[table.id])
-                .map(({ table }) => ({
-                    id: table.id,
-                    type: 'table',
-                    position: dragging[table.id] ?? positions[table.id],
-                    data: nodeData.get(table.id) as TableNodeType['data'],
-                    dragHandle: spacePan ? '.no-drag-while-panning' : '.table-title',
-                    selected: picked.has(table.id),
-                    width: CARD_WIDTH,
-                    height: heights[table.id],
-                    ariaLabel: `Table ${tableLabel(table)}`,
-                })),
-        [visible, positions, dragging, nodeData, picked, heights, spacePan],
+                .map(
+                    ({ table }): TableNodeType => ({
+                        id: table.id,
+                        type: 'table',
+                        position: dragging[table.id] ?? positions[table.id],
+                        data: nodeData.get(table.id) as TableNodeType['data'],
+                        dragHandle: spacePan ? '.no-drag-while-panning' : '.table-title',
+                        selected: picked.has(table.id),
+                        width: CARD_WIDTH,
+                        height: heights[table.id],
+                        ariaLabel: `Table ${lookup.label(table.id)}`,
+                    }),
+                ),
+            ...[...externals]
+                .filter(([id]) => positions[id] && lookup.tables.has(id))
+                .map(
+                    ([id, c]): ExternalNodeType => ({
+                        id,
+                        type: 'external',
+                        position: positions[id],
+                        draggable: false,
+                        selectable: false,
+                        width: CARD_WIDTH,
+                        height: EXTERNAL_HEIGHT,
+                        ariaLabel: `Table ${lookup.label(id)}, on another connection`,
+                        data: {
+                            tableId: id,
+                            table: lookup.tables.get(id) as Table,
+                            connection: lookup.connections.get(c)?.name ?? c,
+                            driver: lookup.connections.get(c)?.driver ?? null,
+                            state: related.has(id) ? 'related' : 'none',
+                            onOpen: openExternal,
+                        },
+                    }),
+                ),
+        ],
+        [regions, visible, externals, positions, dragging, nodeData, picked, heights, spacePan, lookup, related, openExternal],
     );
 
     // Routes over settled positions; edges touching a card being dragged float until it is dropped.
@@ -501,11 +599,17 @@ function Viewer({
                 boxes.set(table.id, { id: table.id, x: p.x, y: p.y, width: CARD_WIDTH, height: heights[table.id], rows: rows.get(table.id) ?? [] });
             }
         }
+        for (const id of externals.keys()) {
+            const p = positions[id];
+            if (p) {
+                boxes.set(id, { id, x: p.x, y: p.y, width: CARD_WIDTH, height: EXTERNAL_HEIGHT, rows: [] });
+            }
+        }
         return route(
             boxes,
             shownEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceColumn: e.sourceColumn, targetColumn: e.targetColumn, labelled: labelled(e) })),
         );
-    }, [visible, positions, heights, rows, shownEdges, labelled]);
+    }, [visible, externals, positions, heights, rows, shownEdges, labelled]);
 
     const flowEdges = useMemo<SchemaEdgeType[]>(
         () =>
@@ -526,6 +630,7 @@ function Viewer({
                             kind: e.kind,
                             declaredOnly: e.declaredOnly,
                             polymorphic: e.polymorphic,
+                            crossConnection: e.crossConnection,
                             label: e.label,
                             chip: e.chip,
                             route: dragging[e.source] || dragging[e.target] ? null : (routes.get(e.id) ?? null),
@@ -574,7 +679,7 @@ function Viewer({
     }, [resolveSelection]);
 
     const onNodesChange = useCallback(
-        (changes: NodeChange<TableNodeType>[]) => {
+        (changes: NodeChange<FlowNode>[]) => {
             for (const change of changes) {
                 if (change.type === 'select') {
                     (change.selected ? pending.current.added : pending.current.removed).push(change.id);
@@ -609,7 +714,7 @@ function Viewer({
     };
 
     // Dropping cards commits their positions, and the routes follow.
-    const onNodeDragStop = useCallback((_: unknown, _node: TableNodeType, moved: TableNodeType[]) => {
+    const onNodeDragStop = useCallback((_: unknown, _node: FlowNode, moved: FlowNode[]) => {
         setPositions((p) => ({ ...p, ...Object.fromEntries(moved.map((n) => [n.id, n.position])) }));
         setDragging((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !moved.some((n) => n.id === id))));
     }, []);
@@ -670,7 +775,7 @@ function Viewer({
                     y: p.y,
                     width: CARD_WIDTH,
                     height: heights[table.id],
-                    title: tableLabel(table),
+                    title: lookup.label(table.id),
                     subtitle: tableSubtitle(doc, table),
                     rows: shown.map((r) => {
                         if (isNote(r)) {
@@ -684,11 +789,34 @@ function Viewer({
                     declaredOnly: combined && table.provenance.length === 1 && table.provenance[0] === 'declared',
                 };
             });
+        const referenceNodes = [...externals]
+            .filter(([id]) => positions[id] && lookup.tables.has(id))
+            .map(([id, c]) => ({
+                x: positions[id].x,
+                y: positions[id].y,
+                width: CARD_WIDTH,
+                height: EXTERNAL_HEIGHT,
+                title: lookup.label(id),
+                subtitle: `On connection ${lookup.connections.get(c)?.name ?? c}`,
+                rows: [],
+                more: 0,
+                declaredOnly: false,
+                external: true,
+            }));
+        const frames = regions.map((r) => ({
+            x: r.x,
+            y: r.y,
+            width: r.width,
+            height: r.height,
+            title: lookup.connections.get(r.connection)?.name ?? r.connection,
+            meta: `${lookup.connections.get(r.connection)?.driver ?? 'unknown driver'} · ${visible.filter((v) => v.connection.id === r.connection).length} tables`,
+        }));
+        const allNodes = [...imageNodes, ...referenceNodes];
         const imageEdges = shownEdges.flatMap((e) => {
             const r = routes.get(e.id);
             return r ? [{ kind: e.kind, declaredOnly: e.declaredOnly, sx: r.sx, sy: r.sy, cx: r.channelX, tx: r.tx, ty: r.ty, label: labelled(e) ? { x: r.labelX, y: r.labelY, text: e.label } : null }] : [];
         });
-        return { nodes: imageNodes, edges: imageEdges, bounds: boundsOf(imageNodes) };
+        return { nodes: allNodes, edges: imageEdges, frames, bounds: boundsOf([...allNodes, ...frames]) };
     };
     const exportImage = async (format: 'png' | 'svg', area: 'all' | 'visible') => {
         try {
@@ -857,7 +985,7 @@ function Viewer({
                                     t && (
                                         <li key={id}>
                                             <button type="button" className="link-button" onClick={() => selectTable(id, true)}>
-                                                {tableLabel(t)}
+                                                {lookup.label(id)}
                                             </button>
                                         </li>
                                     )
@@ -881,12 +1009,12 @@ function Viewer({
                 ) : (
                     <Overview ctx={ctx} onShortcuts={() => setShortcuts(true)} onTour={() => setTouring(true)} />
                 ))}
-            {tab === 'diagnostics' && <DiagnosticsPanel doc={doc} tableOf={issues.tableOf} onShow={(id) => openTable(id)} />}
+            {tab === 'diagnostics' && <DiagnosticsPanel doc={doc} lookup={lookup} tableOf={issues.tableOf} onShow={(id) => openTable(id)} />}
             {tab === 'changes' && changes && <ChangesPanel changes={changes} />}
         </div>
     );
 
-    const sheetTitle = selectedTable ? tableLabel(selectedTable) : selectedEdge ? selectedEdge.label : 'Tap a table or a line';
+    const sheetTitle = selectedTable ? lookup.label(selectedTable.id) : selectedEdge ? selectedEdge.label : 'Tap a table or a line';
 
     return (
         <div
@@ -909,11 +1037,11 @@ function Viewer({
                         {doc.connections.length > 1 && (
                             <>
                                 <MenuLabel>Connection</MenuLabel>
-                                <MenuRadio checked={connection === ''} onSelect={() => setConnection('')}>
+                                <MenuRadio checked={connection === ''} onSelect={() => (setFocus(null), setConnection(''))}>
                                     All connections
                                 </MenuRadio>
                                 {doc.connections.map((c) => (
-                                    <MenuRadio key={c.id} checked={connection === c.id} onSelect={() => setConnection(c.id)}>
+                                    <MenuRadio key={c.id} checked={connection === c.id} onSelect={() => (setFocus(null), setConnection(c.id))} hint={c.driver ?? undefined}>
                                         {c.name}
                                     </MenuRadio>
                                 ))}
@@ -933,7 +1061,7 @@ function Viewer({
                                 <option value="">All connections</option>
                                 {doc.connections.map((c) => (
                                     <option key={c.id} value={c.id}>
-                                        {c.name}
+                                        {c.driver ? `${c.name} · ${c.driver}` : c.name}
                                     </option>
                                 ))}
                             </select>
@@ -987,7 +1115,7 @@ function Viewer({
                         onlyRenderVisibleElements={nodes.length > 60}
                     >
                         {grid && <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="var(--dot)" />}
-                        {!narrow && <MiniMap pannable zoomable ariaLabel="Overview map" nodeBorderRadius={4} className="minimap" />}
+                        {!narrow && <MiniMap pannable zoomable ariaLabel="Overview map" nodeBorderRadius={4} className="minimap" nodeClassName={minimapClass} />}
                     </ReactFlow>
                     {focus && (
                         <div className="canvas-top">

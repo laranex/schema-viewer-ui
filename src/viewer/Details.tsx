@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { Constraint, Coverage, Diagnostic, Extensions, ForeignKey, Index, JsonValue, Provenance, Relationship, SchemaDocument, Source, Table } from '../contract/types';
 import type { ViewerChange } from '../contract/viewer-config';
-import { relationshipsOf, tableLabel, type GraphEdge, type Lookup } from './graph';
+import { relationshipsOf, type GraphEdge, type Lookup } from './graph';
 
 // Renders one extension namespace richly; the viewer falls back to a generic rendering for the rest.
 export type ExtensionRenderers = Record<string, (value: Extensions[string]) => ReactNode>;
@@ -277,7 +277,7 @@ export function Overview({ ctx, onShortcuts, onTour }: { ctx: DetailContext; onS
 }
 
 // The Diagnostics tab: confirmed facts apart from heuristic advice, each with a way to the table it is about.
-export function DiagnosticsPanel({ doc, tableOf, onShow }: { doc: SchemaDocument; tableOf: (d: Diagnostic) => string | undefined; onShow: (table: string) => void }) {
+export function DiagnosticsPanel({ doc, lookup, tableOf, onShow }: { doc: SchemaDocument; lookup: Lookup; tableOf: (d: Diagnostic) => string | undefined; onShow: (table: string) => void }) {
     const [certainty, setCertainty] = useState<'all' | 'certain' | 'likely'>('all');
     const rank = { error: 0, warning: 1, info: 2 } as const;
     const shown = doc.diagnostics
@@ -304,7 +304,7 @@ export function DiagnosticsPanel({ doc, tableOf, onShow }: { doc: SchemaDocument
             <ul className="cards">
                 {shown.map((d, i) => {
                     const table = tableOf(d);
-                    const name = table ? doc.connections.flatMap((c) => c.tables).find((t) => t.id === table) : undefined;
+                    const name = table ? lookup.tables.get(table) : undefined;
                     return (
                         <li key={i} className={`card card--${d.severity}`}>
                             <div className="card__eyebrow">
@@ -314,7 +314,7 @@ export function DiagnosticsPanel({ doc, tableOf, onShow }: { doc: SchemaDocument
                             <p>{d.message}</p>
                             {name && (
                                 <button type="button" className="link-button" onClick={() => onShow(name.id)}>
-                                    Show {tableLabel(name)}
+                                    Show {lookup.label(name.id)}
                                 </button>
                             )}
                         </li>
@@ -442,7 +442,7 @@ function ForeignKeyItem({ fk, ctx, onSelectTable }: { fk: ForeignKey; ctx: Detai
                 <code>{fk.columns.join(', ')}</code> →{' '}
                 {target ? (
                     <button type="button" className="inline-link" onClick={() => onSelectTable(target.id)}>
-                        {tableLabel(target)}
+                        {ctx.lookup.label(target.id)}
                     </button>
                 ) : (
                     <span className="muted">{fk.foreignTable} (not in the document)</span>
@@ -470,13 +470,13 @@ function RelationshipItem({ r, ctx, onSelectTable }: { r: Relationship; ctx: Det
                 {model?.className ?? r.model} →{' '}
                 {related ? (
                     <button type="button" className="inline-link" onClick={() => onSelectTable(related.id)}>
-                        {tableLabel(related)}
+                        {ctx.lookup.label(related.id)}
                     </button>
                 ) : (
                     'no single target'
                 )}
-                {r.pivot && <> via {ctx.lookup.tables.get(r.pivot.table)?.name ?? r.pivot.table}</>}
-                {r.through && <> through {r.through.map((t) => ctx.lookup.tables.get(t)?.name ?? t).join(', ')}</>}
+                {r.pivot && <> via {ctx.lookup.label(r.pivot.table)}</>}
+                {r.through && <> through {r.through.map((t) => ctx.lookup.label(t)).join(', ')}</>}
             </div>
             {r.keys && (
                 <small>
@@ -531,10 +531,10 @@ export function TableDetails({
     return (
         <>
             <h2 className="details__title">
-                {tableLabel(table)} <ProvenanceBadge provenance={table.provenance} kind="table" ctx={ctx} />
+                {lookup.label(table.id)} <ProvenanceBadge provenance={table.provenance} kind="table" ctx={ctx} />
             </h2>
             <p className="details__subtitle">
-                {connection?.name ?? ''} · {table.columns.length} columns
+                {connection ? `${connection.name}${connection.driver ? ` (${connection.driver})` : ''}` : ''} · {table.columns.length} columns
                 {table.owner.kind !== 'application' ? ` · ${table.owner.package ?? table.owner.kind}` : ''}
             </p>
             {models.length > 0 && (
@@ -643,7 +643,7 @@ export function TableDetails({
                         <li key={f.id}>
                             <span className="muted">referenced by</span>{' '}
                             <button type="button" className="inline-link" onClick={() => onSelectTable(t.id)}>
-                                {tableLabel(t)}
+                                {lookup.label(t.id)}
                             </button>{' '}
                             <code>{f.columns.join(', ')}</code>
                         </li>
@@ -695,6 +695,8 @@ const KIND_TAG: Record<GraphEdge['kind'], string> = {
     through: 'THROUGH RELATIONSHIP',
 };
 
+const connectionName = (ctx: DetailContext, table: string) => ctx.lookup.connections.get(ctx.lookup.connectionOf.get(table) ?? '')?.name ?? '?';
+
 export function EdgeDetails({ edge, ctx, onSelectTable }: { edge: GraphEdge; ctx: DetailContext; onSelectTable: (id: string) => void }) {
     const fk = edge.link?.foreignKey ? ctx.lookup.foreignKeys.get(edge.link.foreignKey) : undefined;
     const relationships = (edge.link?.relationships ?? (edge.derived ? [edge.derived.relationship] : [])).map((id) => ctx.lookup.relationships.get(id)).filter((r): r is Relationship => !!r);
@@ -702,7 +704,12 @@ export function EdgeDetails({ edge, ctx, onSelectTable }: { edge: GraphEdge; ctx
         <>
             <span className="tag">{KIND_TAG[edge.kind]}</span>
             <h2>{edge.label}</h2>
-            {edge.kind === 'relationship' && <p className="muted">The ORM declares this relationship; no foreign-key constraint enforces it.</p>}
+            {edge.kind === 'relationship' && !edge.crossConnection && <p className="muted">The ORM declares this relationship; no foreign-key constraint enforces it.</p>}
+            {edge.crossConnection && (
+                <p className="muted cross-note">
+                    Crosses connections, from {connectionName(ctx, edge.source)} to {connectionName(ctx, edge.target)}: an ORM relationship only. Foreign-key constraints never cross connections.
+                </p>
+            )}
             {edge.declaredOnly && <p className="muted">This foreign key is declared by the ORM but was not found in the database.</p>}
             {edge.link?.note && <p className="note">{edge.link.note}</p>}
             {fk && (
@@ -729,7 +736,7 @@ export function EdgeDetails({ edge, ctx, onSelectTable }: { edge: GraphEdge; ctx
                 return (
                     table && (
                         <button type="button" key={id} className="detail-link" onClick={() => onSelectTable(id)}>
-                            {tableLabel(table)}
+                            {ctx.lookup.label(id)}
                         </button>
                     )
                 );

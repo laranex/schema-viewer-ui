@@ -144,3 +144,54 @@ function packColumns(layered: Positions, heights: Record<string, number>, aspect
     }
     return positions;
 }
+
+export type Region = { connection: string; x: number; y: number; width: number; height: number };
+
+// Room around a connection's tables, its label above them, and the space between two connections.
+const REGION_PAD = 48;
+const REGION_HEAD = 64;
+const REGION_GAP = 160;
+
+// With every connection on the diagram, each connection is laid out on its own and framed in a labelled region, so
+// tables of the same name in two connections never mix. The regions are packed in rows, left to right, wrapping so the
+// diagram stays near the screen's shape. Adapted from Laranex Laravel Schema Viewer (MIT), ui/src/layout.ts.
+export function packRegions(blocks: { connection: string; positions: Positions }[], heights: Record<string, number>, aspect: number): { positions: Positions; regions: Region[] } {
+    const framed = blocks
+        .map(({ connection, positions }) => {
+            const boxes = Object.entries(positions);
+            if (!boxes.length) {
+                return null;
+            }
+            const minX = Math.min(...boxes.map(([, p]) => p.x));
+            const minY = Math.min(...boxes.map(([, p]) => p.y));
+            const placed: Positions = Object.fromEntries(boxes.map(([id, p]) => [id, { x: p.x - minX + REGION_PAD, y: p.y - minY + REGION_HEAD + REGION_PAD }]));
+            return {
+                connection,
+                placed,
+                width: Math.max(...boxes.map(([, p]) => p.x + CARD_WIDTH)) - minX + REGION_PAD * 2,
+                height: Math.max(...boxes.map(([id, p]) => p.y + (heights[id] ?? 120))) - minY + REGION_HEAD + REGION_PAD * 2,
+            };
+        })
+        .filter((b): b is NonNullable<typeof b> => b !== null);
+    const area = framed.reduce((sum, b) => sum + b.width * b.height, 0);
+    const rowLimit = Math.max(...framed.map((b) => b.width), Math.sqrt(area) * (aspect >= 1 ? 1.7 : 0.6));
+    const positions: Positions = {};
+    const regions: Region[] = [];
+    let x = 0;
+    let y = 0;
+    let rowHeight = 0;
+    for (const block of framed) {
+        if (x > 0 && x + block.width > rowLimit) {
+            x = 0;
+            y += rowHeight + REGION_GAP;
+            rowHeight = 0;
+        }
+        for (const [id, p] of Object.entries(block.placed)) {
+            positions[id] = { x: p.x + x, y: p.y + y };
+        }
+        regions.push({ connection: block.connection, x, y, width: block.width, height: block.height });
+        x += block.width + REGION_GAP;
+        rowHeight = Math.max(rowHeight, block.height);
+    }
+    return { positions, regions };
+}

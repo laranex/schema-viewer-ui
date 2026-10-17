@@ -1,6 +1,6 @@
 import { forwardRef, useId, useMemo, useState, type KeyboardEvent } from 'react';
 import type { SchemaDocument } from '../contract/types';
-import { tableLabel, type Lookup } from './graph';
+import type { Lookup } from './graph';
 import { Icon } from './ui';
 
 // The header search: tables, columns, models and relationships across every connection. Choosing a result opens it;
@@ -23,8 +23,8 @@ export function searchSchema(doc: SchemaDocument, lookup: Lookup, query: string)
     const hit = (text: string) => text.toLocaleLowerCase().includes(q);
     for (const c of doc.connections) {
         for (const t of c.tables) {
-            if (hit(tableLabel(t)) || hit(t.note ?? '') || hit(t.comment ?? '')) {
-                out.push({ kind: 'table', id: t.id, label: tableLabel(t), detail: `${c.name} · ${t.columns.length} columns` });
+            if (hit(lookup.label(t.id)) || hit(t.note ?? '') || hit(t.comment ?? '')) {
+                out.push({ kind: 'table', id: t.id, label: lookup.label(t.id), detail: `${c.name}${c.driver ? ` (${c.driver})` : ''} · ${t.columns.length} columns` });
             }
         }
     }
@@ -32,7 +32,7 @@ export function searchSchema(doc: SchemaDocument, lookup: Lookup, query: string)
         for (const t of c.tables) {
             for (const col of t.columns) {
                 if (hit(col.name)) {
-                    out.push({ kind: 'column', id: t.id, column: col.name, label: `${tableLabel(t)}.${col.name}`, detail: col.type });
+                    out.push({ kind: 'column', id: t.id, column: col.name, label: `${lookup.label(t.id)}.${col.name}`, detail: col.type });
                 }
             }
         }
@@ -40,13 +40,13 @@ export function searchSchema(doc: SchemaDocument, lookup: Lookup, query: string)
     for (const m of doc.models) {
         if (hit(m.className)) {
             const table = m.tables[0] ?? null;
-            out.push({ kind: 'model', id: m.id, table, label: m.className, detail: table ? tableLabel(lookup.tables.get(table) ?? { name: table, schema: null }) : 'no table' });
+            out.push({ kind: 'model', id: m.id, table, label: m.className, detail: table ? m.tables.map((id) => lookup.label(id)).join(', ') : 'no table' });
         }
     }
     for (const r of doc.relationships) {
         if (hit(r.name) || hit(r.type)) {
             const model = lookup.models.get(r.model);
-            out.push({ kind: 'relationship', id: r.id, table: r.table, label: `${model?.className.split(/[\\.]/).pop() ?? r.model}.${r.name}`, detail: `${r.type} · ${r.cardinality}` });
+            out.push({ kind: 'relationship', id: r.id, table: r.table, label: `${model?.className.split(/[\\.]/).pop() ?? r.model}.${r.name}`, detail: `${r.type} · ${r.cardinality} · ${lookup.label(r.table)}${r.relatedTable ? ` → ${lookup.label(r.relatedTable)}` : ''}` });
         }
     }
     return out.slice(0, LIMIT);

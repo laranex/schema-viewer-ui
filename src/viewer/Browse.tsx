@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Model, SchemaDocument, Table } from '../contract/types';
-import { relationshipsOf, tableLabel, type GraphEdge, type Lookup } from './graph';
+import { relationshipsOf, type GraphEdge, type Lookup } from './graph';
 
 // The Browse tab, after Laravel Schema Viewer's: every table with its models, every relationship, or every column,
 // filtered by a box of its own. Choosing a row opens it in Details and on the diagram.
@@ -48,10 +48,10 @@ export function Browse({ doc, lookup, tables, edges, issues, selected, several, 
     const rows = useMemo(() => {
         if (mode === 'tables') {
             return tables
-                .filter(({ table }) => hit(tableLabel(table), ...modelsOf(doc, table.id).map((m) => m.className)))
+                .filter(({ table }) => hit(lookup.label(table.id), ...modelsOf(doc, table.id).map((m) => m.className)))
                 .map(({ table, connection }) => ({
                     key: table.id,
-                    title: tableLabel(table),
+                    title: lookup.label(table.id),
                     subtitle: tableSubtitle(doc, table),
                     meta: `${table.columns.length} col${relationshipsOf(doc, table.id).length ? ` · ${relationshipsOf(doc, table.id).length} rel` : ''}`,
                     group: connection.name,
@@ -62,16 +62,16 @@ export function Browse({ doc, lookup, tables, edges, issues, selected, several, 
         }
         if (mode === 'relationships') {
             return doc.relationships
-                .filter((r) => hit(r.name, r.type, lookup.models.get(r.model)?.className ?? ''))
+                .filter((r) => hit(r.name, r.type, lookup.models.get(r.model)?.className ?? '', lookup.label(r.table), r.relatedTable ? lookup.label(r.relatedTable) : ''))
                 .map((r) => {
                     const edge = edges.find((e) => e.link?.relationships.includes(r.id) || e.derived?.relationship === r.id);
-                    const target = r.relatedTable ? lookup.tables.get(r.relatedTable) : undefined;
+                    const target = r.relatedTable && lookup.tables.has(r.relatedTable) ? r.relatedTable : undefined;
                     return {
                         key: r.id,
                         title: `${shortClass(lookup.models.get(r.model)?.className ?? r.model)}.${r.name}`,
-                        subtitle: `${r.type} → ${target ? tableLabel(target) : 'no single target'}`,
+                        subtitle: `${r.type} → ${target ? lookup.label(target) : 'no single target'}`,
                         meta: r.cardinality,
-                        group: lookup.tables.get(r.table)?.name ?? '',
+                        group: lookup.label(r.table),
                         issues: 0,
                         selected: false,
                         open: () => (edge ? onEdge(edge) : onTable(r.table)),
@@ -80,11 +80,11 @@ export function Browse({ doc, lookup, tables, edges, issues, selected, several, 
         }
         return tables.flatMap(({ table, connection }) =>
             table.columns
-                .filter((c) => hit(c.name, tableLabel(table), c.type))
+                .filter((c) => hit(c.name, lookup.label(table.id), c.type))
                 .map((c) => ({
                     key: `${table.id}.${c.name}`,
                     title: c.name,
-                    subtitle: `${tableLabel(table)} · ${c.type}${c.nullable ? ' · nullable' : ''}`,
+                    subtitle: `${lookup.label(table.id)} · ${c.type}${c.nullable ? ' · nullable' : ''}`,
                     meta: table.primaryKey.includes(c.name) ? 'PK' : table.foreignKeys.some((f) => f.columns.includes(c.name)) ? 'FK' : '',
                     group: connection.name,
                     issues: 0,

@@ -301,3 +301,112 @@ describe('tour', () => {
         expect(screen.queryByRole('dialog', { name: 'The diagram' })).toBeNull();
     });
 });
+
+describe('multiple connections', () => {
+    const multi = () => VALID['combined-multi-connection']();
+    const card = (container: HTMLElement, id: string) => container.querySelector(`.react-flow__node [data-table-id="${id}"]`) as HTMLElement | null;
+    const connectionSelect = () => screen.getByRole('combobox', { name: 'Connection' }) as HTMLSelectElement;
+
+    it('never turns a cross-connection relationship into a foreign key', () => {
+        const doc = multi();
+        const edges = edgesFor(doc);
+        const cross = edges.filter((e) => e.crossConnection);
+        expect(cross.map((e) => e.label).sort()).toEqual(['account', 'user · sessions']);
+        expect(cross.every((e) => e.kind === 'relationship' && e.link?.foreignKey === null)).toBe(true);
+        expect(edges.filter((e) => e.kind === 'foreign_key' || e.kind === 'both').every((e) => !e.crossConnection)).toBe(true);
+    });
+
+    it('frames every connection in a labelled region, keeping tables of the same name apart', async () => {
+        const { container } = await show(multi());
+        await waitFor(() => expect(container.querySelectorAll('.region-node')).toHaveLength(3));
+        expect([...container.querySelectorAll('.region-node')].map((r) => r.textContent)).toEqual(['apppgsql · 2 tables', 'analyticsmysql · 2 tables', 'cachesqlite · 1 table']);
+        expect(card(container, 'app:public.users')).toHaveTextContent('app · public.users');
+        expect(card(container, 'analytics:users')).toHaveTextContent('analytics · users');
+        expect(container.querySelectorAll('[data-external]')).toHaveLength(0);
+        expect(rows()).toEqual(['app · public.teams', 'app · public.users', 'analytics · events', 'analytics · users', 'cache · sessions']);
+        expect([...panel().querySelectorAll('.browse__group')].map((g) => g.textContent)).toEqual(['app', 'analytics', 'cache']);
+    });
+
+    it('filters to one connection and draws the tables other connections relate to as references', async () => {
+        const { container } = await show(multi());
+        fireEvent.change(connectionSelect(), { target: { value: 'connection:analytics' } });
+        await waitFor(() => expect(container.querySelectorAll('.region-node')).toHaveLength(0));
+        expect(container.querySelectorAll('[data-external]')).toHaveLength(1);
+        expect(rows()).toEqual(['analytics · events', 'analytics · users']);
+        const external = container.querySelector('[data-external]') as HTMLElement;
+        expect(external).toHaveAttribute('data-table-id', 'app:public.users');
+        expect(external).toHaveTextContent('On connection app · pgsql');
+        expect(card(container, 'app:public.teams')).toBeNull();
+
+        fireEvent.click(within(external).getByRole('button'));
+        await waitFor(() => expect(connectionSelect().value).toBe('connection:app'));
+        expect(within(panel()).getByRole('heading', { name: /app · public\.users/ })).toBeInTheDocument();
+        await waitFor(() => expect(card(container, 'app:public.users')?.closest('[data-external]')).toBeNull());
+        await waitFor(() => expect([...container.querySelectorAll('[data-external]')].map((e) => e.getAttribute('data-table-id')).sort()).toEqual(['analytics:users', 'cache:sessions']));
+    });
+
+    it('explains a cross-connection link as an ORM relationship only', async () => {
+        await show(multi());
+        openRow('cache · sessions');
+        const links = within(panel()).getByText('Links').closest('details') as HTMLElement;
+        fireEvent.click(within(links).getByRole('button', { name: 'user · sessions' }));
+        expect(within(panel()).getByText('DECLARED ORM RELATIONSHIP')).toBeInTheDocument();
+        expect(within(panel()).getByText(/Crosses connections, from cache to app/)).toBeInTheDocument();
+        expect(within(panel()).queryByRole('heading', { name: 'Foreign key' })).toBeNull();
+    });
+
+    it('steps through every connection with [ and ]', async () => {
+        await show(multi());
+        const seen: string[] = [];
+        for (let i = 0; i < 4; i++) {
+            press(']');
+            seen.push(connectionSelect().value);
+        }
+        expect(seen).toEqual(['connection:app', 'connection:analytics', 'connection:cache', '']);
+        press('[');
+        expect(connectionSelect().value).toBe('connection:cache');
+        await waitFor(() => expect(rows()).toEqual(['cache · sessions']));
+    });
+
+    it('opens on a #connection= deep link and keeps the connection in the hash', async () => {
+        history.replaceState(null, '', '/#connection=connection%3Acache');
+        const { container } = await show(multi(), { deepLinks: true });
+        expect(connectionSelect().value).toBe('connection:cache');
+        await waitFor(() => expect(container.querySelector('[data-external]')).toHaveAttribute('data-table-id', 'app:public.users'));
+        press(']');
+        await waitFor(() => expect(location.hash).toBe(''));
+        press('[');
+        await waitFor(() => expect(location.hash).toBe('#connection=connection%3Acache'));
+    });
+
+    it('opens a deep-linked table on its own connection, and ignores an unknown connection', async () => {
+        history.replaceState(null, '', '/#connection=connection%3Aanalytics&table=app%3Apublic.users');
+        await show(multi(), { deepLinks: true });
+        expect(connectionSelect().value).toBe('connection:app');
+        expect(within(panel()).getByRole('heading', { name: /app · public\.users/ })).toBeInTheDocument();
+        cleanup();
+        history.replaceState(null, '', '/#connection=connection%3Anowhere');
+        await show(multi(), { deepLinks: true });
+        expect(connectionSelect().value).toBe('');
+    });
+
+    it('tells apart tables with the same schema and name in two connections everywhere', async () => {
+        const doc = multi();
+        doc.connections[1].tables.find((t) => t.name === 'users')!.schema = 'public';
+        const { container } = await show(doc);
+        expect(card(container, 'app:public.users')).toHaveTextContent('app · public.users');
+        expect(card(container, 'analytics:users')).toHaveTextContent('analytics · public.users');
+        const box = screen.getByRole('combobox', { name: 'Search the schema' });
+        fireEvent.change(box, { target: { value: 'public.users' } });
+        const tables = screen.getAllByRole('option').filter((o) => o.textContent?.startsWith('Table'));
+        expect(tables.map((o) => o.querySelector('.search__label')?.textContent)).toEqual(['app · public.users', 'analytics · public.users']);
+        fireEvent.click(tables[1]);
+        expect(within(panel()).getByRole('heading', { name: /analytics · public\.users/ })).toBeInTheDocument();
+        expect(within(panel()).getByText('analytics (mysql) · 3 columns')).toBeInTheDocument();
+        openTab('Browse');
+        fireEvent.click(within(panel()).getByRole('radio', { name: 'Relationships' }));
+        expect(rows()).toContain('Visitor.account');
+        const account = [...panel().querySelectorAll('.browse__row')].find((r) => r.textContent?.includes('Visitor.account')) as HTMLElement;
+        expect(account).toHaveTextContent('BelongsTo → app · public.users');
+    });
+});

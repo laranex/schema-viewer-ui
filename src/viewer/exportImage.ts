@@ -6,10 +6,13 @@ import { orthogonal } from './routing';
 // URL, so it works under a Content-Security-Policy without img-src blob: or data:.
 
 export type ImageRow = { note: boolean; key: string; name: string; type: string; flag: 'drift' | 'declared-only' | null };
-export type ImageNode = { x: number; y: number; width: number; height: number; title: string; subtitle: string; rows: ImageRow[]; more: number; declaredOnly: boolean };
+// external: a table on another connection, drawn as a dashed reference.
+export type ImageNode = { x: number; y: number; width: number; height: number; title: string; subtitle: string; rows: ImageRow[]; more: number; declaredOnly: boolean; external?: boolean };
+// The frame around one connection's tables, when every connection is on the diagram.
+export type ImageFrame = { x: number; y: number; width: number; height: number; title: string; meta: string };
 export type ImageEdge = { kind: EdgeKind; declaredOnly: boolean; sx: number; sy: number; cx: number; tx: number; ty: number; label: { x: number; y: number; text: string } | null };
 export type Bounds = { x: number; y: number; width: number; height: number };
-export type ImageModel = { nodes: ImageNode[]; edges: ImageEdge[]; bounds: Bounds };
+export type ImageModel = { nodes: ImageNode[]; edges: ImageEdge[]; frames?: ImageFrame[]; bounds: Bounds };
 
 export const COLOR_TOKENS = ['bg', 'surface', 'surface-2', 'line', 'line-strong', 'fg', 'muted', 'accent', 'accent-ink', 'accent-soft', 'fk', 'both', 'declared', 'warning'] as const;
 export type Colors = Record<(typeof COLOR_TOKENS)[number], string>;
@@ -22,7 +25,7 @@ export function colorsOf(element: Element): Colors {
 const MONO = "'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace";
 const SANS = "'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif";
 
-export function boundsOf(nodes: ImageNode[], padding = 32): Bounds {
+export function boundsOf(nodes: Bounds[], padding = 32): Bounds {
     if (!nodes.length) {
         return { x: 0, y: 0, width: 400, height: 200 };
     }
@@ -38,6 +41,7 @@ export function clip(model: ImageModel, area: Bounds): ImageModel {
     const inside = (x: number, y: number, w: number, h: number) => x < area.x + area.width && x + w > area.x && y < area.y + area.height && y + h > area.y;
     return {
         nodes: model.nodes.filter((n) => inside(n.x, n.y, n.width, n.height)),
+        frames: model.frames?.filter((f) => inside(f.x, f.y, f.width, f.height)),
         edges: model.edges.filter((e) => inside(Math.min(e.sx, e.tx, e.cx), Math.min(e.sy, e.ty), Math.abs(e.tx - e.sx) + 1, Math.abs(e.ty - e.sy) + 1)),
         bounds: area,
     };
@@ -69,12 +73,23 @@ export function toSvg(model: ImageModel, c: Colors): string {
         `<marker id="o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${c.accent}"/></marker></defs>`,
         `<rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="${c.bg}"/>`,
     ];
+    for (const f of model.frames ?? []) {
+        out.push(`<rect x="${f.x}" y="${f.y}" width="${f.width}" height="${f.height}" rx="22" fill="${c['accent-soft']}" fill-opacity="0.4" stroke="${c['line-strong']}" stroke-width="1.5" stroke-dasharray="6 6"/>`);
+        out.push(`<text x="${f.x + 24}" y="${f.y + 40}" font-family="${escape(MONO)}" font-size="22" font-weight="500" fill="${c.fg}">${escape(cut(f.title, f.width / 2, 22))}</text>`);
+        out.push(`<text x="${f.x + 24}" y="${f.y + 60}" font-family="${escape(SANS)}" font-size="13" fill="${c.muted}">${escape(cut(f.meta, f.width - 48, 13, false))}</text>`);
+    }
     for (const e of model.edges) {
         const s = strokeOf(e, c);
         const marker = e.kind === 'relationship' || e.kind === 'through' ? 'o' : 'a';
         out.push(`<path d="${pathOf(e)}" fill="none" stroke="${s.color}" stroke-width="${s.width}"${s.dash.length ? ` stroke-dasharray="${s.dash.join(' ')}"` : ''} marker-end="url(#${marker})"/>`);
     }
     for (const n of model.nodes) {
+        if (n.external) {
+            out.push(`<g><rect x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="10" fill="${c['accent-soft']}" stroke="${c.accent}" stroke-width="1.5" stroke-dasharray="6 4"/>`);
+            out.push(`<text x="${n.x + 14}" y="${n.y + 26}" font-family="${escape(SANS)}" font-size="10" font-weight="600" fill="${c['accent-ink']}">${escape(cut(n.subtitle.toUpperCase(), n.width - 28, 10, false))}</text>`);
+            out.push(`<text x="${n.x + 14}" y="${n.y + 46}" font-family="${escape(MONO)}" font-size="12" font-weight="600" fill="${c.fg}">${escape(cut(n.title, n.width - 28, 12))}</text></g>`);
+            continue;
+        }
         out.push(`<g><rect x="${n.x}" y="${n.y}" width="${n.width}" height="${n.height}" rx="10" fill="${c.surface}" stroke="${n.declaredOnly ? c.declared : c['line-strong']}"${n.declaredOnly ? ' stroke-dasharray="6 4"' : ''}/>`);
         out.push(`<path d="M${n.x} ${n.y + HEADER_HEIGHT}H${n.x + n.width}" stroke="${c.line}"/>`);
         out.push(`<text x="${n.x + 12}" y="${n.y + 24}" font-family="${escape(MONO)}" font-size="12" font-weight="600" fill="${c.fg}">${escape(cut(n.title, n.width - 24, 12))}</text>`);
@@ -143,6 +158,25 @@ export function toCanvas(model: ImageModel, c: Colors, wanted = 2): HTMLCanvasEl
         g.fill();
         g.restore();
     };
+    for (const f of model.frames ?? []) {
+        g.save();
+        g.globalAlpha = 0.4;
+        g.fillStyle = c['accent-soft'];
+        g.beginPath();
+        g.roundRect(f.x, f.y, f.width, f.height, 22);
+        g.fill();
+        g.restore();
+        g.save();
+        g.strokeStyle = c['line-strong'];
+        g.lineWidth = 1.5;
+        g.setLineDash([6, 6]);
+        g.beginPath();
+        g.roundRect(f.x, f.y, f.width, f.height, 22);
+        g.stroke();
+        g.restore();
+        text(cut(f.title, f.width / 2, 22), f.x + 24, f.y + 40, `500 22px ${MONO}`, c.fg);
+        text(cut(f.meta, f.width - 48, 13, false), f.x + 24, f.y + 60, `13px ${SANS}`, c.muted);
+    }
     for (const e of model.edges) {
         const s = strokeOf(e, c);
         g.strokeStyle = s.color;
@@ -153,6 +187,21 @@ export function toCanvas(model: ImageModel, c: Colors, wanted = 2): HTMLCanvasEl
     }
     g.setLineDash([]);
     for (const n of model.nodes) {
+        if (n.external) {
+            g.save();
+            g.fillStyle = c['accent-soft'];
+            g.strokeStyle = c.accent;
+            g.lineWidth = 1.5;
+            g.setLineDash([6, 4]);
+            g.beginPath();
+            g.roundRect(n.x, n.y, n.width, n.height, 10);
+            g.fill();
+            g.stroke();
+            g.restore();
+            text(cut(n.subtitle.toUpperCase(), n.width - 28, 10, false), n.x + 14, n.y + 26, `600 10px ${SANS}`, c['accent-ink']);
+            text(cut(n.title, n.width - 28, 12), n.x + 14, n.y + 46, `600 12px ${MONO}`, c.fg);
+            continue;
+        }
         g.fillStyle = c.surface;
         g.strokeStyle = n.declaredOnly ? c.declared : c['line-strong'];
         g.setLineDash(n.declaredOnly ? [6, 4] : []);

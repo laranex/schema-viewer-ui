@@ -1,4 +1,4 @@
-import type { DerivedLink, Link, Model, Relationship, SchemaDocument, Table } from '../contract/types';
+import type { Connection, DerivedLink, Link, Model, Relationship, SchemaDocument, Table } from '../contract/types';
 
 // Pure document-to-diagram functions. The viewer draws the links and derived links the document stores; it never
 // derives relationships or constraints of its own.
@@ -19,6 +19,8 @@ export type GraphEdge = {
     // A foreign key only the ORM declares, in a combined document: not enforced by the database.
     declaredOnly: boolean;
     polymorphic: boolean;
+    // The two ends are in different connections: always an ORM relationship, never a foreign key.
+    crossConnection: boolean;
     link: Link | null;
     derived: DerivedLink | null;
 };
@@ -33,7 +35,13 @@ export const tableLabel = (table: Pick<Table, 'name' | 'schema'>) => `${table.sc
 
 export type Lookup = {
     tables: Map<string, Table>;
+    // Table id to connection id, and connections by id.
     connectionOf: Map<string, string>;
+    connections: Map<string, Connection>;
+    // More than one connection: labels name the connection, since table names repeat across connections.
+    qualified: boolean;
+    // A table's label, qualified by its connection when the document has several: analytics · public.users.
+    label: (tableId: string) => string;
     relationships: Map<string, Relationship>;
     models: Map<string, Model>;
     foreignKeys: Map<string, Table['foreignKeys'][number]>;
@@ -48,9 +56,22 @@ export function lookup(doc: SchemaDocument): Lookup {
             connectionOf.set(t.id, c.id);
         }
     }
+    const connections = new Map(doc.connections.map((c) => [c.id, c]));
+    const qualified = doc.connections.length > 1;
+    const label = (id: string) => {
+        const table = tables.get(id);
+        if (!table) {
+            return id;
+        }
+        const name = connections.get(connectionOf.get(id) ?? '')?.name;
+        return qualified && name !== undefined ? `${name} · ${tableLabel(table)}` : tableLabel(table);
+    };
     return {
         tables,
         connectionOf,
+        connections,
+        qualified,
+        label,
         relationships: new Map(doc.relationships.map((r) => [r.id, r])),
         models: new Map(doc.models.map((m) => [m.id, m])),
         foreignKeys: new Map([...tables.values()].flatMap((t) => t.foreignKeys.map((f) => [f.id, f] as const))),
@@ -73,6 +94,7 @@ export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdg
             chip: link.relationships.length ? (l.relationships.get(link.relationships[0])?.cardinality ?? 'relationship') : 'FK',
             declaredOnly: fk !== undefined && !fk.provenance.includes('database') && doc.source === 'combined',
             polymorphic: link.polymorphic,
+            crossConnection: l.connectionOf.get(link.from.table) !== l.connectionOf.get(link.to.table),
             link,
             derived: null,
         };
@@ -84,10 +106,11 @@ export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdg
             kind: 'through',
             source: derived.from,
             target: derived.to,
-            label: `${relation?.name ?? derived.relationship} via ${derived.via.map((id) => l.tables.get(id)?.name ?? id).join(', ')}`,
+            label: `${relation?.name ?? derived.relationship} via ${derived.via.map((id) => l.label(id)).join(', ')}`,
             chip: 'through',
             declaredOnly: false,
             polymorphic: false,
+            crossConnection: l.connectionOf.get(derived.from) !== l.connectionOf.get(derived.to),
             link: null,
             derived,
         });
