@@ -47,4 +47,4 @@ const entries = files(root)
         const bytes = readFileSync(path);
         return { path: relative(root, path).split('\\').join('/'), size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
     });
-writeFileSync(join(root, 'manifest.json'), `${JSON.stringify({ name: 'laranex-schema-viewer-ui', version, contract: { format: 'laranex-schema', major: 1 }, entry: { script: 'app.js', style: 'app.css', page: 'index.html' }, files: entries }, null, 2)}\n`);
+writeFileSync(join(root, 'manifest.json'), `${JSON.stringify({ name: 'laranex-schema-viewer-ui', version, contract: { format: 'laranex-schema', major: 2 }, entry: { script: 'app.js', style: 'app.css', page: 'index.html' }, files: entries }, null, 2)}\n`);

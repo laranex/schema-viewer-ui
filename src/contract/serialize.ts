@@ -2,7 +2,7 @@ import { sha256 } from './sha256';
 import type { SchemaDocument } from './types';
 
 // Object keys in Unicode code point order, as Python's sort_keys and PHP's ksort (with SORT_STRING) order ASCII keys.
-const byCodePoint = (a: string, b: string) => {
+export const byCodePoint = (a: string, b: string) => {
     const x = [...a];
     const y = [...b];
     for (let i = 0; i < Math.min(x.length, y.length); i++) {

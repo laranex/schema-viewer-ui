@@ -319,7 +319,7 @@ describe('multiple connections', () => {
     it('frames every connection in a labelled region, keeping tables of the same name apart', async () => {
         const { container } = await show(multi());
         await waitFor(() => expect(container.querySelectorAll('.region-node')).toHaveLength(3));
-        expect([...container.querySelectorAll('.region-node')].map((r) => r.textContent)).toEqual(['apppgsql · 2 tables', 'analyticsmysql · 2 tables', 'cachesqlite · 1 table']);
+        expect([...container.querySelectorAll('.region-node')].map((r) => r.textContent)).toEqual(['apppostgresql · 2 tables', 'analyticsmysql · 2 tables', 'cachesqlite · 1 table']);
         expect(card(container, 'app:public.users')).toHaveTextContent('app · public.users');
         expect(card(container, 'analytics:users')).toHaveTextContent('analytics · users');
         expect(container.querySelectorAll('[data-external]')).toHaveLength(0);
@@ -335,7 +335,7 @@ describe('multiple connections', () => {
         expect(rows()).toEqual(['analytics · events', 'analytics · users']);
         const external = container.querySelector('[data-external]') as HTMLElement;
         expect(external).toHaveAttribute('data-table-id', 'app:public.users');
-        expect(external).toHaveTextContent('On connection app · pgsql');
+        expect(external).toHaveTextContent('On connection app · postgresql');
         expect(card(container, 'app:public.teams')).toBeNull();
 
         fireEvent.click(within(external).getByRole('button'));

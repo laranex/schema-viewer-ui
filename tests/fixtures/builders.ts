@@ -1,4 +1,6 @@
 import { buildGraph } from '../../src/contract/graph';
+import { diagnosticId } from '../../src/contract/ids';
+import { inferAssociations } from '../../src/contract/inference';
 import type {
     Column,
     Connection,
@@ -51,10 +53,8 @@ export const index = (tableId: string, name: string | null, parts: IndexPart[], 
     id: `${tableId}:index:${name ?? parts.map((p) => p.column ?? p.expression).join(',')}`,
     name,
     parts,
-    columns: parts.flatMap((p) => (p.column === null ? [] : [p.column])),
     expression: parts.some((p) => p.expression !== null),
     unique: false,
-    primary: false,
     backs: null,
     method: null,
     partial: false,
@@ -65,7 +65,7 @@ export const index = (tableId: string, name: string | null, parts: IndexPart[], 
 });
 
 export const primaryIndex = (tableId: string, name: string | null, columns: string[], options: Partial<Index> = {}): Index =>
-    index(tableId, name, columns.map((c) => part(c)), { unique: true, primary: true, backs: { kind: 'primary_key', constraint: null }, ...options });
+    index(tableId, name, columns.map((c) => part(c)), { unique: true, backs: { kind: 'primary_key', constraint: null }, ...options });
 
 export const foreignKey = (tableId: string, name: string, columns: string[], foreignTable: string, foreignColumns: string[], options: Partial<ForeignKey> = {}): ForeignKey => ({
     id: `${tableId}:fk:${name}`,
@@ -156,22 +156,17 @@ export const diagnostic = (
     category: Diagnostic['category'],
     subject: Partial<Diagnostic['subject']> & Pick<Diagnostic['subject'], 'type'>,
     message: string,
-    options: Partial<Diagnostic> = {},
-): Diagnostic => ({
-    kind,
-    category,
-    severity: 'warning',
-    certainty: 'certain',
-    subject: { id: null, columns: null, label: null, ...subject },
-    message,
-    ...options,
-});
+    options: Partial<Omit<Diagnostic, 'id'>> = {},
+): Diagnostic => {
+    const d = { kind, category, severity: 'warning' as const, certainty: 'certain' as const, subject: { id: null, columns: null, label: null, ...subject }, message, ...options };
+    return { id: diagnosticId(d), ...d };
+};
 
-// A document with its links built by the shared graph builder.
+// A document with its links built by the shared graph builder and its inferred associations by the shared inference.
 export function document(source: SourceMode, generator: SchemaDocument['generator'], parts: Partial<SchemaDocument> & Pick<SchemaDocument, 'connections'>): SchemaDocument {
     const base: SchemaDocument = {
         format: 'laranex-schema',
-        version: '1.0',
+        version: '2.0',
         source,
         generator,
         note: null,
@@ -180,6 +175,9 @@ export function document(source: SourceMode, generator: SchemaDocument['generato
         links: [],
         derivedLinks: [],
         diagnostics: [],
+        comparisons: [],
+        migrations: [],
+        inferredAssociations: [],
         ...parts,
     };
     // The array order docs/contract.md specifies.
@@ -188,12 +186,15 @@ export function document(source: SourceMode, generator: SchemaDocument['generato
     base.connections = base.connections.map((c) => ({ ...c, tables: byId(c.tables) }));
     base.models = byId(base.models);
     base.relationships = byId(base.relationships);
+    base.comparisons = byId(base.comparisons);
+    base.migrations = byId(base.migrations);
     base.diagnostics = [...base.diagnostics].sort((a, b) => {
         const [x, y] = [key(a), key(b)];
         const i = x.findIndex((v, n) => v !== y[n]);
         return i < 0 ? 0 : x[i] < y[i] ? -1 : 1;
     });
-    return { ...base, ...buildGraph(base) };
+    const graph = { ...base, ...buildGraph(base) };
+    return { ...graph, inferredAssociations: inferAssociations(graph) };
 }
 
 export const both: Provenance = ['database', 'declared'];

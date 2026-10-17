@@ -50,16 +50,19 @@ export function large(n: number): SchemaDocument {
     }
     const base: SchemaDocument = {
         format: 'laranex-schema',
-        version: '1.0',
+        version: '2.0',
         source: 'database',
         generator: { name: 'dev', orm: null },
         note: null,
-        connections: [{ id: 'connection:large', name: 'large', driver: 'pgsql', defaultSchema: 'public', coverage: { database: { complete: true, schemas: ['public'], features: {} }, declared: null }, tables }],
+        connections: [{ id: 'connection:large', name: 'large', driver: 'postgresql', defaultSchema: 'public', coverage: { database: { complete: true, schemas: ['public'], features: {} }, declared: null }, tables }],
         models: [],
         relationships: [],
         links: [],
         derivedLinks: [],
         diagnostics: [],
+        comparisons: [],
+        migrations: [],
+        inferredAssociations: [],
     };
     return { ...base, ...buildGraph(base) };
 }

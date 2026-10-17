@@ -229,8 +229,9 @@ export function relationshipsOf(doc: SchemaDocument, tableId: string): Relations
 export function columnMarks(table: Table): Map<string, 'PK' | 'FK' | 'UK'> {
     const marks = new Map<string, 'PK' | 'FK' | 'UK'>();
     for (const i of table.indexes) {
-        if (i.unique && !i.primary && i.columns.length === 1 && !i.partial && !i.expression) {
-            marks.set(i.columns[0], 'UK');
+        const column = i.parts.length === 1 ? i.parts[0].column : null;
+        if (i.unique && i.backs?.kind !== 'primary_key' && column !== null && !i.partial && !i.expression) {
+            marks.set(column, 'UK');
         }
     }
     for (const c of table.constraints) {

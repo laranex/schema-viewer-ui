@@ -107,10 +107,14 @@ describe('serialization', () => {
 });
 
 describe('validateDocument', () => {
-    it('accepts later 1.x minors and ignores their unknown properties', () => {
-        const doc = { ...VALID['database-sqlite-indexes'](), version: '1.7', futureField: true };
+    it('reads later 2.x minors leniently, ignoring their unknown properties, and validates only 2.0 strictly', () => {
+        const doc = { ...VALID['database-sqlite-indexes'](), version: '2.7', futureField: true };
         expect(validateDocument(doc).ok).toBe(true);
-        expect(validateDocument(doc, { strict: true }).errors).toContain('$: unknown property futureField');
+        expect(validateDocument(doc, { strict: true }).errors).toEqual(['$.version: strict validation is for version 2.0, got "2.7"', '$: unknown property futureField']);
+    });
+
+    it('rejects 1.x documents with one clear error', () => {
+        expect(validateDocument({ ...VALID['database-sqlite-indexes'](), version: '1.0' }).errors).toEqual(['Unsupported laranex-schema version "1.0"; this reader supports 2.x']);
     });
 
     it('throws typed errors from assertDocument', () => {

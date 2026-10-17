@@ -379,7 +379,7 @@ function databasePostgresql(): SchemaDocument {
         connections: [
             connection(
                 'primary',
-                'pgsql',
+                'postgresql',
                 [
                     table(
                         accounts,
@@ -740,7 +740,7 @@ function combinedMultiConnection(): SchemaDocument {
         connections: [
             connection(
                 'app',
-                'pgsql',
+                'postgresql',
                 [
                     table(
                         appUsers,

@@ -40,7 +40,7 @@ test.describe('standalone viewer under a strict CSP', () => {
         expect(bytes.subarray(22, 30).toString('hex')).toBe('89504e470d0a1a0a');
     });
 
-    test('refuses a document that is not laranex-schema 1.x', async ({ page }) => {
+    test('refuses a document that is not laranex-schema 2.x', async ({ page }) => {
         await page.goto('/f/invalid/');
         await expect(page.getByText('Snapshot unavailable')).toBeVisible();
         await expect(page.locator('.lsv')).toHaveAttribute('data-loaded', 'error');

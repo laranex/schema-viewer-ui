@@ -1,4 +1,4 @@
-// laranex-schema 1.0: one framework-neutral document for Laravel, Python and Node.js schema viewers.
+// laranex-schema 2.0: one framework-neutral document for Laravel, Python and Node.js schema viewers.
 //
 // The structure and camelCase naming follow Laravel Schema Viewer's serialized document; Python and Node.js metadata is
 // kept through neutral fields and optional extensions. Every entity has an opaque id and refers to others by id.
@@ -6,8 +6,8 @@
 // See docs/contract.md for the rules each field follows.
 
 export const FORMAT = 'laranex-schema';
-export const VERSION = '1.0';
-export const MAJOR = 1;
+export const VERSION = '2.0';
+export const MAJOR = 2;
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export type JsonObject = { [key: string]: JsonValue };
@@ -58,10 +58,15 @@ export type Coverage = {
     features: Partial<Record<Feature, FeatureCoverage>>;
 };
 
+// Canonical dialect names. driver is open (other databases may appear), but these spellings are the only ones for the
+// databases they name: producers map their framework's names (Laravel's pgsql) to them.
+export const DRIVERS = ['postgresql', 'mysql', 'mariadb', 'sqlite', 'sqlsrv', 'oracle'] as const;
+export const DRIVER_ALIASES: Record<string, (typeof DRIVERS)[number]> = { pgsql: 'postgresql', postgres: 'postgresql', mssql: 'sqlsrv', sqlserver: 'sqlsrv' };
+
 export type Connection = {
     id: string;
     name: string;
-    // The database driver or dialect: pgsql, postgresql, mysql, mariadb, sqlite, sqlsrv, … or null when not known.
+    // The database dialect, lower case: postgresql, mysql, mariadb, sqlite, sqlsrv, oracle, … or null when not known.
     driver: string | null;
     // The schema unqualified names resolve to, when known.
     defaultSchema: string | null;
@@ -138,14 +143,11 @@ export type Index = {
     name: string | null;
     // Every key part, in order.
     parts: IndexPart[];
-    // The column key parts' names, in order: a convenience view of parts.
-    columns: string[];
     // True when any key part is an expression, even one whose text is not known (parts then lists fewer parts).
     expression: boolean;
     unique: boolean;
-    primary: boolean;
-    // The constraint this index enforces: the table's primary key, or a unique constraint (by id, when the document
-    // has it as an entity). null for an index created on its own.
+    // The constraint this index enforces: the table's primary key (the primary index), or a unique constraint (by id,
+    // when the document has it as an entity). null for an index created on its own.
     backs: { kind: 'primary_key' | 'unique_constraint'; constraint: string | null } | null;
     // btree, hash, gin, gist, brin, fulltext, spatial, … or null when not reported.
     method: string | null;
@@ -307,7 +309,22 @@ export type DerivedLink = {
 
 export type DiagnosticCategory = 'extraction' | 'inspection' | 'reconciliation' | 'drift' | 'lint';
 
-export type SubjectType = 'document' | 'connection' | 'table' | 'column' | 'index' | 'foreignKey' | 'constraint' | 'model' | 'relationship' | 'link';
+export const SUBJECT_TYPES = [
+    'document',
+    'connection',
+    'table',
+    'column',
+    'index',
+    'foreignKey',
+    'constraint',
+    'model',
+    'relationship',
+    'link',
+    'comparison',
+    'migration',
+    'inferredAssociation',
+] as const;
+export type SubjectType = (typeof SUBJECT_TYPES)[number];
 
 // Diagnostic kinds the contract names, so producers agree on them. Producers may add their own kinds.
 export const DIAGNOSTIC_KINDS = {
@@ -331,16 +348,26 @@ export const DIAGNOSTIC_KINDS = {
     redundantIndex: 'redundant_index',
     relationshipWithoutForeignKey: 'relationship_without_foreign_key',
     foreignKeyWithoutRelationship: 'foreign_key_without_relationship',
+    // comparisons, migrations and inferred associations.
+    comparisonIncomplete: 'comparison_incomplete',
+    migrationHistoryUnavailable: 'migration_history_unavailable',
+    migrationVersionTableUnreadable: 'migration_version_table_unreadable',
+    migrationMultipleHeads: 'migration_multiple_heads',
+    migrationUnknownRevision: 'migration_unknown_revision',
+    inferenceAmbiguous: 'inference_ambiguous',
 } as const;
 
 export type Diagnostic = {
+    // "n" + hash of [kind, subject.type, subject.id, subject.columns, message]; see diagnosticId().
+    id: string;
     kind: string;
     category: DiagnosticCategory;
     severity: 'error' | 'warning' | 'info';
     // certain: a confirmed fact read from metadata; likely: a heuristic recommendation inferred from names, conventions
     // or usage patterns. Viewers must show the two apart.
     certainty: 'certain' | 'likely';
-    // The entity the diagnostic is about. id is null when it does not exist in the document (an unresolved target).
+    // The entity the diagnostic is about. id is null for the document, and names a missing entity for unresolved_* kinds.
+    // A column subject's id is its table's and columns names the columns; other subjects may name columns as context.
     subject: { type: SubjectType; id: string | null; columns: string[] | null; label: string | null };
     message: string;
     extensions?: Extensions;
@@ -366,5 +393,134 @@ export type SchemaDocument = {
     links: Link[];
     derivedLinks: DerivedLink[];
     diagnostics: Diagnostic[];
+    comparisons: Comparison[];
+    migrations: MigrationTrack[];
+    inferredAssociations: InferredAssociation[];
+    extensions?: Extensions;
+};
+
+export type Severity = 'error' | 'warning' | 'info';
+export type Certainty = 'certain' | 'likely';
+
+// A comparison side: one connection's tables, optionally one schema of it. schema null means the tables whose schema is
+// null or the connection's default schema.
+export type Scope = { connection: string; schema: string | null };
+
+export const OBJECT_TYPES = ['table', 'column', 'primaryKey', 'index', 'foreignKey', 'constraint'] as const;
+export type ObjectType = (typeof OBJECT_TYPES)[number];
+
+export const CHANGES = ['missing', 'extra', 'changed'] as const;
+// missing: in the baseline, not the target. extra: in the target only. changed: in both, with different fields.
+export type Change = (typeof CHANGES)[number];
+
+// One side of a difference. table is the table id; id is the index, foreign key or constraint id, null for a table,
+// column or primary key.
+export type DifferenceRef = { table: string; id: string | null; label: string };
+
+export type FieldDifference = { field: string; baseline: JsonValue; target: JsonValue };
+
+export type Difference = {
+    id: string;
+    change: Change;
+    objectType: ObjectType;
+    // The normalized identity both sides share; never contains a schema name, so tenant schemas compare equal.
+    key: string[];
+    baseline: DifferenceRef | null;
+    target: DifferenceRef | null;
+    // The differing fields of a changed object; empty for missing and extra.
+    fields: FieldDifference[];
+    severity: Severity;
+    // likely when the difference rests on normalized type or SQL text; otherwise certain.
+    certainty: Certainty;
+    extensions?: Extensions;
+};
+
+export type Comparison = {
+    id: string;
+    baseline: Scope;
+    target: Scope;
+    // false when differences were left out (omitted > 0) or either side's coverage could not support the comparison.
+    complete: boolean;
+    omitted: number;
+    // Counts of every difference found, listed or omitted.
+    summary: { missing: number; extra: number; changed: number };
+    differences: Difference[];
+    extensions?: Extensions;
+};
+
+export type MigrationRevision = { id: string; parents: string[]; branchLabels: string[] };
+
+export type MigrationHistory = {
+    revisions: MigrationRevision[];
+    // Revisions no other revision names as a parent.
+    heads: string[];
+    // Parents named by a revision but not in revisions: a partial history.
+    missing: string[];
+};
+
+export const MIGRATION_STATUSES = ['up_to_date', 'behind', 'diverged', 'uninitialized', 'unknown'] as const;
+export type MigrationStatus = (typeof MIGRATION_STATUSES)[number];
+
+export type CoverageEvidence = { kind: 'create_table' | 'drop_table' | 'include_filter' | 'version_table' | 'model'; detail: string };
+
+// Whether a table is under migration control. autogenerate coverage and migration history are separate facts:
+// "excluded" from autogenerate never means "not migrated".
+export type MigrationCoverage = {
+    table: string | null;
+    name: string;
+    declared: boolean;
+    autogenerate: 'included' | 'excluded' | 'unknown';
+    migrationManaged: 'yes' | 'no' | 'unknown';
+    certainty: Certainty;
+    evidence: CoverageEvidence[];
+};
+
+export type MigrationTrack = {
+    id: string;
+    // The migration tool: alembic, …
+    provider: string;
+    connection: string;
+    schema: string | null;
+    // The version table's id; null when the database has none.
+    versionTable: string | null;
+    // null when the migration scripts could not be read.
+    history: MigrationHistory | null;
+    // The revisions the database records; null when the version table could not be read, [] when it records none.
+    current: string[] | null;
+    status: MigrationStatus;
+    // Revisions not yet applied; null when that cannot be determined.
+    pending: string[] | null;
+    // Current revisions the history does not have.
+    unknownRevisions: string[];
+    coverage: MigrationCoverage[];
+    extensions?: Extensions;
+};
+
+export type InferenceEvidence = {
+    kind: 'foreign_key' | 'primary_key' | 'unique_constraint' | 'unique_index' | 'model_mapping';
+    // The foreign key, constraint or index id; the table id for primary_key; the model id for model_mapping.
+    id: string;
+    // A fact read from database metadata, or from ORM metadata in a declared document.
+    confirmed: boolean;
+};
+
+// An association the foreign keys imply between two models that declare no relationship over them. It is never a
+// relationship, never adds a link, and is shown as "inferred, no ORM attribute declared".
+export type InferredAssociation = {
+    id: string;
+    kind: 'foreign_key' | 'association_table';
+    model: string;
+    relatedModel: string;
+    table: string;
+    relatedTable: string;
+    // The association table, for kind association_table.
+    via: string | null;
+    cardinality: 'many-to-one' | 'one-to-one' | 'many-to-many';
+    foreignKeys: string[];
+    links: string[];
+    confidence: 'high' | 'medium' | 'low';
+    evidence: InferenceEvidence[];
+    // multiple_foreign_keys, self_reference, multiple_models, … (open list), sorted.
+    ambiguities: string[];
     extensions?: Extensions;
 };

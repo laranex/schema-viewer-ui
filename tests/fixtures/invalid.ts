@@ -25,10 +25,10 @@ export const INVALID: Record<string, InvalidCase> = {
         document: from('database-sqlite-indexes', (d) => (d.format = 'laranex-schema-viewer')),
     },
     'unsupported-major': {
-        description: 'A major version this reader does not support',
+        description: 'A 1.x document: this reader supports 2.x only, and nothing converts 1.0',
         strict: false,
-        errors: ['Unsupported laranex-schema version "2.0"'],
-        document: from('database-sqlite-indexes', (d) => (d.version = '2.0')),
+        errors: ['Unsupported laranex-schema version "1.0"'],
+        document: from('database-sqlite-indexes', (d) => (d.version = '1.0')),
     },
     'missing-field': {
         description: 'A required field left out',
@@ -37,7 +37,7 @@ export const INVALID: Record<string, InvalidCase> = {
         document: from('database-sqlite-indexes', (d) => delete t(d, 'notes').columns[0].provenance),
     },
     'unknown-property-strict': {
-        description: 'A property 1.0 does not define, rejected only in strict mode',
+        description: 'A property 2.0 does not define, rejected only in strict mode',
         strict: true,
         errors: ['$.connections[0].tables[0]: unknown property engine'],
         document: from('database-sqlite-indexes', (d) => (t(d, 'notes').engine = 'InnoDB')),
@@ -72,16 +72,40 @@ export const INVALID: Record<string, InvalidCase> = {
         errors: ['An index part is exactly one of a column or an expression'],
         document: from('database-postgresql-indexes', (d) => (ix(d, 'accounts', 'accounts_lower_email_idx').parts[0].column = 'email')),
     },
-    'index-columns-out-of-order': {
-        description: 'Index columns that do not follow its column parts',
+    'primary-index-other-columns': {
+        description: 'An index backing the primary key on other columns than the key',
         strict: false,
-        errors: ['Index columns must list its column parts in order'],
-        document: from('database-postgresql-indexes', (d) => (ix(d, 'invoices', 'invoices_account_id_number_key').columns = ['number', 'account_id'])),
+        errors: ['An index backing the primary key is unique and has exactly its columns'],
+        document: from('database-postgresql-indexes', (d) => (ix(d, 'accounts', 'accounts_pkey').parts[0].column = 'email')),
+    },
+    'driver-alias': {
+        description: "A framework's driver name instead of the canonical dialect",
+        strict: false,
+        errors: ['Driver pgsql is spelled postgresql'],
+        document: from('database-postgresql-indexes', (d) => (d.connections[0].driver = 'pgsql')),
+    },
+    'strict-other-minor': {
+        description: 'Strict validation is for exactly 2.0; a later minor is only read leniently',
+        strict: true,
+        errors: ['strict validation is for version 2.0'],
+        document: from('database-sqlite-indexes', (d) => (d.version = '2.1')),
+    },
+    'diagnostic-wrong-id': {
+        description: 'A diagnostic whose id does not follow the id rule',
+        strict: false,
+        errors: ['Diagnostic id is not'],
+        document: from('combined-drift', (d) => (d.diagnostics[0].id = 'n0000000000000000')),
+    },
+    'column-subject-without-columns': {
+        description: 'A column diagnostic that does not name its columns',
+        strict: false,
+        errors: ['A column subject names its columns'],
+        document: from('combined-drift', (d) => (d.diagnostics.find((x: Mutable) => x.subject.type === 'column').subject.columns = null)),
     },
     'primary-index-not-unique': {
         description: 'A primary index that is not unique',
         strict: false,
-        errors: ['A primary index is unique and backs the primary key'],
+        errors: ['An index backing the primary key is unique and has exactly its columns'],
         document: from('database-postgresql-indexes', (d) => (ix(d, 'accounts', 'accounts_pkey').unique = false)),
     },
     'backs-check-constraint': {

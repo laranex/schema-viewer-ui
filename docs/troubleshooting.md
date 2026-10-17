@@ -1,6 +1,6 @@
 # Troubleshooting
 
-## "This is not a laranex-schema 1.x document the viewer can read"
+## "This is not a laranex-schema 2.x document the viewer can read"
 
 The bundle validates the document before rendering and lists the first errors. Common causes:
 

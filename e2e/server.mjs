@@ -19,7 +19,7 @@ const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inl
 
 const fixture = (name) => {
     if (name === 'invalid') {
-        return JSON.stringify({ format: 'laranex-schema', version: '1.0', connections: 'nope' });
+        return JSON.stringify({ format: 'laranex-schema', version: '2.0', connections: 'nope' });
     }
     const path = join(root, 'contract/fixtures/valid', `${name}.json`);
     return existsSync(path) ? readFileSync(path, 'utf8') : null;

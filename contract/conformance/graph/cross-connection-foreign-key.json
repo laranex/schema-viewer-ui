@@ -12,7 +12,7 @@
           "declared": null
         },
         "defaultSchema": null,
-        "driver": "pgsql",
+        "driver": "postgresql",
         "id": "connection:a",
         "name": "a",
         "tables": [

@@ -359,13 +359,14 @@ function IndexItem({ index, ctx }: { index: Index; ctx: DetailContext }) {
         </code>
     ));
     const unknownExpression = index.expression && !index.parts.some((p) => p.expression);
+    const primary = index.backs?.kind === 'primary_key';
     return (
         <li className="index">
             <div className="index-head">
                 <strong>{index.name ?? 'unnamed index'}</strong>
                 <span className="badges">
-                    {index.primary && <Badge tone="pk">primary</Badge>}
-                    {index.unique && !index.primary && <Badge tone="unique">unique</Badge>}
+                    {primary && <Badge tone="pk">primary</Badge>}
+                    {index.unique && !primary && <Badge tone="unique">unique</Badge>}
                     {index.backs?.kind === 'unique_constraint' && <Badge title="Enforces a unique constraint">constraint</Badge>}
                     {index.parts.length + (unknownExpression ? 1 : 0) > 1 && <Badge>composite</Badge>}
                     {index.partial && <Badge tone="partial">partial</Badge>}

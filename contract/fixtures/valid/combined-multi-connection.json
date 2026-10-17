@@ -1,4 +1,5 @@
 {
+  "comparisons": [],
   "connections": [
     {
       "coverage": {
@@ -37,7 +38,7 @@
         }
       },
       "defaultSchema": "public",
-      "driver": "pgsql",
+      "driver": "postgresql",
       "id": "connection:app",
       "name": "app",
       "tables": [
@@ -90,9 +91,6 @@
                 "constraint": null,
                 "kind": "primary_key"
               },
-              "columns": [
-                "id"
-              ],
               "expression": false,
               "id": "app:public.teams:index:teams_pkey",
               "included": [],
@@ -111,7 +109,6 @@
                 }
               ],
               "predicate": null,
-              "primary": true,
               "provenance": [
                 "database"
               ],
@@ -226,9 +223,6 @@
                 "constraint": null,
                 "kind": "primary_key"
               },
-              "columns": [
-                "id"
-              ],
               "expression": false,
               "id": "app:public.users:index:users_pkey",
               "included": [],
@@ -247,7 +241,6 @@
                 }
               ],
               "predicate": null,
-              "primary": true,
               "provenance": [
                 "database"
               ],
@@ -397,9 +390,6 @@
                 "constraint": null,
                 "kind": "primary_key"
               },
-              "columns": [
-                "id"
-              ],
               "expression": false,
               "id": "analytics:events:index:PRIMARY",
               "included": [],
@@ -418,7 +408,6 @@
                 }
               ],
               "predicate": null,
-              "primary": true,
               "provenance": [
                 "database"
               ],
@@ -426,9 +415,6 @@
             },
             {
               "backs": null,
-              "columns": [
-                "user_id"
-              ],
               "expression": false,
               "id": "analytics:events:index:events_user_id_index",
               "included": [],
@@ -447,7 +433,6 @@
                 }
               ],
               "predicate": null,
-              "primary": false,
               "provenance": [
                 "database"
               ],
@@ -535,9 +520,6 @@
                 "constraint": null,
                 "kind": "primary_key"
               },
-              "columns": [
-                "id"
-              ],
               "expression": false,
               "id": "analytics:users:index:PRIMARY",
               "included": [],
@@ -556,7 +538,6 @@
                 }
               ],
               "predicate": null,
-              "primary": true,
               "provenance": [
                 "database"
               ],
@@ -682,9 +663,6 @@
           "indexes": [
             {
               "backs": null,
-              "columns": [
-                "user_id"
-              ],
               "expression": false,
               "id": "cache:sessions:index:sessions_user_id_index",
               "included": [],
@@ -703,7 +681,6 @@
                 }
               ],
               "predicate": null,
-              "primary": false,
               "provenance": [
                 "database"
               ],
@@ -732,6 +709,7 @@
     {
       "category": "drift",
       "certainty": "certain",
+      "id": "nb7e59e58d6e3ba10",
       "kind": "column_drift",
       "message": "The database stores public.users.email as character varying(320); the model casts it as string.",
       "severity": "info",
@@ -747,6 +725,7 @@
     {
       "category": "inspection",
       "certainty": "certain",
+      "id": "n543f54e951c8571e",
       "kind": "unsupported_metadata",
       "message": "MySQL reports functional index key parts without their expressions.",
       "severity": "info",
@@ -760,6 +739,7 @@
     {
       "category": "lint",
       "certainty": "certain",
+      "id": "n168676954c670756",
       "kind": "relationship_without_foreign_key",
       "message": "Session::user joins cache sessions.user_id to app public.users.id across connections; no foreign key can enforce it.",
       "severity": "info",
@@ -778,6 +758,7 @@
     "name": "laravel-schema-viewer",
     "orm": "eloquent"
   },
+  "inferredAssociations": [],
   "links": [
     {
       "foreignKey": "analytics:events:fk:events_user_id_foreign",
@@ -869,6 +850,7 @@
       }
     }
   ],
+  "migrations": [],
   "models": [
     {
       "className": "App\\Models\\Analytics\\Event",
@@ -1146,5 +1128,5 @@
     }
   ],
   "source": "combined",
-  "version": "1.0"
+  "version": "2.0"
 }

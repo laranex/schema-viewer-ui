@@ -10,14 +10,14 @@ export type GraphCase = { description: string; input: { connections: Connection[
 
 const T = (name: string) => `t:${name}`;
 const ids = (...names: string[]) => names.map((n) => column(n, 'integer'));
-const conn = (...tables: ReturnType<typeof table>[]) => [connection('c', 'pgsql', tables, { coverage: { database: null, declared: null } })];
+const conn = (...tables: ReturnType<typeof table>[]) => [connection('c', 'postgresql', tables, { coverage: { database: null, declared: null } })];
 const rel = (id: string, options: Partial<Relationship> & Pick<Relationship, 'table' | 'cardinality'>) => relationship(id, id, { model: 'm', type: 'test', ...options });
 const ep = (t: string, ...columns: string[]) => ({ table: T(t), columns });
 // Two connections, each with its own users table, and ids qualified by connection as producers write them.
 const A = (name: string) => `a:${name}`;
 const B = (name: string) => `b:${name}`;
 const two = (a: ReturnType<typeof table>[], b: ReturnType<typeof table>[]) => [
-    connection('a', 'pgsql', a, { coverage: { database: null, declared: null } }),
+    connection('a', 'postgresql', a, { coverage: { database: null, declared: null } }),
     connection('b', 'mysql', b, { coverage: { database: null, declared: null } }),
 ];
 const at = (table: string, ...columns: string[]) => ({ table, columns });

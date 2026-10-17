@@ -59,7 +59,7 @@ async function load(url: string | null): Promise<Source> {
     }
     const result = validateDocument(config.document);
     if (!result.ok) {
-        return { error: 'This is not a laranex-schema 1.x document the viewer can read.', details: result.errors };
+        return { error: 'This is not a laranex-schema 2.x document the viewer can read.', details: result.errors };
     }
     return { config: { ...config, document: result.document }, downloadHref };
 }
