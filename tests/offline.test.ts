@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { BRAND_PATH, FAVICON_DATA_URI } from '../src/viewer/brand';
 import { bundleFromPage, offlineHtml } from '../src/viewer/offline';
 import { VALID } from './fixtures/documents';
 
 const doc = VALID['combined-eloquent']();
 // A table comment that tries to end the data block, and a script that mentions its own closing tag.
 const hostile = { ...doc, note: '</script><script>alert(1)</script><!--' };
-const bundle = { script: 'const a = "</script>"; const b = "<!--"; console.log(a, b);', style: '.lsv{} </style><script>x</script>', icon: 'data:image/svg+xml;base64,PHN2Zy8+' };
+const bundle = { script: 'const a = "</script>"; const b = "<!--"; console.log(a, b);', style: '.lsv{} </style><script>x</script>' };
 
 describe('offline HTML', () => {
     const html = offlineHtml(bundle, { document: hostile, changes: [{ type: 'table', change: 'added', label: 'x' }], defaultConnection: 'connection:mysql' });
@@ -34,7 +35,9 @@ describe('offline HTML', () => {
         expect(policy).not.toContain('unsafe-eval');
         expect(policy).not.toMatch(/script-src[^;]*unsafe-inline/);
         expect(page.getElementById('lsv-offline-style')?.textContent).toBe('.lsv{} <\\/style><script>x</script>');
-        expect(page.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe(bundle.icon);
+        // The brand mark from brand.ts, inline.
+        expect(page.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe(FAVICON_DATA_URI);
+        expect(decodeURIComponent(FAVICON_DATA_URI)).toContain(BRAND_PATH);
         expect(html).not.toMatch(/(src|href)="https?:/);
     });
 

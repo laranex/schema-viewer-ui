@@ -87,7 +87,7 @@ function Message({ title, text, details }: { title: string; text: string; detail
 }
 
 // The offline viewer is built from this page's own script and stylesheet when it is itself an offline export, else from
-// offline.js, app.css and favicon.svg beside app.js.
+// offline.js and app.css beside app.js.
 const offlineBundle = () => {
     const own = bundleFromPage();
     return own ? Promise.resolve(own) : fetchOfflineBundle(new URL(/* @vite-ignore */ '.', import.meta.url));

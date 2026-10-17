@@ -1,25 +1,25 @@
 import { sha256 } from '../contract/sha256';
 import type { ViewerConfig } from '../contract/viewer-config';
+import { FAVICON_DATA_URI } from './brand';
 import { dataUrl } from './exportImage';
 
 // The whole viewer as one self-contained HTML file, after Laranex Laravel Schema Viewer's "This page as HTML": the
 // single-file viewer script (dist/viewer/offline.js, with the ELK layout engine inlined), its stylesheet with the fonts
-// embedded, the favicon, and the document as data. It opens from file:// with no network access and carries its own
-// Content-Security-Policy: the one script is allowed by its SHA-256 hash, everything else comes from data: URLs.
+// embedded, the brand mark as its favicon (brand.ts FAVICON_DATA_URI), and the document as data. It opens from file://
+// with no network access and carries its own Content-Security-Policy: the one script is allowed by its SHA-256 hash,
+// everything else comes from data: URLs.
 
-// What the file is built from: the script and stylesheet texts and the favicon as a data URL.
-export type OfflineBundle = { script: string; style: string; icon: string };
+// What the file is built from: the script and stylesheet texts.
+export type OfflineBundle = { script: string; style: string };
 
 const SCRIPT_ID = 'lsv-offline-app';
 const STYLE_ID = 'lsv-offline-style';
-const ICON_ID = 'lsv-offline-icon';
 
 // The bundle this page was built from, when it is itself an offline export, so it can export itself again.
 export function bundleFromPage(): OfflineBundle | null {
     const script = document.getElementById(SCRIPT_ID)?.textContent;
     const style = document.getElementById(STYLE_ID)?.textContent;
-    const icon = document.getElementById(ICON_ID)?.getAttribute('href');
-    return script && style ? { script, style, icon: icon ?? '' } : null;
+    return script && style ? { script, style } : null;
 }
 
 async function text(url: URL): Promise<string> {
@@ -30,16 +30,15 @@ async function text(url: URL): Promise<string> {
     return response.text();
 }
 
-// The bundle from the standalone viewer's directory (dist/viewer as a host serves it): offline.js, app.css with its
-// WOFF2 fonts as data URLs (WOFF fallbacks dropped), and favicon.svg. Only same-origin requests, which script-src
-// 'self' pages may make. The favicon is read from the built asset, so the export always carries the current mark.
+// The bundle from the standalone viewer's directory (dist/viewer as a host serves it): offline.js and app.css with its
+// WOFF2 fonts as data URLs (WOFF fallbacks dropped). Only same-origin requests, which script-src 'self' pages may make.
 export async function fetchOfflineBundle(base: string | URL): Promise<OfflineBundle> {
     const at = (path: string) => new URL(path, base);
-    const [script, css, icon] = await Promise.all([text(at('offline.js')), text(at('app.css')), dataUrl(at('favicon.svg').href, 'image/svg+xml').catch(() => '')]);
+    const [script, css] = await Promise.all([text(at('offline.js')), text(at('app.css'))]);
     const withoutWoff = css.replace(/,\s*url\(["']?[^"')]+\.woff["']?\)\s*format\(["']woff["']\)/g, '');
     const fonts = [...new Set(withoutWoff.match(/url\(["']?[^"')]+\.woff2["']?\)/g) ?? [])];
     const inlined = await Promise.all(fonts.map(async (ref) => [ref, `url(${await dataUrl(at(ref.slice(4, -1).replace(/["']/g, '')).href)})`] as const));
-    return { script, style: inlined.reduce((out, [ref, data]) => out.split(ref).join(data), withoutWoff), icon };
+    return { script, style: inlined.reduce((out, [ref, data]) => out.split(ref).join(data), withoutWoff) };
 }
 
 const hexToBase64 = (hex: string) => btoa(String.fromCharCode(...(hex.match(/../g) ?? []).map((h) => parseInt(h, 16))));
@@ -75,7 +74,8 @@ export function offlineHtml(bundle: OfflineBundle, config: OfflineConfig, title 
 <meta http-equiv="Content-Security-Policy" content="${policy}">
 <meta name="robots" content="noindex, nofollow">
 <title>${escapeAttribute(title)}</title>
-${bundle.icon.startsWith('data:') ? `<link rel="icon" id="${ICON_ID}" href="${escapeAttribute(bundle.icon)}">\n` : ''}<style id="${STYLE_ID}">${style}</style>
+<link rel="icon" href="${escapeAttribute(FAVICON_DATA_URI)}" type="image/svg+xml">
+<style id="${STYLE_ID}">${style}</style>
 </head>
 <body>
 <div id="schema-viewer"></div>

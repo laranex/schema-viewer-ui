@@ -143,7 +143,7 @@ down to stay under 16 megapixels, which works under a strict CSP.
 - the viewer as one script, `dist/viewer/offline.js` (the same entry as `app.js` with the ELK layout engine inlined,
   ≈2 MB, listed in `manifest.json`), in an inline `<script type="module">`;
 - `app.css` with its WOFF2 fonts as data URLs, in an inline `<style>`;
-- the favicon (`favicon.svg`) as a data URL;
+- the brand mark as the favicon, a data URL of the same SVG as `favicon.svg` (`FAVICON_DATA_URI` in `src/viewer/brand.ts`);
 - the document as `<script type="application/json" id="schema-viewer-data">` holding a `ViewerConfig` with only
   `document`, `changes` and `defaultConnection` (the connection in view). `editor` and host `downloads` are never
   written, so host-only actions disappear and no local paths leak.
@@ -156,7 +156,7 @@ early is escaped (`</script`, `<!--` and `<script` as `\x3C…` in the script, `
 `<\/style`). The page opens from `file://` with no network access; its Download dialog still makes every file, and it
 can save itself again byte for byte. A file for the 3-connection demo document is ≈2.3 MB.
 
-While exporting, the hosted viewer fetches `offline.js`, `app.css`, the fonts and `favicon.svg` from its own directory
-(same origin, so `script-src 'self'` pages allow it). Hosts serve them unchanged: they are `.js`, `.css`, `.woff2` and
-`.svg` files listed in the manifest. React hosts pass `offlineBundle={() => fetchOfflineBundle(urlOfDistViewer)}` to
+While exporting, the hosted viewer fetches `offline.js`, `app.css` and the fonts from its own directory (same origin,
+so `script-src 'self'` pages allow it). Hosts serve them unchanged: they are `.js`, `.css` and `.woff2` files listed in
+the manifest. React hosts pass `offlineBundle={() => fetchOfflineBundle(urlOfDistViewer)}` to
 `<SchemaViewer>` to offer it; without that prop the entry is hidden.
