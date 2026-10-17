@@ -8,6 +8,8 @@ export type SchemaEdgeData = {
     declaredOnly: boolean;
     polymorphic: boolean;
     crossConnection: boolean;
+    // The foreign key an inferred association rests on: annotated, never drawn twice.
+    inferred: boolean;
     label: string;
     chip: string;
     route: Route | null;
@@ -28,14 +30,14 @@ function SchemaEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<
     }
     const route = data.route ?? { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, channelX: (sourceX + targetX) / 2, labelX: (sourceX + targetX) / 2, labelY: (sourceY + targetY) / 2 };
     const path = orthogonal(route.sx, route.sy, route.channelX, route.tx, route.ty);
-    const className = ['edge', `edge--${data.kind}`, data.declaredOnly ? 'declared-only' : '', data.polymorphic ? 'polymorphic' : '', data.crossConnection ? 'cross-connection' : '', data.state === 'none' ? '' : data.state].filter(Boolean).join(' ');
+    const className = ['edge', `edge--${data.kind}`, data.declaredOnly ? 'declared-only' : '', data.polymorphic ? 'polymorphic' : '', data.crossConnection ? 'cross-connection' : '', data.inferred ? 'inferred' : '', data.state === 'none' ? '' : data.state].filter(Boolean).join(' ');
     return (
         <>
             <BaseEdge id={id} path={path} className={className} markerEnd={`url(#lsv-arrow-${MARKER[data.kind]})`} interactionWidth={16} />
             {data.showLabel && (
                 <EdgeLabelRenderer>
                     <div
-                        className={`edge-label edge-label--${data.kind}`}
+                        className={`edge-label edge-label--${data.kind}${data.inferred ? ' edge-label--inferred' : ''}`}
                         style={{ maxWidth: LABEL_WIDTH, transform: `translate(-50%, -50%) translate(${route.labelX}px, ${route.labelY}px)` }}
                     >
                         <span className="edge-label__text">{data.label}</span>

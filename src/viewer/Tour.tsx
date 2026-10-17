@@ -15,7 +15,7 @@ export const TOUR: Step[] = [
         title: 'Tools',
         text: 'Zoom, fit, and switch between panning and box selection. Relationships turns each kind of line on or off: a solid line is a database constraint, a dashed one an ORM relationship without one. Tables and Show fold columns, show notes, hide framework tables and re-arrange.',
     },
-    { target: '.tabs', title: 'Side panel', text: 'Browse every table, relationship and column; read the selection in Details; and see Diagnostics, with confirmed facts apart from heuristic advice.' },
+    { target: '.tabs', title: 'Side panel', text: 'Browse every table, relationship and column; read the selection in Details; and see Diagnostics, with confirmed facts apart from heuristic advice. Documents with stored comparisons or migration tracks add Compare and Migrations.' },
     { target: '.lsv-header .actions, .lsv-header .header-menu', title: 'Downloads and shortcuts', text: 'Download the snapshot or an image of the diagram, switch the theme, and list every shortcut (S).' },
 ];
 

@@ -2,7 +2,8 @@ import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, u
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import type { Diagnostic, SchemaDocument, Table } from '../contract/types';
 import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
-import { Browse, tableSubtitle } from './Browse';
+import { Browse, tableSubtitle, type BrowseMode } from './Browse';
+import { ComparePanel } from './Compare';
 import { ChangesPanel, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
 import { boundsOf, clip, colorsOf, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
 import {
@@ -26,6 +27,9 @@ import {
 import { ARRANGEMENTS, autoLayout, packRegions, type Arrangement, type LayoutRequest, type Positions, type Region } from './layout';
 import { Resizer } from './Resizer';
 import { route, type Box } from './routing';
+import { InferredDetails } from './Inferred';
+import { comparisonMarks, inferredByLink, inferredLabel, scopeLabel, type TableMark } from './intelligence';
+import { MigrationsPanel } from './Migrations';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { SearchBox, type SearchResult } from './Search';
 import { ShortcutsDialog } from './Shortcuts';
@@ -52,7 +56,8 @@ export type SchemaViewerProps = {
     onThemeChange?: (theme: Theme) => void;
     // Remember the theme button's choice in localStorage.
     persistTheme?: boolean;
-    // Keep the view in the URL hash (#table=…, #link=…, #focus=…, #depth=…, #connection=…) and open on it.
+    // Keep the view in the URL hash (#table=…, #link=…, #inferred=…, #focus=…, #depth=…, #connection=…, #view=compare with
+    // #comparison=… and #difference=…, #view=migrations with #migration=…) and open on it.
     deepLinks?: boolean;
     // Where Download JSON points; null hides it. By default it downloads the document shown.
     downloadHref?: string | null;
@@ -61,9 +66,10 @@ export type SchemaViewerProps = {
     layout?: (request: LayoutRequest) => Promise<Positions>;
 };
 
-type Selection = { kind: 'table' | 'edge'; id: string } | null;
+type Selection = { kind: 'table' | 'edge' | 'inferred'; id: string } | null;
 type Owner = Table['owner']['kind'];
-type Tab = 'browse' | 'details' | 'diagnostics' | 'changes';
+type Tab = 'browse' | 'details' | 'diagnostics' | 'changes' | 'compare' | 'migrations';
+const SELECTION_PARAM = { table: 'table', edge: 'link', inferred: 'inferred' } as const;
 
 type FlowNode = TableNodeType | ExternalNodeType | RegionNodeType;
 
@@ -200,14 +206,40 @@ function Viewer({
     const [selection, setSelection] = useState<Selection>(() => {
         const table = initialHash.get('table');
         const link = initialHash.get('link');
-        return table ? { kind: 'table', id: table } : link ? { kind: 'edge', id: link } : null;
+        const inferred = initialHash.get('inferred');
+        return table ? { kind: 'table', id: table } : link ? { kind: 'edge', id: link } : inferred ? { kind: 'inferred', id: inferred } : null;
     });
+    // The comparison shown in Compare and marked on the diagram, the difference chosen in it, and the migration track.
+    const [comparisonId, setComparisonId] = useState<string | null>(() => {
+        const id = initialHash.get('comparison');
+        return doc.comparisons.some((c) => c.id === id) ? id : null;
+    });
+    const [differenceId, setDifferenceId] = useState<string | null>(() => initialHash.get('difference'));
+    const [trackId, setTrackId] = useState<string | null>(() => {
+        const id = initialHash.get('migration');
+        return doc.migrations.some((t) => t.id === id) ? id : null;
+    });
+    const [overlay, setOverlay] = useState(true);
+    const [showInferred, setShowInferred] = useState(true);
+    const [browseMode, setBrowseMode] = useState<BrowseMode>('tables');
     const [column, setColumn] = useState<string | null>(null);
     // Tables picked together with Shift: dragged together, listed together.
     const [group, setGroup] = useState<string[]>([]);
     const groupRef = useRef(group);
     groupRef.current = group;
-    const [tab, setTab] = useState<Tab>(() => (initialHash.get('table') || initialHash.get('link') ? 'details' : 'browse'));
+    const [tab, setTab] = useState<Tab>(() => {
+        const view = initialHash.get('view');
+        if (view === 'compare' && doc.comparisons.length) {
+            return 'compare';
+        }
+        if (view === 'migrations' && doc.migrations.length) {
+            return 'migrations';
+        }
+        return initialHash.get('table') || initialHash.get('link') || initialHash.get('inferred') ? 'details' : 'browse';
+    });
+    const comparison = doc.comparisons.find((c) => c.id === comparisonId) ?? doc.comparisons[0];
+    const marks = useMemo(() => (overlay ? comparisonMarks(comparison) : new Map<string, TableMark>()), [overlay, comparison]);
+    const inferredLinks = useMemo(() => inferredByLink(doc), [doc]);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [notice, setNotice] = useState(true);
     const [arrangement, setArrangement] = useState<Arrangement>('left-right');
@@ -257,17 +289,41 @@ function Viewer({
             }
         }
         if (selection) {
-            params.set(selection.kind === 'table' ? 'table' : 'link', selection.id);
+            params.set(SELECTION_PARAM[selection.kind], selection.id);
+        }
+        if (tab === 'compare' && comparison) {
+            params.set('view', 'compare');
+        }
+        if (tab === 'migrations') {
+            params.set('view', 'migrations');
+            if (trackId) {
+                params.set('migration', trackId);
+            }
+        }
+        // The comparison is kept while it is shown, or marked on the diagram when it is not the first.
+        if (comparison && (tab === 'compare' || (overlay && comparison !== doc.comparisons[0]))) {
+            params.set('comparison', comparison.id);
+            if (differenceId && comparison.differences.some((d) => d.id === differenceId)) {
+                params.set('difference', differenceId);
+            }
         }
         const hash = params.toString();
         if (hash !== location.hash.slice(1)) {
             history.replaceState(null, '', `${location.pathname}${location.search}${hash ? `#${hash}` : ''}`);
         }
-    }, [deepLinks, connection, focus, selection]);
+    }, [deepLinks, connection, focus, selection, tab, comparison, differenceId, trackId, overlay, doc]);
 
+    // A folded card still shows the columns the marked comparison names, as it shows drifted ones.
     const rows = useMemo(
-        () => new Map(tables.map(({ table }) => [table.id, collapsed.has(table.id) ? [] : cardRows(table, fold, keys.get(table.id), notes)])),
-        [tables, fold, keys, notes, collapsed],
+        () =>
+            new Map(
+                tables.map(({ table }) => {
+                    const compared = marks.get(table.id)?.columns;
+                    const shown = compared?.size ? new Set([...(keys.get(table.id) ?? []), ...compared.keys()]) : keys.get(table.id);
+                    return [table.id, collapsed.has(table.id) ? [] : cardRows(table, fold, shown, notes)];
+                }),
+            ),
+        [tables, fold, keys, notes, collapsed, marks],
     );
     const heights = useMemo(
         () =>
@@ -376,9 +432,15 @@ function Viewer({
         if (selection?.kind === 'table') {
             return neighbors(selection.id, shownEdges);
         }
+        if (selection?.kind === 'inferred') {
+            const a = doc.inferredAssociations.find((x) => x.id === selection.id);
+            return new Set(a ? [a.table, a.relatedTable, ...(a.via ? [a.via] : [])] : []);
+        }
         const edge = selection && edges.find((e) => e.id === selection.id);
         return new Set(edge ? [edge.source, edge.target, ...(edge.derived?.via ?? [])] : []);
-    }, [selection, shownEdges, edges, group]);
+    }, [selection, shownEdges, edges, group, doc]);
+    // The links an inferred association rests on, while it is selected.
+    const inferredSelected = useMemo(() => new Set(selection?.kind === 'inferred' ? (doc.inferredAssociations.find((a) => a.id === selection.id)?.links ?? []) : []), [selection, doc]);
 
     // Columns to highlight: those on the selected table's links, the selected link's, or a chosen column.
     const highlighted = useMemo(() => {
@@ -388,7 +450,12 @@ function Viewer({
             columns.forEach((c) => set.add(c));
             map.set(table, set);
         };
-        const linked = selection?.kind === 'table' ? shownEdges.filter((e) => e.source === selection.id || e.target === selection.id) : selection?.kind === 'edge' ? edges.filter((e) => e.id === selection.id) : [];
+        const linked =
+            selection?.kind === 'table'
+                ? shownEdges.filter((e) => e.source === selection.id || e.target === selection.id)
+                : selection?.kind === 'edge'
+                  ? edges.filter((e) => e.id === selection.id)
+                  : edges.filter((e) => inferredSelected.has(e.id));
         for (const e of linked) {
             if (e.link) {
                 add(e.link.from.table, e.link.from.columns);
@@ -399,7 +466,7 @@ function Viewer({
             add(selection.id, [column]);
         }
         return map;
-    }, [selection, shownEdges, edges, column]);
+    }, [selection, shownEdges, edges, column, inferredSelected]);
 
     const center = useCallback(
         (id: string) => {
@@ -430,6 +497,20 @@ function Viewer({
         setColumn(null);
         setTab('details');
     }, []);
+    const selectInferred = (id: string) => {
+        const a = doc.inferredAssociations.find((x) => x.id === id);
+        if (!a) {
+            return;
+        }
+        reveal(a.table);
+        setSelection({ kind: 'inferred', id });
+        setGroup([]);
+        setColumn(null);
+        setTab('details');
+        if (narrow) {
+            setSheetOpen(true);
+        }
+    };
     const focusOn = useCallback((id: string) => {
         setSelection({ kind: 'table', id });
         setGroup([id]);
@@ -516,13 +597,14 @@ function Viewer({
                 pivot: pivots.has(table.id),
                 collapsed: collapsed.has(table.id),
                 highlighted: highlighted.get(table.id) ?? empty,
+                mark: marks.get(table.id) ?? null,
                 onSelect: (id) => selectTable(id),
                 onFocus: focusOn,
                 onToggle: toggleCard,
             });
         }
         return data;
-    }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, empty, selectTable, focusOn, toggleCard]);
+    }, [doc, lookup, visible, rows, selection, related, issues, combined, group, picked, pivots, collapsed, highlighted, marks, empty, selectTable, focusOn, toggleCard]);
 
     const openExternal = useCallback((id: string) => openRef.current(id), []);
     const nodes = useMemo<FlowNode[]>(
@@ -587,9 +669,11 @@ function Viewer({
     );
 
     // Routes over settled positions; edges touching a card being dragged float until it is dropped.
+    const inferredOn = useCallback((e: GraphEdge) => showInferred && !!e.link && inferredLinks.has(e.link.id), [showInferred, inferredLinks]);
     const labelled = useCallback(
-        (e: GraphEdge) => (allLabels ? e.kind !== 'foreign_key' : selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id)) || e.id === selection?.id,
-        [allLabels, selection],
+        (e: GraphEdge) =>
+            (allLabels ? e.kind !== 'foreign_key' || inferredOn(e) : selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id)) || e.id === selection?.id || inferredSelected.has(e.id),
+        [allLabels, selection, inferredOn, inferredSelected],
     );
     const routes = useMemo(() => {
         const boxes = new Map<string, Box>();
@@ -616,7 +700,8 @@ function Viewer({
             shownEdges
                 .filter((e) => positions[e.source] && positions[e.target])
                 .map((e) => {
-                    const selected = selection?.kind === 'edge' && selection.id === e.id;
+                    const selected = (selection?.kind === 'edge' && selection.id === e.id) || inferredSelected.has(e.id);
+                    const inferred = inferredOn(e) ? (inferredLinks.get(e.link?.id ?? '') ?? []) : [];
                     const near = (selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id)) || (group.length > 1 && picked.has(e.source) && picked.has(e.target));
                     return {
                         id: e.id,
@@ -631,15 +716,16 @@ function Viewer({
                             declaredOnly: e.declaredOnly,
                             polymorphic: e.polymorphic,
                             crossConnection: e.crossConnection,
-                            label: e.label,
-                            chip: e.chip,
+                            inferred: inferred.length > 0,
+                            label: inferred.length ? `${inferred.map((a) => inferredLabel(lookup, a)).join(' · ')}` : e.label,
+                            chip: inferred.length ? `${e.chip} · inferred` : e.chip,
                             route: dragging[e.source] || dragging[e.target] ? null : (routes.get(e.id) ?? null),
                             showLabel: labelled(e),
                             state: selected ? 'selected' : near ? 'related' : 'none',
                         },
                     };
                 }),
-        [shownEdges, positions, selection, dragging, routes, labelled, group, picked],
+        [shownEdges, positions, selection, dragging, routes, labelled, group, picked, inferredOn, inferredLinks, inferredSelected, lookup],
     );
 
     // React Flow reports selection as separate node and edge changes, and a box selection also picks the edges between
@@ -869,6 +955,7 @@ function Viewer({
         '2': () => setKinds((k) => toggleIn(k, 'foreign_key')),
         '3': () => setKinds((k) => toggleIn(k, 'relationship')),
         '4': () => setKinds((k) => toggleIn(k, 'through')),
+        '5': () => setShowInferred((v) => !v),
         y: () => setHiddenOwners((o) => toggleIn(o, 'application')),
         g: () => setHiddenOwners((o) => toggleIn(o, 'framework')),
         p: () => setHiddenOwners((o) => toggleIn(o, 'package')),
@@ -880,6 +967,16 @@ function Viewer({
         w: () => {
             if (changes?.length) {
                 openTab('changes');
+            }
+        },
+        x: () => {
+            if (doc.comparisons.length) {
+                openTab('compare');
+            }
+        },
+        m: () => {
+            if (doc.migrations.length) {
+                openTab('migrations');
             }
         },
         s: () => setShortcuts(true),
@@ -927,6 +1024,20 @@ function Viewer({
 
     const selectedTable = selection?.kind === 'table' ? lookup.tables.get(selection.id) : undefined;
     const selectedEdge = selection?.kind === 'edge' ? edges.find((e) => e.id === selection.id) : undefined;
+    const selectedInferred = selection?.kind === 'inferred' ? doc.inferredAssociations.find((a) => a.id === selection.id) : undefined;
+    const showComparison = (comparisonId: string, difference: string | null) => {
+        setComparisonId(comparisonId);
+        setDifferenceId(difference);
+        openTab('compare');
+    };
+    const showTrack = (id: string) => {
+        setTrackId(id);
+        openTab('migrations');
+    };
+    const showInferredList = () => {
+        setBrowseMode('inferred');
+        openTab('browse');
+    };
     const declares = useMemo(() => declaredKinds(doc), [doc]);
     const ctx: DetailContext = { doc, lookup, editor, renderers: extensionRenderers, declares };
     const panning = panMode || spacePan || narrow;
@@ -937,6 +1048,27 @@ function Viewer({
         { value: 'details', label: 'Details' },
         { value: 'diagnostics', label: 'Diagnostics', count: doc.diagnostics.length, tone: 'warning' },
         ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', count: changes.length }] : []),
+        ...(doc.comparisons.length
+            ? [
+                  {
+                      value: 'compare' as const,
+                      label: (
+                          <>
+                              Compare
+                              {comparison && !comparison.complete && (
+                                  <>
+                                      <span className="tab__count tab__count--warning" aria-hidden="true" title="Incomplete comparison">
+                                          !
+                                      </span>
+                                      <span className="sr-only">{' (incomplete)'}</span>
+                                  </>
+                              )}
+                          </>
+                      ),
+                  },
+              ]
+            : []),
+        ...(doc.migrations.length ? [{ value: 'migrations' as const, label: 'Migrations' }] : []),
     ];
 
     const downloadMenu = (
@@ -971,6 +1103,10 @@ function Viewer({
                     onTable={(id) => openTable(id)}
                     onEdge={(edge) => selectEdge(edge)}
                     onColumn={(table, name) => openTable(table, name)}
+                    onInferred={selectInferred}
+                    selectedInferred={selection?.kind === 'inferred' ? selection.id : null}
+                    mode={browseMode}
+                    onMode={setBrowseMode}
                 />
             )}
             {tab === 'details' &&
@@ -1003,18 +1139,52 @@ function Viewer({
                         onCopyLink={copyLink}
                         onSelectEdge={selectEdge}
                         onSelectTable={(id) => openTable(id)}
+                        onCompare={showComparison}
+                        onInferred={selectInferred}
+                        onMigration={showTrack}
                     />
                 ) : selectedEdge ? (
-                    <EdgeDetails edge={selectedEdge} ctx={ctx} onSelectTable={(id) => openTable(id)} />
+                    <EdgeDetails edge={selectedEdge} ctx={ctx} onSelectTable={(id) => openTable(id)} onInferred={selectInferred} />
+                ) : selectedInferred ? (
+                    <InferredDetails association={selectedInferred} doc={doc} lookup={lookup} edges={edges} onSelectTable={(id) => openTable(id)} onSelectEdge={selectEdge} />
                 ) : (
-                    <Overview ctx={ctx} onShortcuts={() => setShortcuts(true)} onTour={() => setTouring(true)} />
+                    <Overview
+                        ctx={ctx}
+                        onShortcuts={() => setShortcuts(true)}
+                        onTour={() => setTouring(true)}
+                        onCompare={() => openTab('compare')}
+                        onMigrations={() => openTab('migrations')}
+                        onInferred={showInferredList}
+                    />
                 ))}
-            {tab === 'diagnostics' && <DiagnosticsPanel doc={doc} lookup={lookup} tableOf={issues.tableOf} onShow={(id) => openTable(id)} />}
+            {tab === 'diagnostics' && (
+                <DiagnosticsPanel
+                    doc={doc}
+                    lookup={lookup}
+                    tableOf={issues.tableOf}
+                    onShow={(id) => openTable(id)}
+                    onSubject={{ comparison: (id) => showComparison(id, null), migration: showTrack, inferredAssociation: selectInferred }}
+                />
+            )}
             {tab === 'changes' && changes && <ChangesPanel changes={changes} />}
+            {tab === 'compare' && comparison && (
+                <ComparePanel
+                    doc={doc}
+                    lookup={lookup}
+                    comparison={comparison}
+                    difference={differenceId}
+                    overlay={overlay}
+                    onOverlay={setOverlay}
+                    onComparison={(id) => (setComparisonId(id), setDifferenceId(null))}
+                    onDifference={setDifferenceId}
+                    onShowTable={(id, name) => openTable(id, name)}
+                />
+            )}
+            {tab === 'migrations' && <MigrationsPanel doc={doc} lookup={lookup} selected={trackId} onSelect={setTrackId} onShowTable={(id) => openTable(id)} />}
         </div>
     );
 
-    const sheetTitle = selectedTable ? lookup.label(selectedTable.id) : selectedEdge ? selectedEdge.label : 'Tap a table or a line';
+    const sheetTitle = selectedTable ? lookup.label(selectedTable.id) : selectedEdge ? selectedEdge.label : selectedInferred ? `${inferredLabel(lookup, selectedInferred)} (inferred)` : 'Tap a table or a line';
 
     return (
         <div
@@ -1134,6 +1304,25 @@ function Viewer({
                             </label>
                         </div>
                     )}
+                    {overlay && comparison && !(narrow && notice) && (
+                        <div className={`canvas-note${focus ? ' below-focus' : ''}${comparison.complete ? '' : ' incomplete'}`} role="note" aria-label="Comparison marks">
+                            <span className="canvas-note__marks" aria-hidden="true">
+                                − + ~
+                            </span>
+                            <span className="canvas-note__text">
+                                {scopeLabel(lookup, comparison.baseline)} → {scopeLabel(lookup, comparison.target)}
+                                {!comparison.complete && (
+                                    <strong>
+                                        {' '}
+                                        · incomplete{comparison.omitted > 0 ? `, ${comparison.omitted} differences not marked` : ''}
+                                    </strong>
+                                )}
+                            </span>
+                            <button type="button" className="link-button" onClick={() => openTab('compare')}>
+                                Compare
+                            </button>
+                        </div>
+                    )}
                     {narrow && notice && (
                         <div className="notice" role="note">
                             <p>
@@ -1173,6 +1362,14 @@ function Viewer({
                                     <span className={`line-key key--${k}`} /> {KIND_LABEL[k]}
                                 </MenuCheck>
                             ))}
+                            {doc.inferredAssociations.length > 0 && (
+                                <>
+                                    <MenuSeparator />
+                                    <MenuCheck checked={showInferred} onChange={() => setShowInferred((v) => !v)} shortcut="5" hint="Marks the foreign keys they rest on; never a new line">
+                                        <span className="line-key key--inferred" /> Inferred associations
+                                    </MenuCheck>
+                                </>
+                            )}
                         </Menu>
                         <Menu label="Tables" trigger={<ToolLabel icon="tables" text="Tables" narrow={narrow} />} {...menuProps('tables')}>
                             <MenuLabel>Tables</MenuLabel>
@@ -1203,6 +1400,11 @@ function Viewer({
                             <MenuCheck checked={grid} onChange={() => setGrid((g) => !g)}>
                                 Grid
                             </MenuCheck>
+                            {doc.comparisons.length > 0 && (
+                                <MenuCheck checked={overlay} onChange={() => setOverlay((o) => !o)} hint="Missing, extra and changed marks of the comparison in Compare">
+                                    Comparison marks
+                                </MenuCheck>
+                            )}
                             <MenuSeparator />
                             <MenuLabel>
                                 Columns <kbd>C</kbd>
@@ -1256,8 +1458,8 @@ function Viewer({
                                     <Icon name="warning" size={14} /> {doc.diagnostics.length}
                                 </button>
                             )}
-                            <button type="button" className="sheet-bar__action" onClick={() => (sheetOpen ? setSheetOpen(false) : openTab(selection ? 'details' : 'browse'))}>
-                                {sheetOpen ? 'Close' : selection ? 'Details' : 'Browse'}
+                            <button type="button" className="sheet-bar__action" onClick={() => (sheetOpen ? setSheetOpen(false) : openTab(selection ? 'details' : tab === 'compare' || tab === 'migrations' ? tab : 'browse'))}>
+                                {sheetOpen ? 'Close' : selection ? 'Details' : tab === 'compare' ? 'Compare' : tab === 'migrations' ? 'Migrations' : 'Browse'}
                             </button>
                         </div>
                         {sheetOpen && (

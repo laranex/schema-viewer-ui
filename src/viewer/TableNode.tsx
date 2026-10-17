@@ -2,6 +2,7 @@ import { Handle, Position, useStore, type Node, type NodeProps } from '@xyflow/r
 import { memo } from 'react';
 import type { Table } from '../contract/types';
 import { columnMarks, isNote, NOTE, tableLabel } from './graph';
+import { CHANGE_TEXT, markSummary, valueText, type TableMark } from './intelligence';
 import { Icon } from './ui';
 
 export type TableNodeData = {
@@ -22,6 +23,8 @@ export type TableNodeData = {
     collapsed: boolean;
     // Columns on the selected table's links, highlighted.
     highlighted: Set<string>;
+    // The table's part in the comparison marked on the diagram, if any.
+    mark: TableMark | null;
     onSelect: (id: string) => void;
     onFocus: (id: string) => void;
     onToggle: (id: string) => void;
@@ -38,13 +41,15 @@ const zoomedOut = (s: { transform: [number, number, number] }) => s.transform[2]
 
 // One table card. A Shift-click is left to React Flow, which adds the table to the selection. Edges are drawn from routes computed outside the card, so its handles only satisfy React Flow.
 function TableNode({ data }: NodeProps<TableNodeType>) {
-    const { table, connection, subtitle, rows, state, picked, issues, combined, pivot, collapsed, highlighted, onSelect, onFocus, onToggle } = data;
+    const { table, connection, subtitle, rows, state, picked, issues, combined, pivot, collapsed, highlighted, mark: compared, onSelect, onFocus, onToggle } = data;
+    const summary = compared ? markSummary(compared) : null;
+    const allLikely = !!compared && compared.likely === compared.differences.length;
     const picture = useStore(zoomedOut);
     const byName = new Map(table.columns.map((c) => [c.name, c]));
     const marks = columnMarks(table);
     const hidden = table.columns.length - rows.filter((r) => !isNote(r)).length;
     const declaredOnly = (provenance: string[]) => combined && only(provenance, 'declared');
-    const classes = ['table-card', state === 'none' ? '' : state, picked ? 'picked' : '', pivot ? 'pivot' : '', declaredOnly(table.provenance) ? 'declared-only' : '', table.drift?.length ? 'drift' : '']
+    const classes = ['table-card', state === 'none' ? '' : state, picked ? 'picked' : '', pivot ? 'pivot' : '', declaredOnly(table.provenance) ? 'declared-only' : '', table.drift?.length ? 'drift' : '', summary ? `cmp cmp--${summary.change}` : '']
         .filter(Boolean)
         .join(' ');
     return (
@@ -60,6 +65,12 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                         {pivot && <span className="pill-tag">PIVOT</span>}
                     </small>
                 </button>
+                {summary && (
+                    <span className={`cmp-chip cmp-chip--${summary.change}${allLikely ? ' cmp-chip--likely' : ''}`} title={summary.title}>
+                        {CHANGE_TEXT[summary.change].symbol} {summary.text}
+                        {allLikely ? ' · likely' : ''}
+                    </span>
+                )}
                 {issues > 0 && (
                     <span className="issue-count" title={`${issues} diagnostics`}>
                         {issues}
@@ -90,13 +101,22 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                         return null;
                     }
                     const mark = marks.get(name);
-                    const flags = [column.drift?.length ? 'drift' : '', declaredOnly(column.provenance) ? 'declared-only' : '', highlighted.has(name) ? 'highlighted' : ''].filter(Boolean);
+                    const difference = compared?.columns.get(name);
+                    const flags = [
+                        column.drift?.length ? 'drift' : '',
+                        declaredOnly(column.provenance) ? 'declared-only' : '',
+                        highlighted.has(name) ? 'highlighted' : '',
+                        difference ? `cmp-column cmp-column--${difference.change}${difference.certainty === 'likely' ? ' cmp-column--likely' : ''}` : '',
+                    ].filter(Boolean);
+                    const comparedText = difference
+                        ? ` · ${CHANGE_TEXT[difference.change].label} against the ${compared?.side === 'baseline' ? 'target' : 'baseline'}${difference.fields.length ? `: ${difference.fields.map((f) => `${f.field} ${valueText(f.baseline)} → ${valueText(f.target)}`).join('; ')}` : ''}${difference.certainty === 'likely' ? ' (likely)' : ''}`
+                        : '';
                     return (
                         <div
                             className={`column${flags.length ? ` ${flags.join(' ')}` : ''}`}
                             data-column={name}
                             key={name}
-                            title={`${name}: ${column.type}${column.nullable ? ' · nullable' : ' · required'}${column.drift?.length ? ' · differs from the model' : ''}${flags.includes('declared-only') ? ' · declared only, not in the database' : ''}`}
+                            title={`${name}: ${column.type}${column.nullable ? ' · nullable' : ' · required'}${column.drift?.length ? ' · differs from the model' : ''}${flags.includes('declared-only') ? ' · declared only, not in the database' : ''}${comparedText}`}
                         >
                             <span className={`key${mark === 'PK' ? ' pk' : ''}`}>{mark ?? ''}</span>
                             <span className="column-name">
@@ -104,6 +124,12 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                                 {column.nullable && <span className="nullable">?</span>}
                             </span>
                             <span className="type">{column.typeName ?? column.type}</span>
+                            {difference && (
+                                <span className={`cmp-mark cmp-mark--${difference.change}${difference.certainty === 'likely' ? ' cmp-mark--likely' : ''}`}>
+                                    {CHANGE_TEXT[difference.change].symbol}
+                                    <span className="sr-only"> {CHANGE_TEXT[difference.change].label}</span>
+                                </span>
+                            )}
                         </div>
                     );
                 })}

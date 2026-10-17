@@ -80,6 +80,21 @@ const PATHS = {
         </>
     ),
     link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
+    behind: (
+        <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3 2" />
+        </>
+    ),
+    branch: (
+        <>
+            <circle cx="6" cy="5" r="2" />
+            <circle cx="6" cy="19" r="2" />
+            <circle cx="18" cy="7" r="2" />
+            <path d="M6 7v10M18 9a6 6 0 0 1-6 6H6" />
+        </>
+    ),
+    circle: <circle cx="12" cy="12" r="8" strokeDasharray="3 3" />,
 } as const;
 
 type MenuProps = {
