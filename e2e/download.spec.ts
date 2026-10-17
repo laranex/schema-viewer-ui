@@ -64,6 +64,9 @@ test.describe('Download dialog', () => {
         expect(viewBox(screen)[2]).toBeLessThan(viewBox(whole)[2]);
         expect(screen.length).toBeLessThan(whole.length);
         expect(whole).not.toContain('var(--');
+        // The fonts travel with the file, so it renders the same outside the page.
+        expect(whole).toContain('@font-face');
+        expect(whole).toMatch(/font-family:'IBM Plex Mono';font-style:normal;font-weight:400;src:url\(data:font\/woff2;base64,/);
         const [png] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: /^PNG/ }).click()]);
         expect(png.suggestedFilename()).toBe('schema-mysql.png');
         const bytes = Buffer.concat(await (await png.createReadStream()).toArray());

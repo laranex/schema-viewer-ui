@@ -4,7 +4,9 @@ import type { SchemaDocument } from '../src/contract';
 import { dbml, mermaid } from '../src/export';
 import type { LayoutRequest } from '../src/viewer/layout';
 import { SchemaViewer } from '../src/viewer/SchemaViewer';
+import { readFileSync } from 'node:fs';
 import { VALID } from './fixtures/documents';
+import { root } from './helpers';
 
 const grid = async ({ ids }: LayoutRequest) => Object.fromEntries(ids.map((id, i) => [id, { x: (i % 4) * 560, y: Math.floor(i / 4) * 400 }]));
 
@@ -140,6 +142,29 @@ describe('the Download dialog', { timeout: 60_000 }, () => {
         expect(svg).toContain('<svg');
         expect(svg).not.toContain('var(--');
         await waitFor(() => expect(within(dialog()).getByRole('status')).toHaveTextContent('Downloaded schema-all.svg.'));
+    });
+
+    it('draws the same SVG whatever is selected, with comparison marks and inferred associations while they are shown', async () => {
+        const svgOf = async () => {
+            saved = [];
+            openDialog();
+            fireEvent.click(within(dialog()).getByRole('button', { name: /SVG/ }));
+            await waitFor(() => expect(saved).toHaveLength(1));
+            fireEvent.click(within(dialog()).getByRole('button', { name: 'Close' }));
+            await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Download' })).toBeNull());
+            return saved[0].blob.text();
+        };
+        const view = await show(VALID['inferred-associations']());
+        const plain = await svgOf();
+        expect(plain).toContain('stroke-dasharray="10 3 2 3"');
+        expect(plain).toMatch(/· inferred</);
+        fireEvent.click(view.container.querySelector('.react-flow__node .table-title button') as HTMLElement);
+        expect(await svgOf()).toBe(plain);
+        view.unmount();
+
+        await show(JSON.parse(readFileSync(root('tests/viewer-documents/viewer-two-way-comparison.json'), 'utf8')));
+        const compared = await svgOf();
+        expect(compared).toMatch(/>[−+~] [^<]+<\/text>/);
     });
 
     it('keeps diagram shortcuts and Escape inside the dialog', async () => {

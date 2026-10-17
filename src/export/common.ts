@@ -89,6 +89,13 @@ export const plainColumns = (index: Index): string[] | null =>
 // A uniqueness a database enforces on exactly these columns: no partial or expression index, no prefix length.
 const enforcesUnique = (index: Index) => index.unique && !index.partial && plainColumns(index) !== null;
 
+// Whether a table enforces uniqueness on exactly these columns, in this order: its primary key, a unique index (not
+// partial, no expression or prefix length) or a unique constraint.
+export const uniqueOn = (table: Pick<Table, 'primaryKey' | 'indexes' | 'constraints'>, columns: string[]) =>
+    (table.primaryKey.length > 0 && sameList(table.primaryKey, columns)) ||
+    table.indexes.some((i) => enforcesUnique(i) && sameList(plainColumns(i) as string[], columns)) ||
+    table.constraints.some((c) => c.kind === 'unique' && c.expression === null && sameList(c.columns, columns));
+
 export type ResolvedForeignKey = { fk: ForeignKey; target: Table };
 
 // One table as the database has it, with the warnings about what was left out.
@@ -145,10 +152,7 @@ export function viewOf(ctx: Context, table: Table): TableView {
             foreignKeys.push({ fk, target });
         }
     }
-    const unique = (cols: string[]) =>
-        (table.primaryKey.length > 0 && sameList(table.primaryKey, cols)) ||
-        indexes.some((i) => enforcesUnique(i) && sameList(plainColumns(i) as string[], cols)) ||
-        constraints.some((c) => c.kind === 'unique' && c.expression === null && sameList(c.columns, cols));
+    const unique = (cols: string[]) => uniqueOn({ primaryKey: table.primaryKey, indexes, constraints }, cols);
     const uniqueColumn = (name: string) =>
         indexes.find((i) => enforcesUnique(i) && i.backs?.kind !== 'primary_key' && sameList(plainColumns(i) as string[], [name])) ??
         constraints.find((c) => c.kind === 'unique' && c.expression === null && sameList(c.columns, [name]));

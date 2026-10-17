@@ -6,7 +6,7 @@ import { Browse, tableSubtitle, type BrowseMode } from './Browse';
 import { ComparePanel } from './Compare';
 import { ChangesPanel, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
 import { DownloadDialog, type ImageArea } from './DownloadDialog';
-import { boundsOf, clip, colorsOf, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
+import { boundsOf, clip, colorsOf, fontFaces, save, toCanvas, toPngBlob, toSvg, type EdgeEnd, type ImageModel } from './exportImage';
 import {
     cardHeight,
     cardRows,
@@ -29,7 +29,7 @@ import { ARRANGEMENTS, autoLayout, packRegions, type Arrangement, type LayoutReq
 import { Resizer } from './Resizer';
 import { route, type Box } from './routing';
 import { InferredDetails } from './Inferred';
-import { comparisonMarks, inferredByLink, inferredLabel, scopeLabel, type TableMark } from './intelligence';
+import { comparisonMarks, inferredByLink, inferredLabel, markSummary, scopeLabel, type TableMark } from './intelligence';
 import { MigrationsPanel } from './Migrations';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { SearchBox, type SearchResult } from './Search';
@@ -37,7 +37,7 @@ import { ShortcutsDialog } from './Shortcuts';
 import { EXTERNAL_HEIGHT, ExternalNodeView, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
 import { Tour } from './Tour';
 import { useTheme, type Theme } from './theme';
-import { safeName } from '../export/common';
+import { safeName, uniqueOn } from '../export/common';
 import { Icon, Menu, MenuCheck, MenuItem, MenuLabel, MenuRadio, MenuSeparator, TabList, type TabSpec } from './ui';
 
 export type { ExtensionRenderers } from './Details';
@@ -850,15 +850,18 @@ function Viewer({
         }
     };
 
-    // What the diagram shows, as an image model: cards where they are and edges along their routes.
+    // What the diagram shows, as an image model: cards where they are and edges along their routes, with the layers
+    // that are on (comparison marks, inferred associations, relationship names) and nothing hovered or selected.
     const imageModel = (): ImageModel => {
         const imageNodes = visible
             .filter(({ table }) => positions[table.id])
             .map(({ table }) => {
                 const p = dragging[table.id] ?? positions[table.id];
-                const marks = columnMarks(table);
+                const keyMarks = columnMarks(table);
                 const byName = new Map(table.columns.map((col) => [col.name, col]));
                 const shown = rows.get(table.id) ?? [];
+                const compared = marks.get(table.id);
+                const summary = compared ? markSummary(compared) : null;
                 return {
                     x: p.x,
                     y: p.y,
@@ -872,10 +875,21 @@ function Viewer({
                         }
                         const col = byName.get(r);
                         const flag = col?.drift?.length ? ('drift' as const) : combined && col?.provenance.length === 1 && col.provenance[0] === 'declared' ? ('declared-only' as const) : null;
-                        return { note: false, key: marks.get(r) ?? '', name: `${r}${col?.nullable ? '?' : ''}`, type: col?.typeName ?? col?.type ?? '', flag };
+                        const difference = compared?.columns.get(r);
+                        return {
+                            note: false,
+                            key: keyMarks.get(r) ?? '',
+                            name: `${r}${col?.nullable ? '?' : ''}`,
+                            type: col?.typeName ?? col?.type ?? '',
+                            flag,
+                            mark: difference ? { change: difference.change, likely: difference.certainty === 'likely' } : null,
+                        };
                     }),
                     more: table.columns.length - shown.filter((r) => !isNote(r)).length,
                     declaredOnly: combined && table.provenance.length === 1 && table.provenance[0] === 'declared',
+                    issues: issues.counts.get(table.id) ?? 0,
+                    pivot: pivots.has(table.id),
+                    chip: compared && summary ? { change: summary.change, text: summary.short, likely: compared.likely === compared.differences.length } : null,
                 };
             });
         const referenceNodes = [...externals]
@@ -901,9 +915,40 @@ function Viewer({
             meta: `${lookup.connections.get(r.connection)?.driver ?? 'unknown driver'} · ${visible.filter((v) => v.connection.id === r.connection).length} tables`,
         }));
         const allNodes = [...imageNodes, ...referenceNodes];
+        // The referencing end: one when its columns are unique (or every relationship on it is one-to-one), else many.
+        const startOf = (e: GraphEdge): EdgeEnd => {
+            const fk = e.link?.foreignKey ? lookup.foreignKeys.get(e.link.foreignKey) : undefined;
+            const from = e.link ? lookup.tables.get(e.link.from.table) : undefined;
+            if (fk && from) {
+                return uniqueOn(from, fk.columns) ? 'one' : 'many';
+            }
+            const cardinalities = (e.link?.relationships ?? []).map((id) => lookup.relationships.get(id)?.cardinality);
+            return cardinalities.length && cardinalities.every((c) => c === 'one-to-one') ? 'one' : 'many';
+        };
         const imageEdges = shownEdges.flatMap((e) => {
             const r = routes.get(e.id);
-            return r ? [{ kind: e.kind, declaredOnly: e.declaredOnly, sx: r.sx, sy: r.sy, cx: r.channelX, tx: r.tx, ty: r.ty, label: labelled(e) ? { x: r.labelX, y: r.labelY, text: e.label } : null }] : [];
+            if (!r) {
+                return [];
+            }
+            const inferred = inferredOn(e) ? (inferredLinks.get(e.link?.id ?? '') ?? []) : [];
+            const chip = `${inferred.length ? `${e.chip} · inferred` : e.chip}${e.crossConnection ? ' · cross-connection' : ''}`;
+            // Labels follow the Relationship names layer only, never the selection.
+            const label = allLabels && (e.kind !== 'foreign_key' || inferred.length > 0) ? { x: r.labelX, y: r.labelY, text: inferred.length ? inferred.map((a) => inferredLabel(lookup, a)).join(' · ') : e.label, chip } : null;
+            return [
+                {
+                    kind: e.kind,
+                    declaredOnly: e.declaredOnly,
+                    inferred: inferred.length > 0,
+                    sx: r.sx,
+                    sy: r.sy,
+                    cx: r.channelX,
+                    tx: r.tx,
+                    ty: r.ty,
+                    label,
+                    start: e.kind === 'through' ? null : startOf(e),
+                    end: e.kind === 'through' ? ('arrow' as const) : ('parent' as const),
+                },
+            ];
         });
         return { nodes: allNodes, edges: imageEdges, frames, bounds: boundsOf([...allNodes, ...frames]) };
     };
@@ -921,7 +966,7 @@ function Viewer({
         const colors = colorsOf(root.current as HTMLElement);
         const name = `schema-${safeName(imageScope)}.${format}`;
         if (format === 'svg') {
-            save(new Blob([toSvg(model, colors)], { type: 'image/svg+xml' }), name);
+            save(new Blob([toSvg({ ...model, fonts: await fontFaces() }, colors)], { type: 'image/svg+xml' }), name);
         } else {
             await document.fonts?.ready;
             save(await toPngBlob(toCanvas(model, colors)), name);
