@@ -225,6 +225,15 @@ describe('producer helpers', () => {
         expect(expandComparisonRequests({ source: 'database', connections: [] }, [{ baseline: { connection: 'a', schema: null }, target: { connection: 'a', schema: '*' } }]).errors.map((e) => e.kind)).toEqual(['unknown_connection']);
     });
 
+    it('stores in every valid fixture exactly the comparison_incomplete diagnostics the template builds', () => {
+        for (const [name, build] of Object.entries(VALID)) {
+            const doc = build();
+            const stored = doc.diagnostics.filter((d) => d.kind === 'comparison_incomplete');
+            expect(stored, name).toEqual(doc.comparisons.flatMap((c) => comparisonDiagnostics(doc, c)));
+            expect(storeComparisons(doc, doc.comparisons), name).toEqual(doc);
+        }
+    });
+
     it('refuses to store two comparisons with one id', () => {
         expect(() => storeComparisons(tenants, [stored, stored])).toThrow(`Comparison ${stored.id} is listed more than once`);
     });
