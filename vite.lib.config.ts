@@ -13,7 +13,6 @@ export default defineConfig({
             entry: {
                 index: 'src/index.ts',
                 contract: 'src/contract/index.ts',
-                adapters: 'src/adapters/index.ts',
             },
             formats: ['es'],
             cssFileName: 'styles',

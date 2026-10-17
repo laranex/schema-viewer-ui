@@ -1,7 +1,7 @@
 {
   "name": "laranex-schema-viewer-ui",
   "version": "0.1.0",
-  "description": "Interactive ERD viewer for Laranex schema snapshots: a React component, a standalone static bundle, and the versioned schema document contract.",
+  "description": "The unified laranex-schema contract and the shared ERD viewer for Laravel, Python and Node.js: a React component, a standalone static bundle, JSON Schema, validator, graph builder and conformance fixtures.",
   "license": "MIT",
   "author": "Laranex",
   "homepage": "https://github.com/laranex/schema-viewer-ui#readme",
@@ -34,17 +34,16 @@
       "types": "./dist/types/contract/index.d.ts",
       "import": "./dist/lib/contract.js"
     },
-    "./adapters": {
-      "types": "./dist/types/adapters/index.d.ts",
-      "import": "./dist/lib/adapters.js"
-    },
     "./styles.css": "./dist/lib/styles.css",
-    "./schema.json": "./dist/schema.json",
+    "./schema.json": "./contract/schema.json",
+    "./contract/*": "./contract/*",
     "./viewer/*": "./dist/viewer/*",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
+    "contract",
+    "docs/contract.md",
     "NOTICE"
   ],
   "engines": {
@@ -52,12 +51,12 @@
   },
   "scripts": {
     "dev": "vite --config vite.viewer.config.ts",
-    "build": "rm -rf dist && vite build --config vite.lib.config.ts && vite build --config vite.viewer.config.ts && tsc -p tsconfig.build.json && node scripts/copy-schema.mjs",
+    "build": "rm -rf dist && vite build --config vite.lib.config.ts && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:browser": "playwright test",
-    "test:package": "node scripts/check-package.mjs",
-    "check": "npm run typecheck && npm test && npm run build && npm run test:package"
+    "check": "npm run typecheck && npm test && npm run build && npm run contract:check",
+    "contract": "UPDATE_CONTRACT=1 vitest run tests/contract.test.ts",
+    "contract:check": "node contract/check.mjs contract/fixtures/valid/*.json"
   },
   "peerDependencies": {
     "react": "^19.0.0",

@@ -85,9 +85,8 @@ length, collation, operator class), `unique`, `primary`, `backs`, `method`, `par
 and `initially`; `provenance` and `coverage`, so exports can state what was inspected; relationships with
 `cardinality`, `keys`, `pivot`, `polymorphic` and `through`.
 
-Two additions are needed for complete DDL: a column-level `collation`, and table options such as engine, character set
-or tablespace. The first becomes a contract field; table options go under `extensions` and are reported as lossy
-unless the exporter knows the dialect key.
+Column-level `collation` is part of the contract for DDL. Table options such as engine, character set or tablespace
+go under `extensions` and are reported as lossy unless the exporter knows the dialect key.
 
 ### Tests
 

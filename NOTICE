@@ -4,13 +4,16 @@ The viewer's visual design, layout, palette and interaction model follow
 Laranex Python Schema Viewer, src/laranex_schema_viewer/static/, inspected at
 commit de08475 (https://github.com/laranex/python-schema-viewer).
 
-The automatic layout (ELK worker start-up, arrange modes and packed columns)
+The automatic layout (arrange modes and packed columns)
 and orthogonal edge routing are adapted from Laranex Laravel Schema Viewer,
 ui/src/elk.ts, ui/src/layout.ts and ui/src/routing.ts, inspected at commit
 62b056a (https://github.com/laranex/laravel-schema-viewer).
 
-The synthetic test fixtures in tests/fixtures/ are adapted from the test
-fixtures of both repositories.
+The laranex-schema contract takes its structure and camelCase naming from
+Laravel Schema Viewer's serialized document (src/Schema/*.php) and its
+provenance-preserving rules from Python Schema Viewer's snapshot contract
+(src/laranex_schema_viewer/document.py). The graph rules follow Laravel's
+src/Graph/SchemaGraph.php. All fixtures are synthetic.
 
 Copyright (c) Laranex. Used under the MIT License reproduced in LICENSE.
 
