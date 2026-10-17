@@ -1,5 +1,6 @@
 // Copies the built standalone viewer (../dist/viewer) into public/demo with one page per synthetic contract fixture.
-// Build the package first (npm run build in the repository root). Only synthetic fixtures are published.
+// Build the package first (npm run build in the repository root). Only synthetic fixtures are published. Also writes
+// public/logo.svg from the viewer's favicon.
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,8 @@ export async function prepareDemo() {
     for (const name of ['app.js', 'app.css', 'assets', 'favicon.svg', 'favicon.ico', 'manifest.json']) {
         await cp(new URL(name, viewer), new URL(name, demoDirectory), { recursive: true });
     }
+    // The site's logo and favicon are the viewer's favicon: the brand mark from src/viewer/brand.ts.
+    await cp(new URL('favicon.svg', viewer), new URL('../public/logo.svg', import.meta.url));
     const template = await readFile(new URL('index.html', viewer), 'utf8');
     if (!template.includes('data-snapshot-url="snapshot.json"')) {
         throw new Error('The viewer page changed how it loads the snapshot; update prepare-demo.mjs');

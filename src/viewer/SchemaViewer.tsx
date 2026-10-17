@@ -2,6 +2,7 @@ import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, u
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import type { SchemaDocument, Table } from '../contract/types';
 import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
+import { BRAND_PATH, BRAND_RECTS, BRAND_VIEWBOX } from './brand';
 import { Browse, tableSubtitle, type BrowseMode } from './Browse';
 import { ComparePanel, FILTER_PARAM, filtersFrom, type CompareFilters } from './Compare';
 import { ChangesPanel, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
@@ -1233,9 +1234,7 @@ function Viewer({
         >
             <header className="lsv-header">
                 <div className="brand">
-                    <span className="brand-mark" aria-hidden="true">
-                        L
-                    </span>
+                    <BrandMark />
                     {!narrow && <h1>{title}</h1>}
                 </div>
                 <SearchBox ref={search} doc={doc} lookup={lookup} onPick={pickResult} placeholder={narrow ? 'Search the schema' : undefined} />
@@ -1511,6 +1510,18 @@ function Viewer({
             <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
             <Tour open={touring} root={root} onClose={() => setTouring(false)} />
         </div>
+    );
+}
+
+// The brand mark, two tables joined by a relationship (see brand.ts), in the theme's accent.
+function BrandMark() {
+    return (
+        <svg className="brand-mark" viewBox={BRAND_VIEWBOX} width="22" height="22" aria-hidden="true">
+            {BRAND_RECTS.map((r) => (
+                <rect key={r.x} {...r} />
+            ))}
+            <path d={BRAND_PATH} />
+        </svg>
     );
 }
 

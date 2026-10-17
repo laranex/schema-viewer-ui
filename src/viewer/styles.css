@@ -189,29 +189,16 @@
 .lsv .brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     flex: none;
 }
 .lsv .brand-mark {
-    display: grid;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    background: var(--fg);
-    color: var(--bg);
-    font: 700 15px var(--font-mono);
-    border-radius: 8px;
-    position: relative;
-}
-.lsv .brand-mark::after {
-    content: '';
-    position: absolute;
-    right: 5px;
-    top: 5px;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--accent);
+    flex: none;
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 .lsv h1 {
     font-size: 15px;
@@ -412,6 +399,9 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+}
+.lsv .menu__text {
+    white-space: normal;
 }
 .lsv .menu__text small {
     font-size: 11px;
@@ -704,6 +694,12 @@
     font: 11px var(--font-mono);
     color: var(--muted);
     flex: none;
+}
+.lsv .card-note {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    color: var(--muted);
 }
 .lsv .issue-count {
     display: inline-grid;

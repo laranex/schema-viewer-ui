@@ -72,6 +72,11 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                         {allLikely ? ' likely' : ''}
                     </span>
                 )}
+                {(table.note || table.comment) && (
+                    <span className="card-note" role="img" aria-label={table.note ? 'Has a note' : 'Has a comment'} title={table.note ?? table.comment ?? ''}>
+                        <Icon name="note" size={13} />
+                    </span>
+                )}
                 {issues > 0 && (
                     <span className="issue-count" title={`${issues} diagnostics`}>
                         {issues}

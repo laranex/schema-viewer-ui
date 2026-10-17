@@ -32,12 +32,14 @@ test.describe('standalone viewer under a strict CSP', () => {
         const svg = await request.get('/page/database-sqlite-indexes/favicon.svg');
         expect(svg.status()).toBe(200);
         expect(svg.headers()['content-type']).toBe('image/svg+xml');
-        expect(await svg.text()).toContain('<svg');
+        expect(await svg.text()).toContain('M10.5 7 H14 a2 2 0 0 1 2 2 V13.5');
         const ico = await request.get('/page/database-sqlite-indexes/favicon.ico');
         expect(ico.status()).toBe(200);
         const bytes = await ico.body();
-        expect(bytes.subarray(0, 4).toString('hex')).toBe('00000100');
-        expect(bytes.subarray(22, 30).toString('hex')).toBe('89504e470d0a1a0a');
+        expect(bytes.subarray(0, 6).toString('hex')).toBe('000001000200');
+        expect([bytes[6], bytes[22]]).toEqual([16, 32]);
+        const first = bytes.readUInt32LE(18);
+        expect(bytes.subarray(first, first + 8).toString('hex')).toBe('89504e470d0a1a0a');
     });
 
     test('refuses a document that is not laranex-schema 2.x', async ({ page }) => {

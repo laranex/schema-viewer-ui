@@ -16,6 +16,17 @@ All notable changes to this project are documented here. The format follows
 - Diagnostics have a rule-based `id`; column diagnostics must name their columns.
 - `Connection.driver` uses one spelling per database (`postgresql`, `mysql`, `mariadb`, `sqlite`, `sqlsrv`,
   `oracle`); aliases such as `pgsql` are rejected.
+- Icons, the brand mark and the favicon come from Laranex Laravel Schema Viewer: one icon system (`Icon` in
+  `src/viewer/icons.tsx`, re-exported from `ui.tsx`) with Laravel's shapes on its 16-unit grid and 1.6 stroke in the
+  control's color, new icons in the same style for select, details, changes, compare, migrations and the migration
+  statuses, and an external-link mark on editor links and a note mark on cards with a note or comment. The unused
+  `arrange`, `focus` and `link` icons are gone. Colors and both themes are unchanged.
+- The header's brand mark is Laravel's two tables joined by a relationship, in the theme's accent.
+- `favicon.svg` and `favicon.ico` (now 16 and 32 pixels) are the same mark on a tile in the theme's surface, line and
+  accent colors, with a dark variant in the SVG; the Vite build writes them from `src/viewer/brand.ts`
+  (`scripts/favicon.mjs` is removed), byte-identical every build, under the same file names and in `manifest.json`.
+  `brand.ts` also exports `FAVICON_DATA_URI` for pages that inline everything. The docs site's logo and favicon are the
+  same file.
 
 ### Added
 
@@ -84,6 +95,7 @@ All notable changes to this project are documented here. The format follows
 - Connection frames follow their tables: a table dragged out of its frame enlarges it, on the diagram and in images.
 - The Compare filters are kept in deep links (`#object=…&change=…&severity=…&certainty=…`).
 - On a phone, a deep link to a table, line, association or view opens the bottom sheet on its tab.
+- Menu hints wrap instead of being cut off at the menu's edge.
 - Diagnostics follow the connection in view: with one connection shown, the Diagnostics tab, its count and the phone
   sheet's count cover that connection and the whole document (labelled "whole document"), with a note of how many are
   on other connections. A diagnostic's connection comes from its subject (table, column, index, foreign key,

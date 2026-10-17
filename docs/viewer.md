@@ -4,7 +4,7 @@
 
 The layout follows Laravel Schema Viewer's:
 
-- **Header**: the search box finds any table, column, model or relationship and opens it (<kbd>/</kbd>); then the
+- **Header**: the brand mark, the search box finds any table, column, model or relationship and opens it (<kbd>/</kbd>); then the
   connection, the Download menu (the JSON document, host files, and PNG or SVG images), the theme and Shortcuts.
 - **Diagram**: tables as cards, links as edges, a minimap in the corner. Drag the background to pan, scroll or pinch
   to zoom, drag a card by its title to move it, fold a card with its chevron, double-click it to focus on its
