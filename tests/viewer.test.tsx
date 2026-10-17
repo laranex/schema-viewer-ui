@@ -223,3 +223,19 @@ describe('interaction parity', () => {
         expect(screen.getByRole('checkbox', { name: /Through/ })).toBeChecked();
     });
 });
+
+describe('tour', () => {
+    it('walks through every step from ? and ends with Escape', async () => {
+        await show(VALID['combined-eloquent']());
+        act(() => {
+            fireEvent.keyDown(document.body, { key: '?' });
+        });
+        expect(screen.getByRole('dialog', { name: 'Welcome' })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+        expect(screen.getByRole('dialog', { name: 'The diagram' })).toBeInTheDocument();
+        act(() => {
+            fireEvent.keyDown(document.body, { key: 'Escape' });
+        });
+        expect(screen.queryByRole('dialog', { name: 'The diagram' })).toBeNull();
+    });
+});

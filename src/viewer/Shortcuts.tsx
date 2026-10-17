@@ -21,6 +21,7 @@ export const SHORTCUTS: [string[], string][] = [
     [['Shift C'], 'Copy a link to this view'],
     [['E'], 'Export the diagram or the visible area as PNG or SVG'],
     [['S'], 'Show this list'],
+    [['?'], 'Take the tour'],
 ];
 
 export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {

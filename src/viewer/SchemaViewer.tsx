@@ -29,6 +29,7 @@ import { route, type Box } from './routing';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { ShortcutsDialog } from './Shortcuts';
 import { TableNodeView, type TableNodeType } from './TableNode';
+import { Tour } from './Tour';
 import { useTheme, type Theme } from './theme';
 
 export type { ExtensionRenderers } from './Details';
@@ -176,6 +177,7 @@ function Viewer({
     const [shortcuts, setShortcuts] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
+    const [touring, setTouring] = useState(false);
 
     useEffect(() => {
         if (!toast) {
@@ -566,6 +568,7 @@ function Viewer({
         ']': () => stepConnection(1),
         s: () => setShortcuts(true),
         e: () => setExportOpen((o) => !o),
+        '?': () => setTouring(true),
     };
     useEffect(() => {
         const down = (event: globalThis.KeyboardEvent) => {
@@ -573,6 +576,7 @@ function Viewer({
             const typing = !!target?.closest?.('input, select, textarea, [contenteditable="true"]');
             const ours = !(target instanceof Element) || target === document.body || !!root.current?.contains(target);
             if (event.key === 'Escape') {
+                setExportOpen(false);
                 if (target === search.current && search.current?.value) {
                     setQuery('');
                     return;
@@ -670,6 +674,9 @@ function Viewer({
                     </div>
                 </div>
                 <div className="actions">
+                    <button type="button" className="theme" onClick={() => setTouring(true)} aria-label="Take the tour" title="Take the tour (?)">
+                        ?
+                    </button>
                     <button type="button" className="theme" onClick={() => setShortcuts(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (S)">
                         ⌨
                     </button>
@@ -917,6 +924,7 @@ function Viewer({
                 <span>Laranex Schema Viewer · MIT</span>
             </footer>
             <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
+            <Tour open={touring} root={root} onClose={() => setTouring(false)} />
         </div>
     );
 }
