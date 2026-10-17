@@ -117,4 +117,20 @@ test.describe('standalone viewer under a strict CSP', () => {
         expect(text).toContain('<svg');
         expect(text).toContain('posts');
     });
+
+    test('draws placeholder rows when zoomed far out, and real rows again when zoomed in', async ({ page }) => {
+        await page.goto('/f/combined-eloquent/');
+        await loaded(page);
+        const users = page.locator('.react-flow__node[data-id="mysql:users"]');
+        for (let i = 0; i < 8; i++) {
+            await page.getByRole('button', { name: 'Zoom out' }).click();
+        }
+        await expect(users.locator('.column.placeholder').first()).toBeAttached();
+        await expect(users.locator('.column-name')).toHaveCount(0);
+        // Fit can land below 40% on a phone, so zoom in explicitly.
+        for (let i = 0; i < 12; i++) {
+            await page.getByRole('button', { name: 'Zoom in' }).click();
+        }
+        await expect(users.locator('.column-name').first()).toBeAttached();
+    });
 });
