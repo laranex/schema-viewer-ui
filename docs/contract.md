@@ -45,7 +45,7 @@ converts 1.0 documents (see [Changes from 1.0](#changes-from-1-0)).
 | Field | Type | Meaning |
 |---|---|---|
 | `format` | `"laranex-schema"` | |
-| `version` | string | `"1.0"` |
+| `version` | string | `"2.0"` |
 | `source` | `declared` \| `database` \| `combined` | See [Source modes](#source-modes) |
 | `generator` | `{ name, orm }` | The producing package and the ORM (null for database-only). No versions or times, so upgrading a producer does not change equal schemas' bytes |
 | `note` | string \| null | The project's note |
@@ -282,8 +282,10 @@ whose schema is null or the default schema are in scope. A scope must not hold t
   null), `changed` (both sides; `fields` lists the differing fields, sorted by `field`, at least one). Missing and
   extra differences list no fields, and a missing or extra table's contents are not listed.
 - `objectType`: `table`, `column`, `primaryKey`, `index`, `foreignKey`, `constraint`.
-- `key` is the normalized identity both sides share. It never contains a schema name, so tenant schemas are never
-  drift (the validator rejects a key element equal to either compared schema when they differ).
+- `key` is the normalized identity both sides share. It is built from object names and never from a schema name, so
+  tenant schemas are never drift. Its first element is the name of each side's table, and a column difference's
+  second is a column of each side's table; the validator checks both. A table, column or index may itself be named
+  like a compared schema.
 - `baseline` and `target` are refs `{ table, id, label }`: the table id in that side's scope; `id` the index,
   foreign-key or constraint id (null for table, column and primary-key differences); `label` the readable name:
   `schema.table` (or `table`), with `.column`, ` primary key`, or `.name` (`.definition` when unnamed).

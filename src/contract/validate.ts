@@ -303,7 +303,6 @@ function comparisonRules(doc: SchemaDocument, connections: Map<string, Connectio
         if (!sorted) {
             errors.push(`Differences are sorted by object type, key and change: ${at}`);
         }
-        const tenantSchemas = c.baseline.schema !== null && c.target.schema !== null && c.baseline.schema !== c.target.schema ? [c.baseline.schema, c.target.schema] : [];
         const counts = { missing: 0, extra: 0, changed: 0 };
         for (const d of c.differences) {
             const where = `difference ${d.id}`;
@@ -321,9 +320,6 @@ function comparisonRules(doc: SchemaDocument, connections: Map<string, Connectio
             if (!isSorted(d.fields.map((f) => f.field)) || new Set(d.fields.map((f) => f.field)).size !== d.fields.length) {
                 errors.push(`Difference fields are unique and sorted by field: ${where}`);
             }
-            if (d.key.some((k) => tenantSchemas.includes(k))) {
-                errors.push(`A difference key never contains a compared schema name: ${where}`);
-            }
             for (const [scope, ref] of [[c.baseline, d.baseline], [c.target, d.target]] as const) {
                 if (ref === null) {
                     continue;
@@ -333,6 +329,12 @@ function comparisonRules(doc: SchemaDocument, connections: Map<string, Connectio
                 if (!table || !connection.tables.includes(table) || !inScope(table, connection, scope.schema)) {
                     errors.push(`A difference side names a table of its own scope: ${where}`);
                     continue;
+                }
+                if (d.key[0] !== table.name) {
+                    errors.push(`A difference key starts with its table's name: ${where}`);
+                }
+                if (d.objectType === 'column' && !table.columns.some((col) => col.name === d.key[1])) {
+                    errors.push(`A column difference key names a column of its table: ${where}`);
                 }
                 const entities = { index: table.indexes, foreignKey: table.foreignKeys, constraint: table.constraints }[d.objectType as 'index'];
                 if (entities ? !entities.some((e) => e.id === ref.id) : ref.id !== null) {

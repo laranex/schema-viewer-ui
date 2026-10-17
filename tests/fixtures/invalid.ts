@@ -217,10 +217,19 @@ export const INVALID: Record<string, InvalidCase> = {
         document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].differences.find((y: Mutable) => y.change === 'changed').fields = [])),
     },
     'difference-key-names-schema': {
-        description: 'A difference key that contains a compared tenant schema name',
+        description: "A difference key that names a compared tenant schema instead of its table",
         strict: false,
-        errors: ['A difference key never contains a compared schema name'],
+        errors: ["A difference key starts with its table's name"],
         document: from('comparison-tenant-schemas', (d) => (d.comparisons[0].differences[0].key = ['tenant_a'])),
+    },
+    'difference-key-unknown-column': {
+        description: "A column difference whose key names a column its table does not have",
+        strict: false,
+        errors: ["A column difference key names a column of its table"],
+        document: from('comparison-tenant-schemas', (d) => {
+            const x = d.comparisons[0].differences.find((y: Mutable) => y.change === 'changed' && y.objectType === 'column');
+            x.key = [x.key[0], 'nowhere'];
+        }),
     },
     'difference-side-outside-scope': {
         description: "A difference side naming a table of the other scope",

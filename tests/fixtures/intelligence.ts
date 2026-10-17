@@ -220,6 +220,23 @@ function comparisonMultiConnection(): SchemaDocument {
 
 // Alembic tracks in every status, one per tenant schema of one PostgreSQL connection, with autogenerate and
 // migration coverage on the first.
+// Tenant schemas named like the tables and columns they hold: the schema `billing` has a table, a column and an
+// index named `archive` or `billing`, compared with the schema `archive`. Keys name those objects, never the schema.
+function comparisonSchemaNamedTables(): SchemaDocument {
+    const T = (schema: string, name: string) => `ledger:${schema}.${name}`;
+    const tables: Table[] = [
+        table(T('billing', 'billing'), 'billing', [id('id'), column('archive', 'text', { nullable: true })], {
+            schema: 'billing',
+            indexes: [primaryIndex(T('billing', 'billing'), 'billing_pkey', ['id'], { method: 'btree' }), index(T('billing', 'billing'), 'archive', [part('archive')], { method: 'btree' })],
+        }),
+        table(T('archive', 'archive'), 'archive', [id('id')], { schema: 'archive', indexes: [primaryIndex(T('archive', 'archive'), 'archive_pkey', ['id'], { method: 'btree' })] }),
+        table(T('archive', 'billing'), 'billing', [id('id')], { schema: 'archive', indexes: [primaryIndex(T('archive', 'billing'), 'billing_pkey', ['id'], { method: 'btree' })] }),
+    ];
+    const ledger = connection('ledger', 'postgresql', tables, { defaultSchema: 'public', coverage: { database: cov(['archive', 'billing']), declared: null } });
+    const comparison = compareScopes({ source: 'database', connections: [ledger] }, { connection: ledger.id, schema: 'billing' }, { connection: ledger.id, schema: 'archive' });
+    return document('database', { name: 'python-schema-viewer', orm: null }, { connections: [ledger], comparisons: [comparison] });
+}
+
 function migrationsAlembic(): SchemaDocument {
     const schemas = ['tenant_behind', 'tenant_branches', 'tenant_current', 'tenant_diverged', 'tenant_locked', 'tenant_new', 'tenant_partial', 'tenant_partial_new', 'tenant_scriptless', 'tenant_unknown'];
     const T = (schema: string, name: string) => `app:${schema}.${name}`;
@@ -345,6 +362,7 @@ export const INTELLIGENCE: Record<string, () => SchemaDocument> = {
     'comparison-tenant-schemas': comparisonTenantSchemas,
     'comparison-multi-connection': comparisonMultiConnection,
     'comparison-incomplete': comparisonIncomplete,
+    'comparison-schema-named-tables': comparisonSchemaNamedTables,
     'migrations-alembic': migrationsAlembic,
     'inferred-associations': inferredAssociations,
 };
