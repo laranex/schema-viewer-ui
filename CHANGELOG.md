@@ -17,5 +17,6 @@ All notable changes to this project are documented here. The format follows
 - Image export (E): PNG or SVG of the whole diagram or the visible area, in the current theme. The PNG is painted straight onto a canvas, so it works under a Content-Security-Policy that allows no blob: or data: images.
 - A guided tour (?), started only on request, spotlighting the diagram, a table, layers, search, details, tools and shortcuts.
 - At 40% zoom and below, cards draw placeholder rows instead of text, so large schemas stay responsive.
+- Resizable tables and details panels: drag their edges, or focus a handle and use the arrow keys, Home and End; double-click resets. Handles hide on phone-width layouts, where the details panel stacks below the diagram.
 - The standalone bundle (`dist/viewer`): `app.js`, `app.css`, lazily loaded ELK and fonts, `index.html` and a `manifest.json` with file hashes. It reads the document from an inline JSON script, `window.__SCHEMA_VIEWER__` or a snapshot URL, defines the `<laranex-schema-viewer>` element, and runs under `script-src 'self'`.
 - Contract documentation (`docs/contract.md`) and the roadmap for client-side exports and index analysis (`ROADMAP.md`).

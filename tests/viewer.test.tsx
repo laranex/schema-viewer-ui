@@ -239,3 +239,22 @@ describe('tour', () => {
         expect(screen.queryByRole('dialog', { name: 'The diagram' })).toBeNull();
     });
 });
+
+describe('panels', () => {
+    it('resize from the keyboard, within limits, and reset on double-click', async () => {
+        const { container } = await show(VALID['database-sqlite-indexes']());
+        const main = container.querySelector('.lsv-main') as HTMLElement;
+        const left = screen.getByRole('separator', { name: 'Resize the tables panel' });
+        const right = screen.getByRole('separator', { name: 'Resize the details panel' });
+        fireEvent.keyDown(left, { key: 'Home' });
+        expect(main.style.getPropertyValue('--lsv-left')).toBe('160px');
+        fireEvent.keyDown(left, { key: 'ArrowRight' });
+        expect(main.style.getPropertyValue('--lsv-left')).toBe('184px');
+        fireEvent.keyDown(right, { key: 'End' });
+        expect(main.style.getPropertyValue('--lsv-right')).toBe('560px');
+        fireEvent.keyDown(right, { key: 'ArrowRight' });
+        expect(main.style.getPropertyValue('--lsv-right')).toBe('536px');
+        fireEvent.doubleClick(right);
+        expect(main.style.getPropertyValue('--lsv-right')).toBe('');
+    });
+});

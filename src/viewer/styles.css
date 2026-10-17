@@ -262,7 +262,10 @@
 
 .lsv-main {
     display: grid;
-    grid-template-columns: 250px minmax(0, 1fr) 340px;
+    --default-left: 250px;
+    --default-right: 340px;
+    position: relative;
+    grid-template-columns: var(--lsv-left, var(--default-left)) minmax(0, 1fr) var(--lsv-right, var(--default-right));
     flex: 1;
     min-height: 0;
 }
@@ -1035,7 +1038,8 @@
 
 @container (max-width: 1100px) {
     .lsv-main {
-        grid-template-columns: 200px minmax(0, 1fr) 280px;
+        --default-left: 200px;
+        --default-right: 280px;
     }
     .lsv .layerbar .eyebrow {
         display: none;
@@ -1076,6 +1080,9 @@
     .lsv .canvas-tools {
         gap: 0;
         padding: 3px;
+    }
+    .lsv .resizer {
+        display: none;
     }
     .lsv .canvas-tools button {
         padding: 6px;
@@ -1279,4 +1286,27 @@
 }
 .lsv .column.placeholder.note .bar {
     background: var(--accent-soft);
+}
+
+/* Panel resize handles, on each side panel's edge toward the canvas. */
+.lsv .resizer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 8px;
+    z-index: 7;
+    cursor: col-resize;
+    touch-action: none;
+    transition: background 0.15s;
+}
+.lsv .resizer--left {
+    left: calc(var(--lsv-left, var(--default-left)) - 4px);
+}
+.lsv .resizer--right {
+    right: calc(var(--lsv-right, var(--default-right)) - 4px);
+}
+.lsv .resizer:hover,
+.lsv .resizer:focus-visible {
+    outline: none;
+    background: linear-gradient(to right, transparent 3px, var(--accent) 3px, var(--accent) 5px, transparent 5px);
 }

@@ -133,4 +133,24 @@ test.describe('standalone viewer under a strict CSP', () => {
         }
         await expect(users.locator('.column-name').first()).toBeAttached();
     });
+
+    test('resizes both side panels by dragging their edges', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'Panels stack on phones.');
+        await page.goto('/f/combined-eloquent/');
+        await loaded(page);
+        const width = (name: string) => page.getByRole('complementary', { name }).evaluate((e) => (e as HTMLElement).offsetWidth);
+        const drag = async (name: string, dx: number) => {
+            const box = (await page.getByRole('separator', { name }).boundingBox())!;
+            await page.mouse.move(box.x + box.width / 2, box.y + 200);
+            await page.mouse.down();
+            await page.mouse.move(box.x + box.width / 2 + dx, box.y + 200, { steps: 6 });
+            await page.mouse.up();
+        };
+        const tables = await width('Tables');
+        await drag('Resize the tables panel', 80);
+        await expect.poll(() => width('Tables')).toBe(tables + 80);
+        const details = await width('Selection details');
+        await drag('Resize the details panel', -100);
+        await expect.poll(() => width('Selection details')).toBe(details + 100);
+    });
 });

@@ -25,6 +25,7 @@ import {
     type GraphEdge,
 } from './graph';
 import { ARRANGEMENTS, autoLayout, type Arrangement, type LayoutRequest, type Positions } from './layout';
+import { Resizer } from './Resizer';
 import { route, type Box } from './routing';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { ShortcutsDialog } from './Shortcuts';
@@ -178,6 +179,10 @@ function Viewer({
     const [toast, setToast] = useState<string | null>(null);
     const [exportOpen, setExportOpen] = useState(false);
     const [touring, setTouring] = useState(false);
+    // Side panel widths once the user resizes them; until then the stylesheet's responsive defaults apply.
+    const [panels, setPanels] = useState<{ left: number | null; right: number | null }>({ left: null, right: null });
+    const browse = useRef<HTMLElement>(null);
+    const details = useRef<HTMLElement>(null);
 
     useEffect(() => {
         if (!toast) {
@@ -768,8 +773,14 @@ function Viewer({
                     {tables.length} tables · {foreignKeyCount} foreign keys · {doc.relationships.length} ORM relationships
                 </span>
             </div>
-            <main className="lsv-main">
-                <aside className="browse" aria-label="Tables">
+            <main
+                className="lsv-main"
+                style={{
+                    ...(panels.left !== null ? { ['--lsv-left' as string]: `${panels.left}px` } : {}),
+                    ...(panels.right !== null ? { ['--lsv-right' as string]: `${panels.right}px` } : {}),
+                }}
+            >
+                <aside ref={browse} className="browse" aria-label="Tables">
                     <div className="panel-heading">
                         <h2>Tables</h2>
                         <span className="table-count">{visible.length}</span>
@@ -879,7 +890,7 @@ function Viewer({
                         </div>
                     )}
                 </section>
-                <aside className="details" aria-label="Selection details">
+                <aside ref={details} className="details" aria-label="Selection details">
                     {group.length > 1 ? (
                         <>
                             <span className="tag">SELECTION</span>
@@ -916,6 +927,20 @@ function Viewer({
                         <Guide ctx={ctx} changes={changes} downloads={downloads} onSelectSubject={selectSubject} onShortcuts={() => setShortcuts(true)} />
                     )}
                 </aside>
+                <Resizer
+                        side="left"
+                        label="Resize the tables panel"
+                        width={() => panels.left ?? browse.current?.getBoundingClientRect().width ?? 250}
+                        onResize={(left) => setPanels((p) => ({ ...p, left }))}
+                        onReset={() => setPanels((p) => ({ ...p, left: null }))}
+                    />
+                <Resizer
+                        side="right"
+                        label="Resize the details panel"
+                        width={() => panels.right ?? details.current?.getBoundingClientRect().width ?? 340}
+                        onResize={(right) => setPanels((p) => ({ ...p, right }))}
+                        onReset={() => setPanels((p) => ({ ...p, right: null }))}
+                    />
             </main>
             <footer className="lsv-footer">
                 <span className="status" role="status">
