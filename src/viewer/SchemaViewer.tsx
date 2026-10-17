@@ -8,7 +8,7 @@ import { ComparePanel, FILTER_PARAM, filtersFrom, type CompareFilters } from './
 import { ChangesPanel, ColumnDetails, declaredKinds, DiagnosticsPanel, EdgeDetails, Overview, TableDetails, usesColumn, type DetailContext, type ExtensionRenderers } from './Details';
 import { DownloadDialog, type ImageArea } from './DownloadDialog';
 import { offlineHtml, type OfflineBundle } from './offline';
-import { boundsOf, clip, colorsOf, fontFaces, save, toCanvas, toPngBlob, toSvg, type EdgeEnd, type ImageModel } from './exportImage';
+import { boundsOf, clip, colorsOf, fontFaces, save, toCanvas, toPngBlob, toSvg, type ImageModel } from './exportImage';
 import {
     cardHeight,
     cardRows,
@@ -26,6 +26,7 @@ import {
     within,
     type EdgeKind,
     type Fold,
+    lineEnds,
     type GraphEdge,
 } from './graph';
 import { ARRANGEMENTS, autoLayout, frameAround, packRegions, type Arrangement, type LayoutRequest, type Positions, type Region } from './layout';
@@ -40,7 +41,7 @@ import { ShortcutsDialog } from './Shortcuts';
 import { EXTERNAL_HEIGHT, ExternalNodeView, frameMeta, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
 import { Tour } from './Tour';
 import { useTheme, type Theme } from './theme';
-import { safeName, uniqueOn } from '../export/common';
+import { safeName } from '../export/common';
 import { Icon, Menu, MenuCheck, MenuItem, MenuLabel, MenuRadio, MenuSeparator, TabList, type TabSpec } from './ui';
 
 export type { ExtensionRenderers } from './Details';
@@ -1070,16 +1071,6 @@ function Viewer({
             meta: frameMeta(lookup.connections.get(r.connection)?.driver ?? null, visible.filter((v) => v.connection.id === r.connection).length, issues.perConnection.get(r.connection) ?? 0),
         }));
         const allNodes = [...imageNodes, ...referenceNodes];
-        // The referencing end: one when its columns are unique (or every relationship on it is one-to-one), else many.
-        const startOf = (e: GraphEdge): EdgeEnd => {
-            const fk = e.link?.foreignKey ? lookup.foreignKeys.get(e.link.foreignKey) : undefined;
-            const from = e.link ? lookup.tables.get(e.link.from.table) : undefined;
-            if (fk && from) {
-                return uniqueOn(from, fk.columns) ? 'one' : 'many';
-            }
-            const cardinalities = (e.link?.relationships ?? []).map((id) => lookup.relationships.get(id)?.cardinality);
-            return cardinalities.length && cardinalities.every((c) => c === 'one-to-one') ? 'one' : 'many';
-        };
         const imageEdges = shownEdges.flatMap((e) => {
             const r = routes.get(e.id);
             if (!r) {
@@ -1100,8 +1091,8 @@ function Viewer({
                     tx: r.tx,
                     ty: r.ty,
                     label,
-                    start: e.kind === 'through' ? null : startOf(e),
-                    end: e.kind === 'through' ? ('arrow' as const) : ('parent' as const),
+                    // The same ends as on screen.
+                    ...lineEnds(e),
                 },
             ];
         });

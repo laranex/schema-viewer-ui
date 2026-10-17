@@ -1,4 +1,4 @@
-import { HEADER_HEIGHT, ROW_HEIGHT, MORE_HEIGHT, type EdgeKind } from './graph';
+import { END_SHAPES, HEADER_HEIGHT, ROW_HEIGHT, MORE_HEIGHT, type EdgeKind, type LineEnd } from './graph';
 import { orthogonal } from './routing';
 
 // The diagram as an image, after Laranex Laravel Schema Viewer's ui/src/exportImage.ts: a model of what the viewer
@@ -30,8 +30,9 @@ export type ImageNode = {
 };
 // The frame around one connection's tables, when every connection is on the diagram.
 export type ImageFrame = { x: number; y: number; width: number; height: number; title: string; meta: string };
-// The marks at an edge's ends: crow's foot (many), bar (one), double bar (the referenced parent), or an arrow.
-export type EdgeEnd = 'many' | 'one' | 'parent' | 'arrow' | null;
+// The marks at an edge's ends, as on screen (graph.ts lineEnds): crow's foot (many), bar (one), double bar (the
+// referenced parent), or an arrow.
+export type EdgeEnd = LineEnd | null;
 export type ImageEdge = {
     kind: EdgeKind;
     declaredOnly: boolean;
@@ -109,54 +110,14 @@ type Shape =
     | { type: 'path'; d: string; stroke?: string; width?: number; dash?: number[]; fill?: string }
     | { type: 'text'; x: number; y: number; text: string; font: Font; fill: string; anchor?: 'start' | 'middle' | 'end'; halo?: string };
 
-// An end mark in a 14 × 14 box whose x = 13 touches the card, turned to face it: dir is +1 when the card lies towards
-// +x from the line's end.
-const END_PATHS: Record<Exclude<EdgeEnd, null>, number[][][]> = {
-    many: [
-        [
-            [1, 7],
-            [13, 1],
-        ],
-        [
-            [1, 7],
-            [13, 7],
-        ],
-        [
-            [1, 7],
-            [13, 13],
-        ],
-    ],
-    one: [
-        [
-            [8, 1],
-            [8, 13],
-        ],
-    ],
-    parent: [
-        [
-            [5, 1],
-            [5, 13],
-        ],
-        [
-            [9, 1],
-            [9, 13],
-        ],
-    ],
-    arrow: [
-        [
-            [3, 2],
-            [13, 7],
-            [3, 12],
-        ],
-    ],
-};
-
+// An end mark in graph.ts's END_SHAPES, turned to face the card: dir is +1 when the card lies towards +x from the
+// line's end.
 function endShapes(end: EdgeEnd | undefined, x: number, y: number, dir: number, color: string): Shape[] {
     if (!end) {
         return [];
     }
-    const at = ([px, py]: number[]) => `${x + dir * (px - 13)} ${y + py - 7}`;
-    return END_PATHS[end].map((points) =>
+    const at = ([out, across]: [number, number]) => `${x - dir * out} ${y + across}`;
+    return END_SHAPES[end].map((points) =>
         end === 'arrow' ? { type: 'path', d: `M ${points.map(at).join(' L ')} Z`, fill: color } : { type: 'path', d: `M ${points.map(at).join(' L ')}`, stroke: color, width: 1.6 },
     );
 }

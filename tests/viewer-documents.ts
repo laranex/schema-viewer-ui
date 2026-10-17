@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { buildGraph, compareScopes, type SchemaDocument } from '../src/contract';
+import { buildGraph, compareScopes, type Index, type SchemaDocument } from '../src/contract';
 import { byCodePoint } from '../src/contract/serialize';
 import { root } from './helpers';
 
@@ -36,6 +36,55 @@ export const VIEWER_DOCUMENTS: Record<string, () => SchemaDocument> = {
         };
         const relationships = [...doc.relationships, through].sort((a, b) => byCodePoint(a.id, b.id));
         return { ...doc, relationships, ...buildGraph({ connections: doc.connections, relationships }) };
+    },
+    // Every kind of line end: a composite, nullable foreign key unique in another column order (order_lines →
+    // products), non-unique ones (customer_tags.tag_id, part of a composite primary key), one whose only unique index
+    // is partial (orders.customer_id, made nullable), a relationship-only link, and a relationship through orders.
+    'viewer-cardinality': () => {
+        const doc = valid('declared-sqlalchemy');
+        const index = (table: string, name: string, columns: string[], partial = false): Index => ({
+            backs: null,
+            expression: false,
+            id: `${table}:index:${name}`,
+            included: [],
+            method: null,
+            name,
+            partial,
+            parts: columns.map((column) => ({ collation: null, column, expression: null, length: null, nulls: null, opclass: null, order: null })),
+            predicate: partial ? 'customer_id IS NOT NULL' : null,
+            provenance: ['declared'],
+            unique: true,
+        });
+        const added: Record<string, Index[]> = {
+            'table:default.sales.order_lines': [index('table:default.sales.order_lines', 'order_lines_product_unique', ['product_region', 'product_sku'])],
+            'table:default.sales.orders': [index('table:default.sales.orders', 'orders_customer_open', ['customer_id'], true)],
+        };
+        const connections = doc.connections.map((c) => ({
+            ...c,
+            tables: c.tables.map((t) => ({
+                ...t,
+                columns: t.columns.map((col) => ((t.id === 'table:default.sales.orders' && col.name === 'customer_id') || (t.id === 'table:default.sales.order_lines' && col.name === 'product_sku') ? { ...col, nullable: true } : col)),
+                indexes: [...t.indexes, ...(added[t.id] ?? [])].sort((a, b) => byCodePoint(a.id, b.id)),
+            })),
+        }));
+        const orders = doc.relationships.find((r) => r.id === 'relationship:shop.models.Customer.orders');
+        if (!orders) {
+            throw new Error('declared-sqlalchemy changed: no Customer.orders relationship');
+        }
+        const lines = {
+            ...orders,
+            id: 'relationship:shop.models.Customer.lines',
+            name: 'lines',
+            inverse: null,
+            join: { primary: 'customers.id = sales.orders.customer_id', secondary: 'sales.orders.id = sales.order_lines.order_id' },
+            keys: null,
+            relatedModel: 'model:shop.models.OrderLine',
+            relatedTable: 'table:default.sales.order_lines',
+            through: ['table:default.sales.orders'],
+            readOnly: true,
+        };
+        const relationships = [...doc.relationships, lines].sort((a, b) => byCodePoint(a.id, b.id));
+        return { ...doc, connections, relationships, ...buildGraph({ connections, relationships }) };
     },
     // Both directions of the tenant comparison, so baseline and target can be chosen and swapped.
     'viewer-two-way-comparison': () => {

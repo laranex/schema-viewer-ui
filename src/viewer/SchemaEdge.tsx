@@ -1,6 +1,6 @@
 import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from '@xyflow/react';
 import { memo } from 'react';
-import type { EdgeKind } from './graph';
+import { END_SHAPES, lineEnds, type EdgeKind, type LineEnd } from './graph';
 import { LABEL_WIDTH, orthogonal, type Route } from './routing';
 
 export type SchemaEdgeData = {
@@ -15,7 +15,7 @@ export type SchemaEdgeData = {
     route: Route | null;
     showLabel: boolean;
     state: 'selected' | 'related' | 'none';
-    // The referencing end can repeat: a crow's foot there, else a single bar.
+    // The referencing end can repeat: a crow's foot there, else a single bar (graph.ts lineEnds).
     many: boolean;
 };
 
@@ -36,6 +36,7 @@ function SchemaEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<
     }
     const route = data.route ?? { sx: sourceX, sy: sourceY, tx: targetX, ty: targetY, channelX: (sourceX + targetX) / 2, labelX: (sourceX + targetX) / 2, labelY: (sourceY + targetY) / 2 };
     const path = orthogonal(route.sx, route.sy, route.channelX, route.tx, route.ty);
+    const ends = lineEnds(data);
     const className = ['edge', `edge--${data.kind}`, data.declaredOnly ? 'declared-only' : '', data.polymorphic ? 'polymorphic' : '', data.crossConnection ? 'cross-connection' : '', data.inferred ? 'inferred' : '', data.state === 'none' ? '' : data.state].filter(Boolean).join(' ');
     return (
         <>
@@ -43,8 +44,8 @@ function SchemaEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<
                 id={id}
                 path={path}
                 className={className}
-                markerStart={data.kind === 'through' ? undefined : `url(#lsv-${data.many ? 'many' : 'one'}-${colorOf(data)})`}
-                markerEnd={data.kind === 'through' ? 'url(#lsv-arrow-through)' : `url(#lsv-parent-${colorOf(data)})`}
+                markerStart={ends.start ? `url(#lsv-${ends.start}-${colorOf(data)})` : undefined}
+                markerEnd={ends.end === 'arrow' ? 'url(#lsv-arrow-through)' : `url(#lsv-${ends.end}-${colorOf(data)})`}
                 interactionWidth={16}
             />
             {data.showLabel && (
@@ -64,28 +65,31 @@ function SchemaEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<
 
 export const SchemaEdgeView = memo(SchemaEdge);
 
+// A line end's path in marker units, from graph.ts's END_SHAPES: x grows along the line's direction, so a start mark
+// (the referencing table) points its distance outwards and an end mark (the referenced table) inwards; 0 is the card.
+const pathOf = (end: LineEnd, sign: 1 | -1) => END_SHAPES[end].map((points) => `M${points.map(([out, across]) => `${sign * out} ${across}`).join(' L')}`).join(' ') + (end === 'arrow' ? ' z' : '');
+
 // Cardinality ends from Laranex Laravel Schema Viewer (MIT, ui/src/components/LinkEdge.tsx): a crow's foot where a key
 // can repeat, a bar where it cannot, a double bar at the referenced table, and an arrow for a relationship through other
-// tables. One set per line color.
+// tables. One set per line color; images draw the same shapes.
 export function EdgeMarkers() {
     return (
         <svg className="edge-markers" aria-hidden="true">
             <defs>
                 {COLORS.map((color) => (
                     <g key={color}>
-                        <marker id={`lsv-many-${color}`} viewBox="0 0 14 14" refX="1" refY="7" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                            <path d="M13 7 L1 1 M13 7 L1 7 M13 7 L1 13" className={`marker-stroke ${color}`} fill="none" />
-                        </marker>
-                        <marker id={`lsv-one-${color}`} viewBox="0 0 14 14" refX="1" refY="7" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
-                            <path d="M5 1 L5 13" className={`marker-stroke ${color}`} fill="none" />
-                        </marker>
-                        <marker id={`lsv-parent-${color}`} viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto">
-                            <path d="M9 1 L9 13 M5 1 L5 13" className={`marker-stroke ${color}`} fill="none" />
+                        {(['many', 'one'] as const).map((end) => (
+                            <marker key={end} id={`lsv-${end}-${color}`} viewBox="-2 -8 16 16" refX="0" refY="0" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+                                <path d={pathOf(end, 1)} className={`marker-stroke ${color}`} fill="none" />
+                            </marker>
+                        ))}
+                        <marker id={`lsv-parent-${color}`} viewBox="-14 -8 16 16" refX="0" refY="0" markerWidth="16" markerHeight="16" markerUnits="userSpaceOnUse" orient="auto">
+                            <path d={pathOf('parent', -1)} className={`marker-stroke ${color}`} fill="none" />
                         </marker>
                     </g>
                 ))}
-                <marker id="lsv-arrow-through" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto">
-                    <path d="M0 0 L10 5 L0 10 z" className="marker orm" />
+                <marker id="lsv-arrow-through" viewBox="-12 -7 14 14" refX="0" refY="0" markerWidth="14" markerHeight="14" markerUnits="userSpaceOnUse" orient="auto">
+                    <path d={pathOf('arrow', -1)} className="marker orm" />
                 </marker>
             </defs>
         </svg>

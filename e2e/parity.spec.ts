@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { END_SHAPES, type LineEnd } from '../src/viewer/graph';
 
 // Behaviour brought to parity with Laranex Laravel Schema Viewer, in the built bundle under the strict CSP.
 
@@ -119,6 +120,40 @@ test('draws a table on another connection that a relationship goes through as a 
     await expect(page.locator('.react-flow__edge-path.edge--through')).toHaveCount(1);
     await page.keyboard.press('4');
     await expect(page.locator('.react-flow__node-external[data-id="cache:sessions"]')).toHaveCount(0);
+});
+
+test('draws the same line ends on screen and in the SVG image', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'The image is checked on desktop.');
+    await page.goto('/f/viewer-cardinality/');
+    await loaded(page);
+    const lines = await page.locator('.react-flow__edge path[marker-end]').evaluateAll((paths) =>
+        paths.map((p) => ({ d: p.getAttribute('d') ?? '', start: p.getAttribute('marker-start'), end: p.getAttribute('marker-end') ?? '' })),
+    );
+    expect(lines.length).toBe(7);
+    const endOf = (marker: string | null) => (marker ? (/#lsv-(many|one|parent|arrow)-/.exec(marker)?.[1] as LineEnd) : null);
+    expect(lines.map((l) => endOf(l.start)).sort()).toEqual(['many', 'many', 'many', 'many', 'many', 'one', null].sort());
+    await page.getByRole('button', { name: 'Download' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Download' });
+    const [download] = await Promise.all([page.waitForEvent('download'), dialog.getByRole('button', { name: /^SVG/ }).click()]);
+    const svg = Buffer.concat(await (await download.createReadStream()).toArray()).toString('utf8');
+    for (const line of lines) {
+        // Each screen line is in the image along the same route, followed by its end shapes: graph.ts END_SHAPES points
+        // [out, across], out from the card along the line.
+        const n = line.d.match(/-?[\d.]+(e-?\d+)?/g)?.map(Number) ?? [];
+        const [sx, sy] = n;
+        const [tx, ty] = n.slice(-2);
+        const cx = line.d.includes('Q') ? n[4] : n[2];
+        const out = Math.sign(cx - sx) || 1;
+        const into = Math.sign(tx - cx) || 1;
+        const shape = (end: LineEnd, x: number, y: number, dir: number) =>
+            END_SHAPES[end].map((points) => `<path d="M ${points.map(([o, a]) => `${x + dir * o} ${y + a}`).join(' L ')}${end === 'arrow' ? ' Z' : ''}"`);
+        const start = endOf(line.start);
+        const expected = [`<path d="${line.d}"`, ...(start ? shape(start, sx, sy, out) : []), ...shape(endOf(line.end) ?? 'arrow', tx, ty, -into)];
+        const at = svg.indexOf(expected[0]);
+        expect(at, line.d).toBeGreaterThan(-1);
+        const following = svg.slice(at).split('/>').slice(0, expected.length).map((p) => p.slice(p.indexOf('<path')));
+        expect(following.map((p) => p.slice(0, p.indexOf('"', 9) + 1))).toEqual(expected);
+    }
 });
 
 test('says when a deep link points at something the document does not have', async ({ page }) => {

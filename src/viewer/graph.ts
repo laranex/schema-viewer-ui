@@ -122,19 +122,69 @@ export function diagnosticScope(doc: SchemaDocument, l: Lookup): DiagnosticScope
     return { tableOf, connectionsOf, tableOfId };
 }
 
-// Whether these columns are unique in the table on their own: its primary key, or a unique index (whole, columns only)
-// or unique constraint on exactly them, in any order.
-export function isUnique(table: Table | undefined, columns: string[]): boolean {
+// Whether the database enforces uniqueness on exactly these columns, in any order: the primary key, a unique index on
+// whole columns (not partial, no expression or prefix length), or a unique constraint without an expression. The one
+// cardinality rule for line ends: the diagram's crow's feet, SVG and PNG images and the Mermaid export all use it.
+export function isUnique(table: Pick<Table, 'primaryKey' | 'indexes' | 'constraints'> | undefined, columns: string[]): boolean {
     if (!table || !columns.length) {
         return false;
     }
     const same = (other: (string | null)[]) => other.length === columns.length && columns.every((c) => other.includes(c));
     return (
         same(table.primaryKey) ||
-        table.indexes.some((i) => i.unique && !i.partial && !i.expression && same(i.parts.map((p) => p.column))) ||
-        table.constraints.some((c) => c.kind === 'unique' && same(c.columns))
+        table.indexes.some((i) => i.unique && !i.partial && !i.expression && i.parts.every((p) => p.column !== null && p.length === null) && same(i.parts.map((p) => p.column))) ||
+        table.constraints.some((c) => c.kind === 'unique' && c.expression === null && same(c.columns))
     );
 }
+
+// A line's ends, Laravel Schema Viewer's markers: at the referencing table a crow's foot when its key can repeat, else
+// a bar; a double bar at the referenced table; a relationship through other tables has only an arrow.
+export type LineEnd = 'many' | 'one' | 'parent' | 'arrow';
+export const lineEnds = (e: Pick<GraphEdge, 'kind' | 'many'>): { start: LineEnd | null; end: LineEnd } =>
+    e.kind === 'through' ? { start: null, end: 'arrow' } : { start: e.many ? 'many' : 'one', end: 'parent' };
+
+// Each end's strokes (the arrow is filled), as [distance out from the card, offset across the line] points: the same
+// shapes on screen (SchemaEdge's markers) and in images (exportImage.ts). From Laranex Laravel Schema Viewer (MIT,
+// ui/src/components/LinkEdge.tsx).
+export const END_SHAPES: Record<LineEnd, [number, number][][]> = {
+    many: [
+        [
+            [12, 0],
+            [0, -6],
+        ],
+        [
+            [12, 0],
+            [0, 0],
+        ],
+        [
+            [12, 0],
+            [0, 6],
+        ],
+    ],
+    one: [
+        [
+            [4, -6],
+            [4, 6],
+        ],
+    ],
+    parent: [
+        [
+            [8, -6],
+            [8, 6],
+        ],
+        [
+            [4, -6],
+            [4, 6],
+        ],
+    ],
+    arrow: [
+        [
+            [10, -5],
+            [0, 0],
+            [10, 5],
+        ],
+    ],
+};
 
 export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdge[] {
     const edges: GraphEdge[] = doc.links.map((link) => {
