@@ -12,6 +12,11 @@ Producers in PHP, Python and TypeScript write the same contract, so the package 
 | `contract/fixtures/invalid/*.json` | `{ description, strict, errors, document }`: one broken rule each, with the messages a validator reports |
 | `contract/conformance/graph/*.json` | `{ description, input, expected }`: graph builder cases with hand-written expected links |
 | `contract/conformance/comparison/*.json` | `{ description, input: { document, baseline, target, overrides, limit }, expected }`: comparison cases with hand-written expected comparisons |
+| `contract/conformance/requests/*.json` | `{ description, input: { document, requests }, expected: { pairs, errors } }`: requested-comparison expansion (`*` targets, precedence, duplicates, errors) |
+| `contract/conformance/coverage-gaps/*.json` | `{ description, input: { document, scope }, expected: { gaps, covered } }`: why a side cannot be compared completely |
+| `contract/conformance/overrides/*.json` | `{ description, input: { overrides }, expected: { errors } }`: severity override validation with exact messages |
+| `contract/conformance/comparison-diagnostics/*.json` | `{ description, input: { document, comparison }, expected: { diagnostics } }`: the `comparison_incomplete` diagnostic stored beside a comparison |
+| `contract/conformance/store/*.json` | `{ description, input: { document, comparisons }, expected: { document } }`: storing comparisons into a document |
 | `contract/conformance/migrations/*.json` | `{ description, input: { revisions, current }, expected: { history, status, pending, unknownRevisions } }` |
 | `contract/conformance/inference/*.json` | `{ description, input: { source, connections, models, relationships, links }, expected: { inferredAssociations } }` |
 | `contract/conformance/gate/*.json` | `{ description, input: { document, thresholds, requested }, expected }`: gate cases with hand-written expected reports |
@@ -22,8 +27,9 @@ Producers in PHP, Python and TypeScript write the same contract, so the package 
 
 1. Every valid fixture passes its validator and round-trips to identical canonical bytes.
 2. Every invalid fixture is rejected; rule errors use the listed messages.
-3. Its graph builder, comparison, migration status, inference and gate turn every conformance input into exactly
-   the expected output, ids, labels and messages included.
+3. Its graph builder, comparison (with request expansion, coverage gaps, override validation, incomplete
+   diagnostics and storing), migration status, inference and gate turn every conformance input into exactly the
+   expected output, ids, labels and messages included.
 4. Its own output passes `check.mjs`:
 
 ```bash

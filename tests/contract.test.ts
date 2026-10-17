@@ -2,7 +2,33 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { assertDocument, buildGraph, canonicalJson, compareScopes, comparisonId, diagnosticId, documentRevision, gateDocument, gateReportJsonSchema, inferAssociations, InvalidDocumentError, jsonSchema, migrationHistory, migrationState, UnsupportedDocumentError, validateDocument, validateGateReport } from '../src/contract';
+import {
+    assertDocument,
+    buildGraph,
+    canonicalJson,
+    compareScopes,
+    comparisonDiagnostics,
+    comparisonId,
+    coverageGaps,
+    coverageGapText,
+    diagnosticId,
+    DIFFERENCE_FIELDS,
+    documentRevision,
+    expandComparisonRequests,
+    gateDocument,
+    gateReportJsonSchema,
+    inferAssociations,
+    InvalidDocumentError,
+    jsonSchema,
+    migrationHistory,
+    migrationState,
+    scopeCovered,
+    storeComparisons,
+    UnsupportedDocumentError,
+    validateDocument,
+    validateGateReport,
+    validateSeverityOverrides,
+} from '../src/contract';
 import { sha256 } from '../src/contract/sha256';
 import { VALID } from './fixtures/documents';
 import { COMPARISON_CASES } from './fixtures/comparison-cases';
@@ -11,6 +37,7 @@ import { GATE_CASES } from './fixtures/gate-cases';
 import { GRAPH_CASES } from './fixtures/graph-cases';
 import { INFERENCE_CASES } from './fixtures/inference-cases';
 import { MIGRATION_CASES } from './fixtures/migration-cases';
+import { COMPARISON_DIAGNOSTIC_CASES, COVERAGE_CASES, OVERRIDE_CASES, REQUEST_CASES, STORE_CASES } from './fixtures/producer-cases';
 import { INVALID } from './fixtures/invalid';
 import { root } from './helpers';
 
@@ -65,6 +92,11 @@ describe('contract artifacts', () => {
     it('migration conformance cases are current', () => artifacts('conformance/migrations', MIGRATION_CASES));
     it('inference conformance cases are current', () => artifacts('conformance/inference', INFERENCE_CASES));
     it('gate conformance cases are current', () => artifacts('conformance/gate', GATE_CASES));
+    it('request conformance cases are current', () => artifacts('conformance/requests', REQUEST_CASES));
+    it('coverage conformance cases are current', () => artifacts('conformance/coverage-gaps', COVERAGE_CASES));
+    it('override conformance cases are current', () => artifacts('conformance/overrides', OVERRIDE_CASES));
+    it('comparison diagnostic conformance cases are current', () => artifacts('conformance/comparison-diagnostics', COMPARISON_DIAGNOSTIC_CASES));
+    it('store conformance cases are current', () => artifacts('conformance/store', STORE_CASES));
 });
 
 describe('valid fixtures', () => {
@@ -114,6 +146,97 @@ describe('comparison conformance', () => {
             expect(compareScopes(c.input.document, c.input.baseline, c.input.target, { overrides: c.input.overrides, limit: c.input.limit })).toEqual(c.expected);
         });
     }
+});
+
+describe('request conformance', () => {
+    for (const [name, c] of Object.entries(REQUEST_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(expandComparisonRequests(c.input.document, c.input.requests)).toEqual(c.expected);
+        });
+    }
+});
+
+describe('coverage conformance', () => {
+    for (const [name, c] of Object.entries(COVERAGE_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(coverageGaps(c.input.document, c.input.scope)).toEqual(c.expected.gaps);
+            const connection = c.input.document.connections.find((x) => x.id === c.input.scope.connection);
+            const coverage = c.input.document.source === 'declared' ? connection!.coverage.declared : connection!.coverage.database;
+            expect(scopeCovered(coverage, connection!, c.input.scope.schema)).toBe(c.expected.covered);
+        });
+    }
+});
+
+describe('override conformance', () => {
+    for (const [name, c] of Object.entries(OVERRIDE_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(validateSeverityOverrides(c.input.overrides)).toEqual(c.expected.errors);
+        });
+    }
+});
+
+describe('comparison diagnostic conformance', () => {
+    for (const [name, c] of Object.entries(COMPARISON_DIAGNOSTIC_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(comparisonDiagnostics(c.input.document, c.input.comparison)).toEqual(c.expected.diagnostics);
+        });
+    }
+});
+
+describe('store conformance', () => {
+    for (const [name, c] of Object.entries(STORE_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(validateDocument(c.input.document, { strict: true }).errors).toEqual([]);
+            expect(validateDocument(c.expected.document, { strict: true }).errors).toEqual([]);
+            expect(storeComparisons(c.input.document, c.input.comparisons)).toEqual(c.expected.document);
+            expect(storeComparisons(c.expected.document, c.input.comparisons)).toEqual(c.expected.document);
+        });
+    }
+});
+
+describe('producer helpers', () => {
+    const tenants = VALID['comparison-tenant-schemas']();
+    const [stored] = tenants.comparisons;
+
+    it('compareScopes rejects invalid overrides', () => {
+        expect(() => compareScopes(tenants, stored.baseline, stored.target, { overrides: [{ objectType: 'column', change: 'missing', field: 'type', severity: 'error' }] })).toThrow(
+            'Invalid severity overrides: overrides[0].field applies only to changed differences, not missing',
+        );
+    });
+
+    it('lists every field compareScopes can report', () => {
+        for (const c of tenants.comparisons) {
+            for (const d of c.differences) {
+                d.fields.forEach((f) => expect(DIFFERENCE_FIELDS[d.objectType]).toContain(f.field));
+            }
+        }
+    });
+
+    it('derives complete from the coverage gaps and the omitted differences', () => {
+        const doc = VALID['comparison-incomplete']();
+        for (const c of doc.comparisons) {
+            const gaps = [...coverageGaps(doc, c.baseline), ...coverageGaps(doc, c.target)];
+            expect(c.complete).toBe(c.omitted === 0 && gaps.length === 0);
+            expect(gaps.map(coverageGapText)).toEqual(['checkConstraints unavailable', 'checkConstraints unavailable']);
+        }
+    });
+
+    it('expands requests without throwing, whatever the document holds', () => {
+        expect(expandComparisonRequests({ source: 'database', connections: [] }, [{ baseline: { connection: 'a', schema: null }, target: { connection: 'a', schema: '*' } }]).errors.map((e) => e.kind)).toEqual(['unknown_connection']);
+    });
+
+    it('stores in every valid fixture exactly the comparison_incomplete diagnostics the template builds', () => {
+        for (const [name, build] of Object.entries(VALID)) {
+            const doc = build();
+            const stored = doc.diagnostics.filter((d) => d.kind === 'comparison_incomplete');
+            expect(stored, name).toEqual(doc.comparisons.flatMap((c) => comparisonDiagnostics(doc, c)));
+            expect(storeComparisons(doc, doc.comparisons), name).toEqual(doc);
+        }
+    });
+
+    it('refuses to store two comparisons with one id', () => {
+        expect(() => storeComparisons(tenants, [stored, stored])).toThrow(`Comparison ${stored.id} is listed more than once`);
+    });
 });
 
 describe('migration conformance', () => {

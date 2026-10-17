@@ -1,7 +1,9 @@
-import { scopeCovered, tableLabel } from './comparison';
+import { byRequest, coverageGaps, coverageGapText, expandComparisonRequests, spellScope as spell, tableLabel, type CoverageGap, type RequestedComparison } from './comparison';
 import { byCodePoint, byList } from './ids';
 import { array, boolean, integer, literal, nullable, object, oneOf, string, type JsonSchema, type Shape } from './shape';
 import { CHANGES, FEATURES, MAJOR, OBJECT_TYPES, VERSION, type Certainty, type Comparison, type Connection, type Diagnostic, type MigrationTrack, type SchemaDocument, type Scope, type Severity, type Table } from './types';
+
+export type { RequestedComparison };
 import { validateDocument } from './validate';
 
 // The CI drift gate: gateDocument() checks a document's comparisons, drift and reconciliation diagnostics and
@@ -12,10 +14,6 @@ export const GATE_FORMAT = 'laranex-schema-gate';
 export const GATE_VERSION = '1.0';
 
 export type GateThresholds = { severity: Severity; certainty: Certainty };
-
-// A comparison the gate is asked to check, by connection name. A target schema "*" stands for every schema the target
-// connection's inspection read, except the baseline's own scope.
-export type RequestedComparison = { baseline: { connection: string; schema: string | null }; target: { connection: string; schema: string | null } };
 
 export type GateOptions = {
     // Each one defaults separately: severity "warning", certainty "certain".
@@ -113,19 +111,10 @@ const COMPARISON_KINDS = OBJECT_TYPES.flatMap((o) => CHANGES.map((c) => `${snake
 // The migration statuses that are findings, with their severity; up_to_date is none, unknown an error.
 const MIGRATION_SEVERITY: Partial<Record<MigrationTrack['status'], Severity>> = { behind: 'error', diverged: 'error', uninitialized: 'warning' };
 export const DEFAULT_THRESHOLDS: GateThresholds = { severity: 'warning', certainty: 'certain' };
-const WILDCARD = '*';
 const REQUIRED_FEATURES: string[] = ['tables', 'columns'];
 
 export const qualifies = (finding: Pick<GateFinding, 'severity' | 'certainty'>, thresholds: GateThresholds) =>
     RANK[finding.severity] >= RANK[thresholds.severity] && (thresholds.certainty === 'likely' || finding.certainty === 'certain');
-
-// null sorts before any string.
-const byNullable = (a: string | null, b: string | null) => (a === b ? 0 : a === null ? -1 : b === null ? 1 : byCodePoint(a, b));
-const byScope = (a: RequestedComparison['baseline'], b: RequestedComparison['baseline']) => byCodePoint(a.connection, b.connection) || byNullable(a.schema, b.schema);
-const byRequest = (a: RequestedComparison, b: RequestedComparison) => byScope(a.baseline, b.baseline) || byScope(a.target, b.target);
-
-// A scope as people write it: the connection's name, then ":schema".
-const spell = (connection: string, schema: string | null) => (schema === null ? connection : `${connection}:${schema}`);
 
 // The report for what was found. Findings are sorted by source, id and kind; errors by kind and message, each listed once.
 function report(thresholds: GateThresholds, requested: RequestedComparison[], comparisons: string[], findings: GateFinding[], errors: GateError[]): GateReport {
@@ -186,44 +175,21 @@ export function gateDocument(input: unknown, options: GateOptions = {}): GateRep
     }
 
     const connections = new Map(doc.connections.map((c) => [c.id, c]));
-    const byName = new Map(doc.connections.map((c) => [c.name, c]));
     const nameOf = (id: string) => connections.get(id)?.name ?? id;
     const pair = (baseline: Scope, target: Scope) => `${spell(nameOf(baseline.connection), baseline.schema)} → ${spell(nameOf(target.connection), target.schema)}`;
-    const sideCoverage = (c: Connection) => (doc.source === 'declared' ? c.coverage.declared : c.coverage.database);
 
     // The comparisons to check: every stored one, or only the requested ones.
     let checked: Comparison[] = doc.comparisons;
     if (requested.length) {
         const wanted = new Set<string>();
-        for (const r of requested) {
-            const request = `${spell(r.baseline.connection, r.baseline.schema)} → ${spell(r.target.connection, r.target.schema)}`;
-            const baseline = byName.get(r.baseline.connection);
-            const target = byName.get(r.target.connection);
-            const unknown = [...new Set([r.baseline.connection, r.target.connection])].filter((n) => !byName.has(n));
-            unknown.forEach((n) => errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${request} names connection ${n}, which the document does not have.` }));
-            if (!baseline || !target) {
-                continue;
-            }
-            let schemas: (string | null)[] = [r.target.schema];
-            if (r.target.schema === WILDCARD) {
-                const read = sideCoverage(target)?.schemas ?? null;
-                if (read === null) {
-                    errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${request} cannot be expanded: the inspection of connection ${target.name} lists no schemas.` });
-                    continue;
-                }
-                const own = (s: string) => target.id === baseline.id && (s === r.baseline.schema || (r.baseline.schema === null && s === target.defaultSchema));
-                schemas = [...new Set(read)].sort(byCodePoint).filter((s) => !own(s));
-                if (schemas.length === 0) {
-                    errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${request} matches no schema.` });
-                }
-            }
-            for (const schema of schemas) {
-                const found = doc.comparisons.find((c) => c.baseline.connection === baseline.id && c.baseline.schema === r.baseline.schema && c.target.connection === target.id && c.target.schema === schema);
-                if (found) {
-                    wanted.add(found.id);
-                } else {
-                    errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${spell(baseline.name, r.baseline.schema)} → ${spell(target.name, schema)} is not in the document.` });
-                }
+        const expanded = expandComparisonRequests(doc, requested);
+        expanded.errors.forEach((e) => errors.push({ kind: 'comparison_not_found', message: e.message }));
+        for (const { baseline, target } of expanded.pairs) {
+            const found = doc.comparisons.find((c) => c.baseline.connection === baseline.connection && c.baseline.schema === baseline.schema && c.target.connection === target.connection && c.target.schema === target.schema);
+            if (found) {
+                wanted.add(found.id);
+            } else {
+                errors.push({ kind: 'comparison_not_found', message: `Requested comparison ${pair(baseline, target)} is not in the document.` });
             }
         }
         checked = doc.comparisons.filter((c) => wanted.has(c.id));
@@ -249,9 +215,8 @@ export function gateDocument(input: unknown, options: GateOptions = {}): GateRep
                 reasons.push(`${c.omitted} of ${c.summary.missing + c.summary.extra + c.summary.changed} differences omitted`);
             }
             for (const [side, scope] of [['baseline', c.baseline], ['target', c.target]] as const) {
-                const connection = connections.get(scope.connection) as Connection;
-                if (!scopeCovered(sideCoverage(connection), connection, scope.schema)) {
-                    reasons.push(`the ${side} ${spell(connection.name, scope.schema)} was not inspected completely`);
+                if (coverageGaps(doc, scope).length) {
+                    reasons.push(`the ${side} ${spell(nameOf(scope.connection), scope.schema)} was not inspected completely`);
                 }
             }
             errors.push({ kind: 'comparison_incomplete', message: `Comparison ${label} is incomplete${reasons.length ? `: ${reasons.join('; ')}` : ''}.` });
@@ -263,9 +228,9 @@ export function gateDocument(input: unknown, options: GateOptions = {}): GateRep
     if (doc.source !== 'declared') {
         for (const c of doc.connections) {
             const features = c.coverage.database?.features ?? {};
-            const gaps = FEATURES.filter((f) => features[f] === 'unavailable' || (REQUIRED_FEATURES.includes(f) && features[f] !== 'complete')).map((f) => `${f} ${features[f] ?? 'unknown'}`);
+            const gaps: CoverageGap[] = FEATURES.filter((f) => features[f] === 'unavailable' || (REQUIRED_FEATURES.includes(f) && features[f] !== 'complete')).map((f) => ({ kind: 'feature', feature: f, state: features[f] ?? 'unknown' }));
             if (gaps.length) {
-                errors.push({ kind: 'coverage_incomplete', message: `Connection ${c.name}: the database inspection is incomplete: ${gaps.join(', ')}.` });
+                errors.push({ kind: 'coverage_incomplete', message: `Connection ${c.name}: the database inspection is incomplete: ${gaps.map(coverageGapText).join(', ')}.` });
             }
         }
     }
