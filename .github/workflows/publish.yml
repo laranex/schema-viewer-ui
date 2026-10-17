@@ -1,0 +1,51 @@
+name: Publish to npm
+
+# Runs when a GitHub release vX.Y.Z is published. The full test workflow must pass, the tag must match package.json,
+# the version must not already be on npm, and the packed tarball must check out before npm Trusted Publishing (OIDC)
+# publishes it with provenance. No npm token is stored in the repository.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  publish:
+    needs: tests
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/laranex-schema-viewer-ui
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Check the release tag and that the version is new
+        run: |
+          version=$(node -p "require('./package.json').version")
+          test "${GITHUB_REF_NAME}" = "v${version}" || { echo "Tag ${GITHUB_REF_NAME} does not match version ${version}"; exit 1; }
+          if npm view "laranex-schema-viewer-ui@${version}" version >/dev/null 2>&1; then
+            echo "Version ${version} is already on npm"; exit 1
+          fi
+      - run: npm ci
+      - run: npm run build
+      - run: npm run contract:check
+      - run: npm run test:package
+      # Trusted Publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@11
+      - run: npm publish --provenance --access public
