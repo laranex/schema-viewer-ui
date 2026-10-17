@@ -318,6 +318,12 @@ describe('tour', () => {
         expect(screen.getByRole('dialog', { name: 'Welcome' })).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Next' }));
         expect(screen.getByRole('dialog', { name: 'The diagram' })).toBeInTheDocument();
+        for (const title of ['A table', 'Search', 'Tools', 'Side panel', 'Downloads', 'Theme and shortcuts']) {
+            fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+            expect(screen.getByRole('dialog', { name: title })).toBeInTheDocument();
+        }
+        expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Back' }));
         press('Escape');
         expect(screen.queryByRole('dialog', { name: 'The diagram' })).toBeNull();
     });

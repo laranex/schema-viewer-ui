@@ -1481,7 +1481,7 @@ function Viewer({
                                 ))}
                             </select>
                         )}
-                        <button type="button" className="header-button" aria-haspopup="dialog" onClick={() => setDownloading(true)} title="Download (E)">
+                        <button type="button" className="header-button header-download" aria-haspopup="dialog" onClick={() => setDownloading(true)} title="Download (E)">
                             <Icon name="download" /> Download
                         </button>
                         <button type="button" className="icon-button" onClick={toggle} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title="Switch theme">
