@@ -1,15 +1,21 @@
 // Finishes dist/viewer for hosts that vendor it:
 //   index.html: the page, loading snapshot.json from its own directory. Hosts that inline the document use a
 //     script#schema-viewer-data tag or window.__SCHEMA_VIEWER__ instead of data-snapshot-url.
+//   favicon.svg and favicon.ico: the Laranex mark (scripts/favicon.mjs), linked by relative URLs so they work under any
+//     base path, and at /favicon.ico when a host serves dist/viewer at its root.
 //   manifest.json: the package and contract versions and every file's size and SHA-256, so a vendored copy can be
 //     checked against the release it came from.
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { faviconIco, faviconSvg } from './favicon.mjs';
 
 const root = fileURLToPath(new URL('../dist/viewer/', import.meta.url));
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+
+writeFileSync(join(root, 'favicon.svg'), faviconSvg);
+writeFileSync(join(root, 'favicon.ico'), faviconIco());
 
 writeFileSync(
     join(root, 'index.html'),
@@ -21,6 +27,8 @@ writeFileSync(
   <meta name="color-scheme" content="light dark">
   <meta name="generator" content="laranex-schema-viewer-ui ${version}">
   <title>Laranex Schema Viewer</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="32x32">
   <link rel="stylesheet" href="app.css">
   <script type="module" src="app.js"></script>
 </head>

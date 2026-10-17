@@ -57,6 +57,15 @@ try {
             fail(`${file.path} does not match the manifest`);
         }
     }
+    for (const icon of ['favicon.svg', 'favicon.ico']) {
+        if (!manifest.files.some((f) => f.path === icon)) {
+            fail(`the manifest does not list ${icon}`);
+        }
+    }
+    const page = readFileSync(join(installed, 'dist/viewer/index.html'), 'utf8');
+    if (!page.includes('<link rel="icon" href="favicon.svg" type="image/svg+xml">') || !page.includes('<link rel="icon" href="favicon.ico" sizes="32x32">')) {
+        fail('index.html does not link the favicon by relative URLs');
+    }
     for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/check.mjs', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
         if (!existsSync(join(installed, required))) {
             fail(`missing ${required}`);

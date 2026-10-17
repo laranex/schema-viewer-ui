@@ -3,6 +3,7 @@
 //   /f/<fixture>/          the viewer, fetching snapshot.json (a contract fixture)
 //   /inline/<fixture>/     the viewer, with the document inline in script#schema-viewer-data
 //   /element/<fixture>/    <laranex-schema-viewer src="snapshot.json">
+//   /page/<fixture>/       dist/viewer/index.html exactly as shipped, with its favicon links
 //   /f/invalid/            a document the viewer must refuse
 import { readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -12,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const viewer = join(root, 'dist/viewer');
 const port = Number(process.env.PORT ?? 4180);
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.woff2': 'font/woff2', '.woff': 'font/woff', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 // The Python package's viewer policy (src/laranex_schema_viewer/server.py), so passing here means the bundle drops in.
 const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
 
@@ -33,13 +34,16 @@ createServer((request, response) => {
     };
     const [, mode, name, ...rest] = new URL(request.url, 'http://x').pathname.split('/');
     const file = rest.join('/');
-    if (!['f', 'inline', 'element'].includes(mode) || !name) {
+    if (!['f', 'inline', 'element', 'page'].includes(mode) || !name) {
         return send(404, 'text/plain', 'not found');
     }
     const json = fixture(name);
     if (file === '') {
         if (json === null) {
             return send(404, 'text/plain', 'no such fixture');
+        }
+        if (mode === 'page') {
+            return send(200, 'text/html', readFileSync(join(viewer, 'index.html')));
         }
         const escaped = json.replace(/</g, '\\u003c');
         const body =

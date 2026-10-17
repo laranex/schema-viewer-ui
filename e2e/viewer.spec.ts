@@ -24,6 +24,22 @@ test.describe('standalone viewer under a strict CSP', () => {
         await expect(page.getByRole('combobox', { name: 'Search the schema' })).toBeVisible();
     });
 
+    test('serves the favicon the page links to', async ({ page, request }) => {
+        await page.goto('/page/database-sqlite-indexes/');
+        await loaded(page);
+        const icons = await page.locator('link[rel="icon"]').evaluateAll((links) => links.map((l) => l.getAttribute('href')));
+        expect(icons).toEqual(['favicon.svg', 'favicon.ico']);
+        const svg = await request.get('/page/database-sqlite-indexes/favicon.svg');
+        expect(svg.status()).toBe(200);
+        expect(svg.headers()['content-type']).toBe('image/svg+xml');
+        expect(await svg.text()).toContain('<svg');
+        const ico = await request.get('/page/database-sqlite-indexes/favicon.ico');
+        expect(ico.status()).toBe(200);
+        const bytes = await ico.body();
+        expect(bytes.subarray(0, 4).toString('hex')).toBe('00000100');
+        expect(bytes.subarray(22, 30).toString('hex')).toBe('89504e470d0a1a0a');
+    });
+
     test('refuses a document that is not laranex-schema 1.x', async ({ page }) => {
         await page.goto('/f/invalid/');
         await expect(page.getByText('Snapshot unavailable')).toBeVisible();
