@@ -62,6 +62,7 @@ export default defineConfig({
         { text: 'Validation & conformance', link: '/conformance' },
       ] },
       { text: 'REFERENCE', items: [
+        { text: 'Feature parity with Laravel', link: '/parity' },
         { text: 'Roadmap', link: '/roadmap' },
         { text: 'Troubleshooting', link: '/troubleshooting' },
       ] },

@@ -40,11 +40,12 @@ All notable changes to this project are documented here. The format follows
 - A **Download** dialog replaces the Download menu: a connection selector, Mermaid, DBML, Markdown and JSON with a
   preview, conversion warnings, copy and download; SVG and PNG of the whole diagram or what is on screen; "This page as
   HTML"; and the whole document and host `downloads`. <kbd>E</kbd> and the phone's ⋯ menu open it.
-- Image exports draw comparison marks, inferred-association styling, diagnostics counts, `PIVOT` tags, label chips
-  and crow's-foot ends, embed their fonts in the SVG, and no longer depend on the selection. Images are named
-  `schema-<connection or all>.svg|png`.
+- Image exports draw comparison marks, inferred-association styling, diagnostics counts, `PIVOT` tags, label chips,
+  reference nodes (through tables on other connections included) and the diagram's line ends, embed their fonts in
+  the SVG, and no longer depend on the selection. Images are named `schema-<connection or all>.svg|png`.
 - `dist/viewer/offline.js` (the viewer as one script with ELK inlined) and the offline HTML export: one
-  `schema-viewer.html` with the script, styles, fonts, favicon and document embedded, a hash-based
+  `schema-viewer.html` with the script, styles, fonts, the brand mark as its favicon (`FAVICON_DATA_URI`) and the
+  document embedded, a hash-based
   Content-Security-Policy, no network access, opening from `file://`. `offlineHtml`, `fetchOfflineBundle` and the
   `offlineBundle` prop let React hosts offer it.
 
@@ -99,7 +100,10 @@ All notable changes to this project are documented here. The format follows
   <kbd>X</kbd> (Compare), <kbd>M</kbd> (Migrations) and <kbd>5</kbd>; diagnostics about a comparison, migration track
   or inferred association link to it.
 - Laravel Schema Viewer's line ends: crow's foot or single bar at the referencing end by the columns' uniqueness, a
-  double bar at the referenced table, an arrow for relationships through other tables.
+  double bar at the referenced table, an arrow for relationships through other tables. One rule (`isUnique`: the
+  primary key, a whole-column unique index that is not partial, or a unique constraint without an expression, on
+  exactly the columns in any order) and one set of shapes serve the diagram, SVG and PNG images and Mermaid's
+  foreign-key ends, so all three agree.
 - Column details (click a card row or a column name in Details; `#column=`): facts, indexes, foreign keys in both
   directions, the lines that use it, lit on the diagram, and diagnostics.
 - Focus on a line (double-click it, <kbd>Shift</kbd> <kbd>F</kbd>, or Focus in its details; `#focus=<line id>`), and a
@@ -112,6 +116,7 @@ All notable changes to this project are documented here. The format follows
   then the phone sheet.
 - The connection picker shows each connection's driver and table count, and the Tables menu the number of tables of
   each owner kind.
+- The tour has a Downloads step for the Download dialog.
 - Copy link adds the viewport (`#at=x,y,zoom`), and a link with it opens panned and zoomed as it was; <kbd>⌘/Ctrl</kbd>
   <kbd>K</kbd> focuses the search.
 
@@ -128,6 +133,7 @@ All notable changes to this project are documented here. The format follows
   notes and comparison marks arrange the diagram again.
 - Connection frames follow their tables: a table dragged out of its frame enlarges it, on the diagram and in images.
 - The Compare filters are kept in deep links (`#object=…&change=…&severity=…&certainty=…`).
+- Cards and images say "+ 1 more column" rather than "+ 1 more columns", and images say "more" as cards do.
 - On a phone, a deep link to a table, line, association or view opens the bottom sheet on its tab.
 - Menu hints wrap instead of being cut off at the menu's edge.
 - With one connection shown, a relationship through a table on another connection draws that table as a reference

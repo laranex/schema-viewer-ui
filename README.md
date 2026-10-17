@@ -31,8 +31,8 @@ Hosts without Node.js serve `node_modules/laranex-schema-viewer-ui/dist/viewer/`
 `<laranex-schema-viewer src="snapshot.json">`. Using the viewer (layout, connections, line ends, column details,
 shortcuts and deep links) is described in [docs/viewer.md](docs/viewer.md).
 
-Its icons, brand mark and favicon come from Laranex Laravel Schema Viewer, drawn in this package's own theme colors
-(see NOTICE).
+Its icons, brand mark, favicon and line ends come from Laranex Laravel Schema Viewer, drawn in this package's own
+theme colors (see NOTICE); [docs/parity.md](docs/parity.md) compares the two viewers feature by feature.
 
 ## License
 

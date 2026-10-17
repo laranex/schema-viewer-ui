@@ -1,6 +1,7 @@
 # Roadmap
 
-Planned work that is designed but not implemented. Each item lands as its own milestone with tests.
+Planned work that is designed but not implemented. Each item lands as its own milestone with tests. The remaining
+differences from Laranex Laravel Schema Viewer are listed in [Feature parity](./parity.md).
 
 ## Client-side schema export system
 

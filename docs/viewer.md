@@ -63,8 +63,11 @@ opens the sheet on its tab.
 | Dash-dot, violet, `FK · inferred` | A foreign key with an inferred association: a heuristic, no ORM relationship declared |
 
 Line ends follow Laravel Schema Viewer's: a crow's foot where the referencing columns can repeat, a single bar where
-they are unique (primary key, unique index or unique constraint), a double bar at the referenced table, and an arrow
-at the end of a relationship through other tables.
+they are unique, a double bar at the referenced table, and an arrow at the end of a relationship through other tables.
+Unique means the primary key, a unique index on whole columns that is not partial, or a unique constraint without an
+expression, on exactly the referencing columns in any order; a relationship-only line follows the same rule on its
+key columns. Images and the Mermaid export use the same rule and shapes. Nullability is not drawn: a nullable key
+still gets a bar or a crow's foot (Mermaid alone writes it as an optional parent end, `|o`).
 
 A line's details name the index that serves its foreign key (one whose leading columns are the key's) or say there is
 none, and list the diagnostics about the line, its foreign key and its relationships.
@@ -120,8 +123,10 @@ does not have opens the whole diagram with a note saying so. A copied link (<kbd
 
 ## Known limitations
 
+What differs from Laranex Laravel Schema Viewer, feature by feature, is in [Feature parity](./parity.md).
+
+
 - Unfolding one card keeps every position, so a taller card can overlap the one below it; Arrange again (Tables menu)
   lays the diagram out afresh. Dragged positions are not remembered across reloads (only the theme is).
 - A frame grows to contain a table dragged out of it but does not push other frames away; frames can overlap.
-- PNG and SVG images draw plain arrowheads, not the crow's-foot line ends shown on the diagram.
 - There is no dense mode for very large schemas: every line keeps its full weight.
