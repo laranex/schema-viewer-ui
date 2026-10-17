@@ -1,0 +1,75 @@
+Enum customer_status {
+  "active"
+  "closed"
+}
+
+Table customer_tags {
+  customer_id INTEGER [not null]
+  tag_id INTEGER [not null]
+
+  indexes {
+    (customer_id, tag_id) [pk]
+  }
+}
+
+Table customers {
+  id INTEGER [pk, not null]
+  email VARCHAR(255) [not null, note: 'Login address']
+  active BOOLEAN [not null, default: `true`]
+  status customer_status [not null]
+  created_at DATETIME [not null]
+
+  indexes {
+    email [unique, name: 'uq_customers_active_email']
+    `lower(email)` [name: 'ix_customers_lower_email']
+  }
+
+  checks {
+    `length(email) > 3` [name: 'ck_customers_email_length']
+  }
+  Note: 'Buyers'
+}
+
+Table products {
+  sku VARCHAR(32) [not null]
+  region CHAR(2) [not null]
+  price "NUMERIC(10, 2)" [not null]
+
+  indexes {
+    (sku, region) [pk]
+  }
+}
+
+Table sales.order_lines {
+  order_id INTEGER [not null]
+  line_no INTEGER [not null]
+  product_sku VARCHAR(32) [not null]
+  product_region CHAR(2) [not null]
+  quantity INTEGER [not null]
+
+  indexes {
+    (order_id, line_no) [pk]
+  }
+}
+
+Table sales.orders {
+  id INTEGER [pk, not null]
+  customer_id INTEGER [not null]
+  referrer_email VARCHAR(255)
+  legacy_ref VARCHAR(20)
+
+  indexes {
+    customer_id [name: 'ix_orders_customer_id']
+  }
+}
+
+Table tags {
+  id INTEGER [pk, not null]
+  label VARCHAR(40) [not null, unique]
+}
+
+Ref fk_customer_tags_customer: customer_tags.customer_id > customers.id [delete: cascade]
+Ref fk_customer_tags_tag: customer_tags.tag_id > tags.id [delete: cascade]
+Ref fk_order_lines_order: sales.order_lines.order_id > sales.orders.id [delete: cascade]
+Ref fk_order_lines_product: sales.order_lines.(product_sku, product_region) > products.(sku, region)
+Ref fk_orders_customer: sales.orders.customer_id > customers.id [delete: restrict, update: cascade]

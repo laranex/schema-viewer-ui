@@ -1,0 +1,106 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: billing.invoices → billing_invoices, public.accounts → public_accounts."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:primary",
+        "label": "primary"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of primary: 11 indexes, 1 check constraint, 5 column defaults, 1 generated column, 1 enum value list, 1 comment or note, 1 referential action set."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_email_key",
+        "label": "public.accounts"
+      },
+      "message": "The unique index accounts_email_key on public.accounts.email is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "column",
+        "id": "pg:public.accounts",
+        "label": "public.accounts.search"
+      },
+      "message": "public.accounts.search is a generated (stored) column; DBML cannot state its expression: to_tsvector('simple', email)"
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_external_ref_key",
+        "label": "public.accounts"
+      },
+      "message": "Index accounts_external_ref_key on public.accounts loses the dialect options (postgresql): DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_live_email_idx",
+        "label": "public.accounts"
+      },
+      "message": "Index accounts_live_email_idx on public.accounts loses the predicate WHERE (deleted_at IS NULL): DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_created_at_idx",
+        "label": "public.accounts"
+      },
+      "message": "Index accounts_created_at_idx on public.accounts loses the included columns (status); created_at's order desc, nulls last: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_email_pattern_idx",
+        "label": "public.accounts"
+      },
+      "message": "Index accounts_email_pattern_idx on public.accounts loses email's collation C, operator class text_pattern_ops: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_tags_idx",
+        "label": "public.accounts"
+      },
+      "message": "Index accounts_tags_idx on public.accounts loses the method gin: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_data_idx",
+        "label": "public.accounts"
+      },
+      "message": "Index accounts_data_idx on public.accounts loses data's operator class jsonb_path_ops; the method gin: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "pg:public.accounts:index:accounts_search_idx",
+        "label": "public.accounts"
+      },
+      "message": "Index accounts_search_idx on public.accounts loses the method gin: DBML cannot state them."
+    }
+  ],
+  "markdown": []
+}

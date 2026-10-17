@@ -1,0 +1,90 @@
+Table tenant_behind.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_behind.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_branches.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_branches.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_current.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_current.audit_log {
+  id bigint [pk, not null]
+  event text [not null]
+}
+
+Table tenant_current.legacy_import {
+  row text [not null]
+}
+
+Table tenant_current.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_diverged.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_diverged.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_locked.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_locked.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_new.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_partial.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_partial.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_partial_new.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_scriptless.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_scriptless.users {
+  id bigint [pk, not null]
+  email text [not null]
+}
+
+Table tenant_unknown.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_unknown.users {
+  id bigint [pk, not null]
+  email text [not null]
+}

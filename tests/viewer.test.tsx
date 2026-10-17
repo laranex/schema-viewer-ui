@@ -74,7 +74,7 @@ describe('every valid fixture', () => {
         const sources = readdirSync(root('src/viewer')).concat(readdirSync(root('src/standalone')).map((f) => `../standalone/${f}`));
         for (const file of sources.filter((f) => /\.tsx?$/.test(f))) {
             const text = readFileSync(root('src/viewer', file), 'utf8');
-            expect(text, file).not.toMatch(/compareScopes|migrationState|migrationHistory|inferAssociations|gateDocument|contract\/(comparison|migration|inference|gate)/);
+            expect(text, file).not.toMatch(/compareScopes|expandComparisonRequests|coverageGaps|scopeCovered|validateSeverityOverrides|comparisonDiagnostics|storeComparisons|migrationState|migrationHistory|inferAssociations|gateDocument|contract\/(comparison|migration|inference|gate)/);
         }
     });
 });
@@ -318,6 +318,12 @@ describe('tour', () => {
         expect(screen.getByRole('dialog', { name: 'Welcome' })).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Next' }));
         expect(screen.getByRole('dialog', { name: 'The diagram' })).toBeInTheDocument();
+        for (const title of ['A table', 'Search', 'Tools', 'Side panel', 'Downloads', 'Theme and shortcuts']) {
+            fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+            expect(screen.getByRole('dialog', { name: title })).toBeInTheDocument();
+        }
+        expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Back' }));
         press('Escape');
         expect(screen.queryByRole('dialog', { name: 'The diagram' })).toBeNull();
     });
@@ -340,7 +346,7 @@ describe('multiple connections', () => {
     it('frames every connection in a labelled region, keeping tables of the same name apart', async () => {
         const { container } = await show(multi());
         await waitFor(() => expect(container.querySelectorAll('.region-node')).toHaveLength(3));
-        expect([...container.querySelectorAll('.region-node')].map((r) => r.textContent)).toEqual(['apppostgresql · 2 tables', 'analyticsmysql · 2 tables', 'cachesqlite · 1 table']);
+        expect([...container.querySelectorAll('.region-node')].map((r) => r.textContent)).toEqual(['apppostgresql · 2 tables · 1 diagnostic', 'analyticsmysql · 2 tables · 1 diagnostic', 'cachesqlite · 1 table · 1 diagnostic']);
         expect(card(container, 'app:public.users')).toHaveTextContent('app · public.users');
         expect(card(container, 'analytics:users')).toHaveTextContent('analytics · users');
         expect(container.querySelectorAll('[data-external]')).toHaveLength(0);

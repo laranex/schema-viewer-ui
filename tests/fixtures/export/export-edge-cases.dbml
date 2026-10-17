@@ -1,0 +1,56 @@
+Project "edge cases" {
+  Note: 'A note with \'quotes\', a back\\slash and a line break.'
+}
+
+Enum item_state {
+  "new"
+  "it\"s done"
+}
+
+Table public.children {
+  id integer [pk, increment, not null]
+  parent_a char(2)
+  parent_b char(2)
+  parent_id integer [not null, unique]
+  sibling_id integer
+}
+
+Table "my schema"."order \"items\" <b>" {
+  id bigint [pk, increment, not null]
+  "na|me" "character varying(80)" [not null, note: 'Pipe | and <script>alert(1)</script> second line · It\'s a `note` with \\ backslash']
+  "back`tick" text [default: `concat('a', 'b')`]
+  "2fa_secret" text
+  state item_state [not null, default: `'new'::item_state`]
+  total numeric(12,2)
+  price numeric(10,2) [not null]
+  quantity integer [not null]
+  title text [not null]
+
+  indexes {
+    title [name: 'odd_title_prefix_idx']
+    title [type: hash, name: 'odd_title_hash_idx']
+    title [name: 'odd_title_gin_idx']
+    title [unique, name: 'odd_live_title_idx']
+    (quantity, `lower(title)`) [name: 'odd_mixed_idx']
+  }
+  Note: 'Table | with <html> & `code`'
+}
+
+Table public.parents {
+  id integer [pk, increment, not null]
+  code_a char(2) [not null]
+  code_b char(2) [not null]
+  ratio numeric(5,2)
+
+  indexes {
+    (code_a, code_b) [unique, name: 'parents_codes_key']
+  }
+
+  checks {
+    `(ratio >= 0)` [name: 'parents_ratio_check']
+  }
+}
+
+Ref children_parent_codes_fkey: public.children.(parent_a, parent_b) > public.parents.(code_a, code_b) [delete: set null, update: restrict]
+Ref children_parent_id_fkey: public.children.parent_id - public.parents.id [delete: cascade]
+Ref children_sibling_fkey: public.children.sibling_id > public.children.id

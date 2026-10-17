@@ -1,0 +1,61 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: tenant_a.alembic_version → tenant_a_alembic_version, tenant_a.audit_events → tenant_a_audit_events, tenant_a.invoices → tenant_a_invoices, tenant_a.line_items → tenant_a_line_items, tenant_a.orders → tenant_a_orders, tenant_a.products → tenant_a_products, tenant_a.settings → tenant_a_settings, tenant_a.users → tenant_a_users, tenant_b.alembic_version → tenant_b_alembic_version, tenant_b.audit_events → tenant_b_audit_events, tenant_b.coupons → tenant_b_coupons, tenant_b.line_items → tenant_b_line_items, tenant_b.orders → tenant_b_orders, tenant_b.refunds → tenant_b_refunds, tenant_b.settings → tenant_b_settings, tenant_b.users → tenant_b_users."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:app",
+        "label": "app"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of app: 8 indexes, 5 check constraints, 6 column defaults, 3 comments and notes, 4 referential action sets."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "app:tenant_a.orders:index:orders_placed_at_idx",
+        "label": "tenant_a.orders"
+      },
+      "message": "Index orders_placed_at_idx on tenant_a.orders loses placed_at's order desc: DBML cannot state them."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "app:tenant_a.users:index:users_email_key",
+        "label": "tenant_a.users"
+      },
+      "message": "The unique index users_email_key on tenant_a.users.email is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "app:tenant_b.users:index:users_email_key",
+        "label": "tenant_b.users"
+      },
+      "message": "The unique index users_email_key on tenant_b.users.email is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "app:tenant_b.users:index:users_name_idx",
+        "label": "tenant_b.users"
+      },
+      "message": "The unique index users_name_idx on tenant_b.users.name is written as the column's unique setting; its name is not kept."
+    }
+  ],
+  "markdown": []
+}

@@ -1,0 +1,16 @@
+Table archive.archive {
+  id bigint [pk, not null]
+}
+
+Table archive.billing {
+  id bigint [pk, not null]
+}
+
+Table billing.billing {
+  id bigint [pk, not null]
+  archive text
+
+  indexes {
+    archive [name: 'archive']
+  }
+}

@@ -1,4 +1,4 @@
-import { byList, comparisonId, differenceId } from './ids';
+import { byCodePoint, byList, comparisonId, diagnosticId, differenceId } from './ids';
 import {
     CHANGES,
     OBJECT_TYPES,
@@ -10,7 +10,9 @@ import {
     type Coverage,
     type Difference,
     type DifferenceRef,
+    type Diagnostic,
     type Feature,
+    type FeatureCoverage,
     type FieldDifference,
     type ForeignKey,
     type Index,
@@ -27,6 +29,7 @@ import {
 
 export type SeverityOverride = { objectType: ObjectType; change: Change; field?: string | null; severity: Severity };
 export type CompareOptions = { overrides?: SeverityOverride[]; limit?: number | null };
+type ComparedDocument = Pick<SchemaDocument, 'source' | 'connections'>;
 
 // The features a comparison reads; a side whose coverage does not have them all complete makes it incomplete.
 export const COMPARISON_FEATURES: Feature[] = [
@@ -69,6 +72,70 @@ export function defaultSeverity(objectType: ObjectType, change: Change, field: s
 }
 
 const RANK: Record<Severity, number> = { info: 0, warning: 1, error: 2 };
+const SEVERITIES: Severity[] = ['error', 'warning', 'info'];
+
+// The fields a changed difference of each object type can list (the comparison algorithm), in code point order:
+// exactly the fields a severity override may name.
+export const DIFFERENCE_FIELDS: Record<ObjectType, readonly string[]> = {
+    table: ['comment'],
+    column: ['collation', 'comment', 'default', 'enum', 'generated', 'nullable', 'type'],
+    primaryKey: ['columns'],
+    index: ['included', 'method', 'name', 'parts', 'predicate', 'unique'],
+    foreignKey: ['columns', 'deferrable', 'foreignColumns', 'foreignTable', 'initially', 'name', 'onDelete', 'onUpdate'],
+    constraint: ['columns', 'expression', 'name'],
+};
+
+const OVERRIDE_KEYS = ['objectType', 'change', 'field', 'severity'];
+
+// Checks severity overrides as a producer reads them from its configuration: an array of
+// { objectType, change, field?, severity }. Returns the errors, empty when the overrides are valid.
+export function validateSeverityOverrides(overrides: unknown): string[] {
+    if (!Array.isArray(overrides)) {
+        return ['overrides must be an array'];
+    }
+    const errors: string[] = [];
+    const seen = new Map<string, number>();
+    overrides.forEach((o: unknown, i) => {
+        const at = `overrides[${i}]`;
+        if (typeof o !== 'object' || o === null || Array.isArray(o)) {
+            errors.push(`${at} must be an object`);
+            return;
+        }
+        const { objectType, change, field = null, severity } = o as Record<string, unknown>;
+        const unknown = Object.keys(o).filter((k) => !OVERRIDE_KEYS.includes(k)).sort(byCodePoint);
+        if (unknown.length) {
+            errors.push(`${at} has unknown keys: ${unknown.join(', ')}`);
+        }
+        const typeOk = OBJECT_TYPES.includes(objectType as ObjectType);
+        const changeOk = CHANGES.includes(change as Change);
+        if (!typeOk) {
+            errors.push(`${at}.objectType must be one of ${OBJECT_TYPES.join(', ')}`);
+        }
+        if (!changeOk) {
+            errors.push(`${at}.change must be one of ${CHANGES.join(', ')}`);
+        }
+        if (!SEVERITIES.includes(severity as Severity)) {
+            errors.push(`${at}.severity must be one of ${SEVERITIES.join(', ')}`);
+        }
+        if (field !== null && typeof field !== 'string') {
+            errors.push(`${at}.field must be a string or null`);
+        } else if (field !== null && changeOk && change !== 'changed') {
+            errors.push(`${at}.field applies only to changed differences, not ${change as string}`);
+        } else if (field !== null && typeOk && change === 'changed' && !DIFFERENCE_FIELDS[objectType as ObjectType].includes(field)) {
+            errors.push(`${at}.field must be one of ${DIFFERENCE_FIELDS[objectType as ObjectType].join(', ')} for objectType ${objectType as string}`);
+        }
+        if (typeOk && changeOk && (field === null || typeof field === 'string')) {
+            const key = JSON.stringify([objectType, change, field]);
+            const first = seen.get(key);
+            if (first === undefined) {
+                seen.set(key, i);
+            } else {
+                errors.push(`${at} repeats overrides[${first}]`);
+            }
+        }
+    });
+    return errors;
+}
 
 function severityOf(objectType: ObjectType, change: Change, field: string | null, overrides: SeverityOverride[]): Severity {
     const match = (f: string | null) => overrides.find((o) => o.objectType === objectType && o.change === change && (o.field ?? null) === f)?.severity;
@@ -149,11 +216,8 @@ type Side = {
     coverage: Coverage | null;
 };
 
-function side(doc: Pick<SchemaDocument, 'source' | 'connections'>, scope: Scope): Side {
-    const connection = doc.connections.find((c) => c.id === scope.connection);
-    if (!connection) {
-        throw new Error(`Unknown connection ${scope.connection}`);
-    }
+function side(doc: ComparedDocument, scope: Scope): Side {
+    const connection = connectionOf(doc, scope);
     const physical = (e: { provenance: string[] }) => doc.source !== 'combined' || e.provenance.includes('database');
     const tables = new Map<string, Table>();
     for (const t of connection.tables) {
@@ -171,21 +235,59 @@ function side(doc: Pick<SchemaDocument, 'source' | 'connections'>, scope: Scope)
         physical,
         tables,
         nameOf: (id) => all.get(id) ?? id,
-        coverage: doc.source === 'declared' ? connection.coverage.declared : connection.coverage.database,
+        coverage: coverageOf(doc, connection),
     };
 }
 
-// Whether a side's coverage supports a comparison: every compared feature complete or not applicable, and the scope's
-// schema read when both it and the coverage's schemas are known.
-export function scopeCovered(coverage: Coverage | null, connection: Connection, schema: string | null): boolean {
-    if (!coverage || !COMPARISON_FEATURES.every((f) => coverage.features[f] === 'complete' || coverage.features[f] === 'not_applicable')) {
-        return false;
+// Why a side's coverage does not support a comparison: no coverage at all; else each compared feature that is not
+// complete or not applicable (state partial, unavailable, or unknown when left out), in COMPARISON_FEATURES order;
+// then the scope's schema when the coverage did not read it. The gate words its coverage_incomplete gaps alike.
+export type CoverageGap = { kind: 'coverage_unknown' } | { kind: 'feature'; feature: Feature; state: FeatureCoverage | 'unknown' } | { kind: 'schema_not_read'; schema: string };
+
+function gapsOf(coverage: Coverage | null, connection: Connection, schema: string | null): CoverageGap[] {
+    if (!coverage) {
+        return [{ kind: 'coverage_unknown' }];
+    }
+    const gaps: CoverageGap[] = [];
+    for (const feature of COMPARISON_FEATURES) {
+        const state = coverage.features[feature];
+        if (state !== 'complete' && state !== 'not_applicable') {
+            gaps.push({ kind: 'feature', feature, state: state ?? 'unknown' });
+        }
     }
     const read = schema ?? connection.defaultSchema;
-    return read === null || coverage.schemas === null || coverage.schemas.includes(read);
+    if (read !== null && coverage.schemas !== null && !coverage.schemas.includes(read)) {
+        gaps.push({ kind: 'schema_not_read', schema: read });
+    }
+    return gaps;
 }
 
-const covered = (s: Side) => scopeCovered(s.coverage, s.connection, s.scope.schema);
+// A gap as messages spell it: "coverage unknown", "{feature} {state}", "schema {schema} not read".
+export function coverageGapText(gap: CoverageGap): string {
+    return gap.kind === 'coverage_unknown' ? 'coverage unknown' : gap.kind === 'feature' ? `${gap.feature} ${gap.state}` : `schema ${gap.schema} not read`;
+}
+
+// The gaps of one side of a comparison: its connection's database coverage, or declared coverage in a declared
+// document. Throws for a scope whose connection the document does not have.
+export function coverageGaps(doc: ComparedDocument, scope: Scope): CoverageGap[] {
+    const connection = connectionOf(doc, scope);
+    return gapsOf(coverageOf(doc, connection), connection, scope.schema);
+}
+
+// Whether a side's coverage supports a comparison: it has no coverage gaps.
+export function scopeCovered(coverage: Coverage | null, connection: Connection, schema: string | null): boolean {
+    return gapsOf(coverage, connection, schema).length === 0;
+}
+
+function connectionOf(doc: ComparedDocument, scope: Scope): Connection {
+    const connection = doc.connections.find((c) => c.id === scope.connection);
+    if (!connection) {
+        throw new Error(`Unknown connection ${scope.connection}`);
+    }
+    return connection;
+}
+
+const coverageOf = (doc: ComparedDocument, connection: Connection) => (doc.source === 'declared' ? connection.coverage.declared : connection.coverage.database);
 
 type Found = { objectType: ObjectType; key: string[]; change: Change; baseline: DifferenceRef | null; target: DifferenceRef | null; fields: FieldDifference[]; likely: boolean };
 
@@ -214,8 +316,13 @@ function pair<T extends { id: string }>(a: T[], b: T[], passes: ((x: T) => strin
 
 const same = (a: JsonValue, b: JsonValue) => JSON.stringify(a) === JSON.stringify(b);
 
-// Compares the tables of two scopes of one document. Throws when a scope's table names repeat.
-export function compareScopes(doc: Pick<SchemaDocument, 'source' | 'connections'>, baseline: Scope, target: Scope, options: CompareOptions = {}): Comparison {
+// Compares the tables of two scopes of one document. Throws when a scope's table names repeat or the overrides are
+// invalid (validateSeverityOverrides).
+export function compareScopes(doc: ComparedDocument, baseline: Scope, target: Scope, options: CompareOptions = {}): Comparison {
+    const invalid = validateSeverityOverrides(options.overrides ?? []);
+    if (invalid.length) {
+        throw new Error(`Invalid severity overrides: ${invalid.join('; ')}`);
+    }
     const A = side(doc, baseline);
     const B = side(doc, target);
     const sameDriver = A.connection.driver !== null && A.connection.driver === B.connection.driver;
@@ -403,7 +510,8 @@ export function compareScopes(doc: Pick<SchemaDocument, 'source' | 'connections'
     const limit = options.limit ?? null;
     const kept = limit === null ? differences : differences.slice(0, limit);
     const omitted = differences.length - kept.length;
-    return { id, baseline, target, complete: omitted === 0 && covered(A) && covered(B), omitted, summary, differences: kept };
+    const complete = omitted === 0 && [A, B].every((s) => gapsOf(s.coverage, s.connection, s.scope.schema).length === 0);
+    return { id, baseline, target, complete, omitted, summary, differences: kept };
 }
 
 function columnFields(a: Column, b: Column, A: Side, B: Side, sameDriver: boolean): { fields: FieldDifference[]; likely: boolean } {
@@ -438,4 +546,124 @@ function columnFields(a: Column, b: Column, A: Side, B: Side, sameDriver: boolea
     }
     likely ||= fields.some((f) => LIKELY_FIELDS.column.includes(f.field));
     return { fields, likely };
+}
+
+// A comparison as people request it, by connection name. A target schema "*" stands for every schema the target
+// connection's inspection read, except the baseline's own scope; "*" in a baseline is an ordinary schema name.
+export type RequestedComparison = { baseline: { connection: string; schema: string | null }; target: { connection: string; schema: string | null } };
+export type ExpandedComparison = { baseline: Scope; target: Scope; request: RequestedComparison };
+export const REQUEST_ERROR_KINDS = ['unknown_connection', 'no_schemas', 'no_match', 'duplicate'] as const;
+export type RequestError = { kind: (typeof REQUEST_ERROR_KINDS)[number]; request: RequestedComparison; message: string };
+
+export const WILDCARD = '*';
+
+// null sorts before any string.
+const byNullable = (a: string | null, b: string | null) => (a === b ? 0 : a === null ? -1 : b === null ? 1 : byCodePoint(a, b));
+const byScope = (a: { connection: string; schema: string | null }, b: { connection: string; schema: string | null }) => byCodePoint(a.connection, b.connection) || byNullable(a.schema, b.schema);
+// Requests, and pairs of scopes, by baseline connection, baseline schema, target connection and target schema.
+export const byRequest = (a: RequestedComparison, b: RequestedComparison) => byScope(a.baseline, b.baseline) || byScope(a.target, b.target);
+
+// A scope as people write it: the connection's name, then ":schema".
+export const spellScope = (connection: string, schema: string | null) => (schema === null ? connection : `${connection}:${schema}`);
+
+// Resolves requested comparisons to the scope pairs they stand for (docs/contract.md, "Requested comparisons").
+// Never throws; what cannot be resolved is an error, and the rest is still expanded.
+export function expandComparisonRequests(doc: ComparedDocument, requests: readonly RequestedComparison[]): { pairs: ExpandedComparison[]; errors: RequestError[] } {
+    const byName = new Map(doc.connections.map((c) => [c.name, c]));
+    const chosen = new Map<string, ExpandedComparison>();
+    const errors: RequestError[] = [];
+    const sorted = requests.map((r) => ({ baseline: { connection: r.baseline.connection, schema: r.baseline.schema }, target: { connection: r.target.connection, schema: r.target.schema } })).sort(byRequest);
+    sorted.forEach((request, i) => {
+        const spelled = `${spellScope(request.baseline.connection, request.baseline.schema)} → ${spellScope(request.target.connection, request.target.schema)}`;
+        const error = (kind: RequestError['kind'], message: string) => errors.push({ kind, request, message: `Requested comparison ${spelled} ${message}` });
+        if (i > 0 && byRequest(sorted[i - 1], request) === 0) {
+            if (i === 1 || byRequest(sorted[i - 2], request) !== 0) {
+                error('duplicate', 'is listed more than once.');
+            }
+            return;
+        }
+        const baseline = byName.get(request.baseline.connection);
+        const target = byName.get(request.target.connection);
+        for (const name of new Set([request.baseline.connection, request.target.connection])) {
+            if (!byName.has(name)) {
+                error('unknown_connection', `names connection ${name}, which the document does not have.`);
+            }
+        }
+        if (!baseline || !target) {
+            return;
+        }
+        const wildcard = request.target.schema === WILDCARD;
+        let schemas: (string | null)[] = [request.target.schema];
+        if (wildcard) {
+            const read = coverageOf(doc, target)?.schemas ?? null;
+            if (read === null) {
+                error('no_schemas', `cannot be expanded: the inspection of connection ${target.name} lists no schemas.`);
+                return;
+            }
+            const own = (s: string) => target.id === baseline.id && (s === request.baseline.schema || (request.baseline.schema === null && s === target.defaultSchema));
+            schemas = [...new Set(read)].sort(byCodePoint).filter((s) => !own(s));
+            if (schemas.length === 0) {
+                error('no_match', 'matches no schema.');
+            }
+        }
+        for (const schema of schemas) {
+            const pair: ExpandedComparison = { baseline: { connection: baseline.id, schema: request.baseline.schema }, target: { connection: target.id, schema }, request };
+            const key = JSON.stringify([pair.baseline, pair.target]);
+            // A pair named explicitly takes precedence over the same pair from a "*" expansion.
+            if (!chosen.has(key) || !wildcard) {
+                chosen.set(key, pair);
+            }
+        }
+    });
+    const pairs = [...chosen.values()].sort((a, b) => byScope(a.baseline, b.baseline) || byScope(a.target, b.target));
+    return { pairs, errors };
+}
+
+const scopeName = (doc: ComparedDocument, scope: Scope) => spellScope(doc.connections.find((c) => c.id === scope.connection)?.name ?? scope.connection, scope.schema);
+
+// The comparison_incomplete diagnostic a producer stores beside an incomplete comparison: none when it is complete.
+export function comparisonDiagnostics(doc: ComparedDocument, comparison: Comparison): Diagnostic[] {
+    if (comparison.complete) {
+        return [];
+    }
+    const reasons: string[] = [];
+    if (comparison.omitted > 0) {
+        const { missing, extra, changed } = comparison.summary;
+        reasons.push(`${comparison.omitted} of ${missing + extra + changed} differences are left out by the limit of ${comparison.differences.length}`);
+    }
+    for (const [side, scope] of [['baseline', comparison.baseline], ['target', comparison.target]] as const) {
+        const gaps = coverageGaps(doc, scope);
+        if (gaps.length) {
+            reasons.push(`the ${side} ${scopeName(doc, scope)} is not completely covered (${gaps.map(coverageGapText).join(', ')})`);
+        }
+    }
+    const label = `${scopeName(doc, comparison.baseline)}=${scopeName(doc, comparison.target)}`;
+    const subject = { type: 'comparison' as const, id: comparison.id, columns: null, label };
+    const message = reasons.length ? `Comparison ${label} is incomplete: ${reasons.join('; ')}` : `Comparison ${label} is incomplete`;
+    const d = { kind: 'comparison_incomplete', category: 'inspection' as const, severity: 'warning' as const, certainty: 'certain' as const, subject, message };
+    return [{ id: diagnosticId(d), ...d }];
+}
+
+// Diagnostics in canonical order: category, kind, subject type, subject id (null as ""), message.
+const diagnosticKey = (d: Diagnostic) => [d.category, d.kind, d.subject.type, d.subject.id ?? '', d.message];
+
+// The document with these comparisons stored: stored comparisons with the same ids, and every diagnostic whose subject
+// is one of them, are replaced; the others are kept. Each new comparison's diagnostics (comparisonDiagnostics) are
+// added. Comparisons end sorted by id, diagnostics in canonical order, each diagnostic id once. Throws when two of the
+// comparisons have one id.
+export function storeComparisons<T extends SchemaDocument>(doc: T, comparisons: readonly Comparison[]): T {
+    const ids = new Set(comparisons.map((c) => c.id));
+    if (ids.size !== comparisons.length) {
+        const repeated = comparisons.find((c, i) => comparisons.findIndex((x) => x.id === c.id) !== i) as Comparison;
+        throw new Error(`Comparison ${repeated.id} is listed more than once`);
+    }
+    const kept = doc.comparisons.filter((c) => !ids.has(c.id));
+    const diagnostics = [...doc.diagnostics.filter((d) => !(d.subject.type === 'comparison' && d.subject.id !== null && ids.has(d.subject.id))), ...comparisons.flatMap((c) => comparisonDiagnostics(doc, c))];
+    const unique = new Map<string, Diagnostic>();
+    for (const d of diagnostics.sort((a, b) => byList(diagnosticKey(a), diagnosticKey(b)))) {
+        if (!unique.has(d.id)) {
+            unique.set(d.id, d);
+        }
+    }
+    return { ...doc, comparisons: [...kept, ...comparisons].sort((a, b) => byCodePoint(a.id, b.id)), diagnostics: [...unique.values()] };
 }

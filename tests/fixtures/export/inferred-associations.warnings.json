@@ -1,0 +1,89 @@
+{
+  "mermaid": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "app:public.users:fk:users_team_id_fkey",
+        "label": "public.users"
+      },
+      "message": "Foreign key users_team_id_fkey on public.users is declared only by the ORM, not in the database; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "foreignKey",
+        "id": "app:public.order_lines:fk:order_lines_order_fkey",
+        "label": "public.order_lines"
+      },
+      "message": "Composite foreign key order_lines_order_fkey on public.order_lines is one relationship labelled with its columns; Mermaid cannot pair them with region, number."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: public.accounts → public_accounts, public.friendships → public_friendships, public.import_rows → public_import_rows, public.invoices → public_invoices, public.messages → public_messages, public.order_lines → public_order_lines, public.orders → public_orders, public.passports → public_passports, public.post_tags → public_post_tags, public.posts → public_posts, public.profiles → public_profiles, public.tags → public_tags, public.teams → public_teams, public.users → public_users."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:app",
+        "label": "app"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of app: 1 index."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "app:public.users:fk:users_team_id_fkey",
+        "label": "public.users"
+      },
+      "message": "Foreign key users_team_id_fkey on public.users is declared only by the ORM, not in the database; it is left out."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "constraint",
+        "id": "app:public.orders:constraint:orders_region_number_key",
+        "label": "public.orders"
+      },
+      "message": "The unique constraint orders_region_number_key on public.orders is written as a unique index; DBML has no unique constraints apart from indexes."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "index",
+        "id": "app:public.passports:index:passports_user_id_idx",
+        "label": "public.passports"
+      },
+      "message": "The unique index passports_user_id_idx on public.passports.user_id is written as the column's unique setting; its name is not kept."
+    },
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "constraint",
+        "id": "app:public.profiles:constraint:profiles_user_id_key",
+        "label": "public.profiles"
+      },
+      "message": "The unique constraint profiles_user_id_key on public.profiles.user_id is written as the column's unique setting; its name is not kept."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "foreignKey",
+        "id": "app:public.users:fk:users_team_id_fkey",
+        "label": "public.users"
+      },
+      "message": "Foreign key users_team_id_fkey on public.users is declared only by the ORM, not in the database; it is left out."
+    }
+  ]
+}

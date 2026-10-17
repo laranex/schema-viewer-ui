@@ -1,0 +1,143 @@
+Table tenant_a.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_a.audit_events {
+  id bigint [pk, not null]
+  payload jsonb [not null]
+}
+
+Table tenant_a.invoices {
+  id bigint [pk, not null]
+  order_id bigint [not null]
+}
+
+Table tenant_a.line_items {
+  order_id bigint [not null]
+  line_no integer [not null]
+  qty integer [not null]
+  product_id bigint [not null]
+
+  indexes {
+    (order_id, line_no) [pk]
+  }
+
+  checks {
+    `((qty > 0))` [name: 'line_items_qty_check']
+  }
+}
+
+Table tenant_a.orders {
+  id bigint [pk, increment, not null]
+  user_id bigint [not null]
+  total numeric(10,2) [not null]
+  placed_at "timestamp with time zone"
+
+  indexes {
+    user_id [name: 'orders_user_id_idx']
+    placed_at [name: 'orders_placed_at_idx']
+  }
+
+  checks {
+    `((total >= (0)::numeric))` [name: 'orders_total_check']
+  }
+}
+
+Table tenant_a.products {
+  id bigint [pk, not null]
+  name text [not null]
+}
+
+Table tenant_a.settings {
+  key text [not null]
+  value text [not null]
+}
+
+Table tenant_a.users {
+  id bigint [pk, increment, not null]
+  email "character varying(255)" [not null, unique]
+  name text [not null]
+  status "character varying(20)" [not null, default: `'active'::character varying`]
+  legacy_code text
+
+  indexes {
+    name [name: 'users_name_idx']
+  }
+
+  checks {
+    `((status)::text = ANY ((ARRAY['active'::character varying, 'pending'::character varying])::text[]))` [name: 'users_status_check']
+  }
+  Note: 'Tenant users'
+}
+
+Table tenant_b.alembic_version {
+  version_num "character varying(32)" [pk, not null]
+}
+
+Table tenant_b.audit_events {
+  id bigint [not null]
+  payload jsonb [not null]
+}
+
+Table tenant_b.coupons {
+  id bigint [pk, not null]
+  code text [not null]
+}
+
+Table tenant_b.line_items {
+  order_id bigint [not null]
+  line_no integer [not null]
+  variant integer [not null]
+  qty integer [not null]
+  coupon_id bigint
+
+  indexes {
+    (order_id, line_no, variant) [pk]
+  }
+}
+
+Table tenant_b.orders {
+  id bigint [pk, increment, not null]
+  user_id bigint [not null]
+  total numeric(12,2) [not null]
+  placed_at "timestamp with time zone" [not null]
+
+  indexes {
+    user_id [name: 'orders_user_idx']
+    total [name: 'orders_total_idx']
+  }
+
+  checks {
+    `((total > (0)::numeric))` [name: 'orders_total_check']
+  }
+}
+
+Table tenant_b.refunds {
+  id bigint [pk, not null]
+  order_id bigint [not null]
+}
+
+Table tenant_b.settings {
+  key text [pk, not null]
+  value text [not null]
+}
+
+Table tenant_b.users {
+  id bigint [pk, increment, not null]
+  email "character varying(255)" [not null, unique]
+  name text [not null, unique]
+  status "character varying(20)" [not null, default: `'pending'::character varying`]
+  phone text [note: 'E.164']
+
+  checks {
+    `((status)::text = ANY ((ARRAY['active'::character varying, 'pending'::character varying])::text[]))` [name: 'users_status_check']
+  }
+  Note: 'Users'
+}
+
+Ref line_items_order_id_fkey: tenant_a.line_items.order_id > tenant_a.orders.id [delete: cascade]
+Ref line_items_product_id_fkey: tenant_a.line_items.product_id > tenant_a.products.id
+Ref orders_user_id_fkey: tenant_a.orders.user_id > tenant_a.users.id [delete: cascade]
+Ref line_items_order_id_fkey: tenant_b.line_items.order_id > tenant_b.orders.id [delete: cascade]
+Ref line_items_coupon_id_fkey: tenant_b.line_items.coupon_id > tenant_b.coupons.id
+Ref orders_user_id_fkey: tenant_b.orders.user_id > tenant_b.users.id [delete: restrict]

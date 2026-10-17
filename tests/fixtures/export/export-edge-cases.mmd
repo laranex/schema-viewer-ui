@@ -1,0 +1,29 @@
+erDiagram
+    public_children {
+        integer id PK
+        char parent_a FK
+        char parent_b FK
+        integer parent_id FK, UK
+        integer sibling_id FK
+    }
+    my_schema_order__items___b_ {
+        bigint id PK
+        varchar na_me
+        text back_tick
+        text _2fa_secret
+        enum state
+        numeric total
+        numeric price
+        integer quantity
+        text title
+    }
+    public_parents {
+        integer id PK
+        char code_a
+        char code_b
+        numeric ratio
+    }
+    public_parents |o--o{ public_children : "parent_a, parent_b"
+    public_parents ||--o| public_children : "parent_id"
+    public_parents ||--o| public_children : "parent_id"
+    public_children |o--o{ public_children : "sibling_id"

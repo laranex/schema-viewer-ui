@@ -25,8 +25,38 @@ All notable changes to this project are documented here. The format follows
 - Diagnostics have a rule-based `id`; column diagnostics must name their columns.
 - `Connection.driver` uses one spelling per database (`postgresql`, `mysql`, `mariadb`, `sqlite`, `sqlsrv`,
   `oracle`); aliases such as `pgsql` are rejected.
+- Icons, the brand mark and the favicon come from Laranex Laravel Schema Viewer: one icon system (`Icon` in
+  `src/viewer/icons.tsx`, re-exported from `ui.tsx`) with Laravel's shapes on its 16-unit grid and 1.6 stroke in the
+  control's color, new icons in the same style for select, details, changes, compare, migrations and the migration
+  statuses, and an external-link mark on editor links and a note mark on cards with a note or comment. The unused
+  `arrange`, `focus` and `link` icons are gone. Colors and both themes are unchanged.
+- The header's brand mark is Laravel's two tables joined by a relationship, in the theme's accent.
+- `favicon.svg` and `favicon.ico` (now 16 and 32 pixels) are the same mark on a tile in the theme's surface, line and
+  accent colors, with a dark variant in the SVG; the Vite build writes them from `src/viewer/brand.ts`
+  (`scripts/favicon.mjs` is removed), byte-identical every build, under the same file names and in `manifest.json`.
+  `brand.ts` also exports `FAVICON_DATA_URI` for pages that inline everything. The docs site's logo and favicon are the
+  same file.
 
 ### Added
+
+- `laranex-schema-viewer-ui/export`: client-side exporters behind one `Exporter` interface (`export(document,
+  { connections, dialect, orm }) → { content, warnings }`) for Mermaid ERD, DBML (dbdiagram.io), Markdown and JSON,
+  pure TypeScript with no React or DOM, deterministic, after Laranex Laravel Schema Viewer's formats. Only physical
+  foreign keys become relationships or Refs; in a combined document what only the ORM declares is left out; composite
+  keys, expression and partial indexes, unique and check constraints are kept where the format can state them, and
+  everything else is reported as a warning. JSON is a strictly valid 2.0 document of the chosen connection, with links
+  rebuilt by `buildGraph` (`scopeDocument`). `exportFileName` names files `schema-<connection>.<extension>`.
+- A **Download** dialog replaces the Download menu: a connection selector, Mermaid, DBML, Markdown and JSON with a
+  preview, conversion warnings, copy and download; SVG and PNG of the whole diagram or what is on screen; "This page as
+  HTML"; and the whole document and host `downloads`. <kbd>E</kbd> and the phone's ⋯ menu open it.
+- Image exports draw comparison marks, inferred-association styling, diagnostics counts, `PIVOT` tags, label chips,
+  reference nodes (through tables on other connections included) and the diagram's line ends, embed their fonts in
+  the SVG, and no longer depend on the selection. Images are named `schema-<connection or all>.svg|png`.
+- `dist/viewer/offline.js` (the viewer as one script with ELK inlined) and the offline HTML export: one
+  `schema-viewer.html` with the script, styles, fonts, the brand mark as its favicon (`FAVICON_DATA_URI`) and the
+  document embedded, a hash-based
+  Content-Security-Policy, no network access, opening from `file://`. `offlineHtml`, `fetchOfflineBundle` and the
+  `offlineBundle` prop let React hosts offer it.
 
 - Required document arrays `comparisons` (schema comparisons between two scopes, such as tenant schemas or
   connections on different drivers, with normalized identities, severity defaults and certainty), `migrations`
@@ -47,6 +77,15 @@ All notable changes to this project are documented here. The format follows
   `comparison_incomplete`, `coverage_incomplete` (tables or columns not read completely, or a feature unavailable),
   `inspection_failed` and `migration_unknown`. When comparisons are requested only those are checked. Reports also
   list the `requested` and checked `comparisons`.
+- What producers do around a comparison, specified normatively and exported so Node calls it and Python ports it,
+  each with conformance cases: `expandComparisonRequests` (requests by connection name, `*` targets over the
+  coverage's schemas minus the baseline's own scope, explicit pairs over wildcard ones, `unknown_connection`,
+  `no_schemas`, `no_match` and `duplicate` errors) in `contract/conformance/requests/`; `coverageGaps` and
+  `coverageGapText` (`coverage_unknown`, feature states, `schema_not_read`; `scopeCovered` is "no gaps" and a
+  comparison's `complete` follows from them) in `coverage-gaps/`; `DIFFERENCE_FIELDS` and
+  `validateSeverityOverrides` with exact messages, which `compareScopes` now enforces, in `overrides/`;
+  `comparisonDiagnostics`, the exact `comparison_incomplete` diagnostic, in `comparison-diagnostics/`; and
+  `storeComparisons` in `store/`. The gate expands requests and words coverage with these exports.
 - Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`,
   `comparison-schema-named-tables` (tables, columns and indexes named like the compared schemas), `migrations-alembic`
   and `inferred-associations`, and invalid fixtures for each new rule.
@@ -70,6 +109,51 @@ All notable changes to this project are documented here. The format follows
 - Deep links `#view=compare&comparison=…&difference=…`, `#view=migrations&migration=…` and `#inferred=…`; shortcuts
   <kbd>X</kbd> (Compare), <kbd>M</kbd> (Migrations) and <kbd>5</kbd>; diagnostics about a comparison, migration track
   or inferred association link to it.
+- Laravel Schema Viewer's line ends: crow's foot or single bar at the referencing end by the columns' uniqueness, a
+  double bar at the referenced table, an arrow for relationships through other tables. One rule (`isUnique`: the
+  primary key, a whole-column unique index that is not partial, or a unique constraint without an expression, on
+  exactly the columns in any order) and one set of shapes serve the diagram, SVG and PNG images and Mermaid's
+  foreign-key ends, so all three agree.
+- Column details (click a card row or a column name in Details; `#column=`): facts, indexes, foreign keys in both
+  directions, the lines that use it, lit on the diagram, and diagnostics.
+- Focus on a line (double-click it, <kbd>Shift</kbd> <kbd>F</kbd>, or Focus in its details; `#focus=<line id>`), and a
+  focus bar naming what is focused and the number of tables shown.
+- Line details: the index that serves the foreign key (or "none") and the diagnostics about the line.
+- Changes: each change opens its subject, the list and count follow the connection in view, and cards new or changed
+  since the previous build carry a dot.
+- A deep link to something the document does not have opens the whole diagram with a toast saying so.
+- <kbd>Esc</kbd> steps back one layer at a time: an open menu, a column, several picked tables, focus, the selection,
+  then the phone sheet.
+- The connection picker shows each connection's driver and table count, and the Tables menu the number of tables of
+  each owner kind.
+- The tour has a Downloads step for the Download dialog.
+- Copy link adds the viewport (`#at=x,y,zoom`), and a link with it opens panned and zoomed as it was; <kbd>⌘/Ctrl</kbd>
+  <kbd>K</kbd> focuses the search.
+
+### Fixed
+
+- Narrow side panel: text wraps between words, and long identifiers (`tenant_a.invoices`, paths, types) after their
+  separators, instead of anywhere ("mis sing"); the Compare counts go two by two when four do not fit.
+- Side-panel tabs: when the labels do not fit, the other tabs show an icon (their name stays the accessible name and
+  tooltip) and the row scrolls to keep the selected tab in view at the narrowest panel; <kbd>Home</kbd> and
+  <kbd>End</kbd> join the arrow keys.
+- Editor links keep the path's slashes (`encodeURI`, so `vscode://file/{file}:{line}` works) and a template with a
+  `javascript:`, `data:`, `vbscript:`, `blob:` or `file:` scheme shows the path as text instead of a link.
+- Folding or unfolding one card keeps every position, dragged ones included; folding every card (Columns, <kbd>C</kbd>),
+  notes and comparison marks arrange the diagram again.
+- Connection frames follow their tables: a table dragged out of its frame enlarges it, on the diagram and in images.
+- The Compare filters are kept in deep links (`#object=…&change=…&severity=…&certainty=…`).
+- Cards and images say "+ 1 more column" rather than "+ 1 more columns", and images say "more" as cards do.
+- On a phone, a deep link to a table, line, association or view opens the bottom sheet on its tab.
+- Menu hints wrap instead of being cut off at the menu's edge.
+- With one connection shown, a relationship through a table on another connection draws that table as a reference
+  node.
+- Diagnostics follow the connection in view: with one connection shown, the Diagnostics tab, its count and the phone
+  sheet's count cover that connection and the whole document (labelled "whole document"), with a note of how many are
+  on other connections. A diagnostic's connection comes from its subject (table, column, index, foreign key,
+  constraint, relationship, link, model, inferred association, migration track, or both sides of a comparison).
+- Connection frames show their diagnostic count, "postgresql · 12 tables · 3 diagnostics", on the diagram and in
+  images; a diagnostic's `extensions` are shown, through the host's `extensionRenderers` when it has one.
 
 ## [0.2.0] - 2026-10-17
 

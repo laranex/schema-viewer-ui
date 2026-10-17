@@ -1,0 +1,12 @@
+erDiagram
+    events {
+        bigint id PK
+        bigint user_id FK
+        varchar name
+    }
+    users {
+        bigint id PK
+        bigint app_user_id
+        varchar segment
+    }
+    users ||--o{ events : "user_id"

@@ -1,0 +1,15 @@
+Table public.audit_log {
+  id bigint [pk, increment, not null]
+  payload jsonb [not null]
+}
+
+Table public.teams {
+  id integer [pk, increment, not null]
+}
+
+Table public.users {
+  id integer [pk, increment, not null]
+  email "character varying(320)" [not null, unique]
+  team_id integer
+  legacy_flag boolean
+}

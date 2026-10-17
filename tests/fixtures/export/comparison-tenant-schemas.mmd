@@ -1,0 +1,84 @@
+erDiagram
+    tenant_a_alembic_version {
+        varchar version_num PK
+    }
+    tenant_a_audit_events {
+        bigint id PK
+        jsonb payload
+    }
+    tenant_a_invoices {
+        bigint id PK
+        bigint order_id
+    }
+    tenant_a_line_items {
+        bigint order_id PK, FK
+        integer line_no PK
+        integer qty
+        bigint product_id FK
+    }
+    tenant_a_orders {
+        bigint id PK
+        bigint user_id FK
+        numeric total
+        timestamptz placed_at
+    }
+    tenant_a_products {
+        bigint id PK
+        text name
+    }
+    tenant_a_settings {
+        text key
+        text value
+    }
+    tenant_a_users {
+        bigint id PK
+        varchar email UK
+        text name
+        varchar status
+        text legacy_code
+    }
+    tenant_b_alembic_version {
+        varchar version_num PK
+    }
+    tenant_b_audit_events {
+        bigint id
+        jsonb payload
+    }
+    tenant_b_coupons {
+        bigint id PK
+        text code
+    }
+    tenant_b_line_items {
+        bigint order_id PK, FK
+        integer line_no PK
+        integer variant PK
+        integer qty
+        bigint coupon_id FK
+    }
+    tenant_b_orders {
+        bigint id PK
+        bigint user_id FK
+        numeric total
+        timestamptz placed_at
+    }
+    tenant_b_refunds {
+        bigint id PK
+        bigint order_id
+    }
+    tenant_b_settings {
+        text key PK
+        text value
+    }
+    tenant_b_users {
+        bigint id PK
+        varchar email UK
+        text name UK
+        varchar status
+        text phone
+    }
+    tenant_a_orders ||--o{ tenant_a_line_items : "order_id"
+    tenant_a_products ||--o{ tenant_a_line_items : "product_id"
+    tenant_a_users ||--o{ tenant_a_orders : "user_id"
+    tenant_b_orders ||--o{ tenant_b_line_items : "order_id"
+    tenant_b_coupons |o--o{ tenant_b_line_items : "coupon_id"
+    tenant_b_users ||--o{ tenant_b_orders : "user_id"

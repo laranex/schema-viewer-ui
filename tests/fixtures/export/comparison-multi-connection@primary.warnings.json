@@ -1,0 +1,25 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: public.customers → public_customers, public.orders → public_orders."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:primary",
+        "label": "primary"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of primary: 1 index, 2 column defaults, 1 referential action set."
+    }
+  ],
+  "dbml": [],
+  "markdown": [],
+  "json": []
+}

@@ -16,14 +16,23 @@ import 'laranex-schema-viewer-ui/styles.css';
 
 ```js
 import { validateDocument, buildGraph, canonicalJson } from 'laranex-schema-viewer-ui/contract';
+import { dbml, mermaid, markdown, json } from 'laranex-schema-viewer-ui/export';
 ```
+
+The viewer's Download dialog exports a connection as Mermaid, DBML, Markdown or a scoped JSON document, the diagram as
+SVG or PNG, and the whole viewer as one offline HTML file, all in the browser; see [docs/exports.md](docs/exports.md).
 
 The viewer displays the comparisons, migration tracks and inferred associations a document stores (Compare and
 Migrations tabs, difference marks on the diagram, inferred marks on foreign-key edges) and never computes them; see
 [docs/views.md](docs/views.md).
 
-Hosts without Node.js serve `node_modules/laranex-schema-viewer-ui/dist/viewer/` as static files with a
-`snapshot.json` beside `index.html`, or use `<laranex-schema-viewer src="snapshot.json">`.
+Hosts without Node.js serve `node_modules/laranex-schema-viewer-ui/dist/viewer/` as static files (including its
+`favicon.svg` and `favicon.ico`) with a `snapshot.json` beside `index.html`, or use
+`<laranex-schema-viewer src="snapshot.json">`. Using the viewer (layout, connections, line ends, column details,
+shortcuts and deep links) is described in [docs/viewer.md](docs/viewer.md).
+
+Its icons, brand mark, favicon and line ends come from Laranex Laravel Schema Viewer, drawn in this package's own
+theme colors (see NOTICE); [docs/parity.md](docs/parity.md) compares the two viewers feature by feature.
 
 ## License
 

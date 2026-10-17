@@ -13,10 +13,11 @@ the standalone bundle (`dist/viewer/`) need no peers.
 | --- | --- |
 | `laranex-schema-viewer-ui` | `<SchemaViewer>`, the contract module re-exported, and the layout helpers |
 | `laranex-schema-viewer-ui/styles.css` | The viewer's stylesheet, scoped to `.lsv` |
+| `laranex-schema-viewer-ui/export` | The client-side exporters: Mermaid, DBML, Markdown, JSON ([Downloads and exports](./exports.md)) |
 | `laranex-schema-viewer-ui/contract` | Types, `validateDocument`, `buildGraph`, `canonicalJson`, `documentRevision`, `jsonSchema` |
 | `laranex-schema-viewer-ui/schema.json` | The contract's JSON Schema (2020-12) |
 | `laranex-schema-viewer-ui/contract/*` | Fixtures, graph conformance cases and `check.mjs` |
-| `laranex-schema-viewer-ui/viewer/*` | The standalone bundle: `index.html`, `app.js`, `app.css`, `assets/`, `manifest.json` |
+| `laranex-schema-viewer-ui/viewer/*` | The standalone bundle: `index.html`, `app.js`, `app.css`, `assets/`, `offline.js`, `manifest.json` |
 
 ## Without Node.js at runtime
 

@@ -1,0 +1,27 @@
+erDiagram
+    primary_public_customers {
+        bigint id PK
+        varchar email
+        boolean active
+        double_precision score
+        timestamptz created_at
+        text bio
+    }
+    primary_public_orders {
+        bigint id PK
+        bigint customer_id FK
+    }
+    replica_customers {
+        bigint id PK
+        varchar email
+        tinyint active
+        double score
+        datetime created_at
+        longtext bio
+    }
+    replica_orders {
+        bigint id PK
+        bigint customer_id FK
+    }
+    primary_public_customers ||--o{ primary_public_orders : "customer_id"
+    replica_customers ||--o{ replica_orders : "customer_id"

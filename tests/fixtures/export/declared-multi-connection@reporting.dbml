@@ -1,0 +1,12 @@
+Table reports {
+  id INTEGER [pk, not null]
+  owner_id INTEGER [not null]
+  requested_by INTEGER
+}
+
+Table users {
+  id INTEGER [pk, not null]
+  display_name VARCHAR(80) [not null]
+}
+
+Ref fk_reports_owner: reports.owner_id > users.id [delete: cascade]

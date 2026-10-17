@@ -1,0 +1,55 @@
+{
+  "mermaid": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:reporting",
+        "label": "reporting"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of reporting: 1 referential action set."
+    }
+  ],
+  "dbml": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    }
+  ],
+  "markdown": [
+    {
+      "code": "declared_source",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "This document holds ORM declarations only; the file describes the declared schema, not an inspected database."
+    }
+  ],
+  "json": [
+    {
+      "code": "skipped_entity",
+      "subject": {
+        "type": "relationship",
+        "id": "relationship:app.models.Report.requester",
+        "label": "requester"
+      },
+      "message": "Relationship relationship:app.models.Report.requester reaches connection default; a document of these connections cannot hold it, so it is left out."
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+Project schema {
+  Note: 'Synthetic application with three database connections.'
+}
+
+Table "app.public.teams" {
+  id bigint [pk, increment, not null]
+  name "character varying(255)" [not null]
+}
+
+Table "app.public.users" {
+  id bigint [pk, increment, not null]
+  team_id bigint
+  email "character varying(320)" [not null]
+}
+
+Table "analytics.events" {
+  id bigint [pk, increment, not null]
+  user_id bigint [not null]
+  name varchar(80) [not null]
+
+  indexes {
+    user_id [name: 'events_user_id_index']
+  }
+}
+
+Table "analytics.users" {
+  id bigint [pk, increment, not null]
+  app_user_id bigint
+  segment varchar(40) [not null]
+  Note: 'Visitors, signed in or not'
+}
+
+Table "cache.sessions" {
+  id varchar [pk, not null]
+  user_id bigint
+  payload text [not null]
+
+  indexes {
+    user_id [name: 'sessions_user_id_index']
+  }
+}
+
+Ref users_team_id_foreign: "app.public.users".team_id > "app.public.teams".id [delete: set null]
+Ref events_user_id_foreign: "analytics.events".user_id > "analytics.users".id [delete: cascade]

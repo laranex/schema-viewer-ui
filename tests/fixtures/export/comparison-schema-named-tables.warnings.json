@@ -1,0 +1,24 @@
+{
+  "mermaid": [
+    {
+      "code": "lossy_conversion",
+      "subject": {
+        "type": "document",
+        "id": null,
+        "label": null
+      },
+      "message": "Mermaid names allow letters, digits and underscores only; tables renamed: archive.archive → archive_archive, archive.billing → archive_billing, billing.billing → billing_billing."
+    },
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:ledger",
+        "label": "ledger"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of ledger: 1 index."
+    }
+  ],
+  "dbml": [],
+  "markdown": []
+}

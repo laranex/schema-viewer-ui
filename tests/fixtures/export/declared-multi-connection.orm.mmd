@@ -1,0 +1,17 @@
+erDiagram
+    default_public_users {
+        integer id PK
+        varchar email
+    }
+    reporting_reports {
+        integer id PK
+        integer owner_id FK
+        integer requested_by
+    }
+    reporting_users {
+        integer id PK
+        varchar display_name
+    }
+    reporting_users ||--o{ reporting_reports : "owner_id"
+    reporting_reports }o..o| reporting_users : "ORM: Report::owner (MANYTOONE)"
+    reporting_reports }o..o| default_public_users : "ORM: Report::requester (MANYTOONE)"

@@ -1,0 +1,4 @@
+Table public.users {
+  id INTEGER [pk, not null]
+  email VARCHAR(255) [not null]
+}

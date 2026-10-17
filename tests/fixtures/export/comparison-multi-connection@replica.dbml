@@ -1,0 +1,19 @@
+Table customers {
+  id "bigint unsigned" [pk, increment, not null]
+  email varchar(255) [not null]
+  active tinyint(1) [not null, default: `1`]
+  score double [not null]
+  created_at datetime [not null]
+  bio longtext
+}
+
+Table orders {
+  id "bigint unsigned" [pk, not null]
+  customer_id "bigint unsigned" [not null]
+
+  indexes {
+    customer_id [name: 'orders_customer_id_foreign']
+  }
+}
+
+Ref orders_customer_id_foreign: orders.customer_id > customers.id [delete: restrict]

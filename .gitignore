@@ -15,3 +15,4 @@ playwright-report/
 .gh-page/.vitepress/cache/
 .gh-page/.vitepress/dist/
 .gh-page/public/demo/
+.gh-page/public/logo.svg

@@ -1,0 +1,47 @@
+Enum account_status {
+  "trial"
+  "active"
+  "closed"
+}
+
+Table billing.invoices {
+  id bigint [pk, increment, not null]
+  account_id bigint [not null]
+  number integer [not null]
+  total numeric(12,2) [not null]
+
+  indexes {
+    (account_id, number) [unique, name: 'invoices_account_id_number_key']
+  }
+
+  checks {
+    `(total >= (0)::numeric)` [name: 'invoices_total_check']
+  }
+}
+
+Table public.accounts {
+  id bigint [pk, increment, not null]
+  email text [not null, unique]
+  external_ref uuid
+  status account_status [not null, default: `'trial'::account_status`]
+  tags "text[]" [not null]
+  data jsonb [not null, default: `'{}'::jsonb`]
+  created_at "timestamp with time zone" [not null, default: `now()`]
+  deleted_at "timestamp with time zone"
+  search tsvector
+
+  indexes {
+    external_ref [unique, name: 'accounts_external_ref_key']
+    `lower(email)` [unique, name: 'accounts_lower_email_idx']
+    email [unique, name: 'accounts_live_email_idx']
+    created_at [name: 'accounts_created_at_idx']
+    (status, `date_trunc('day', created_at)`) [name: 'accounts_status_created_idx']
+    email [name: 'accounts_email_pattern_idx']
+    tags [name: 'accounts_tags_idx']
+    data [name: 'accounts_data_idx']
+    search [name: 'accounts_search_idx']
+  }
+  Note: 'Customer accounts'
+}
+
+Ref invoices_account_id_fkey: billing.invoices.account_id > public.accounts.id [delete: cascade]

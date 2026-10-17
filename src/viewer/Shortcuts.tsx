@@ -2,16 +2,16 @@ import { useEffect, useRef } from 'react';
 
 // Every keyboard shortcut, adapted from Laranex Laravel Schema Viewer's list. Shown by S and in the guide.
 export const SHORTCUTS: [string[], string][] = [
-    [['/'], 'Search tables, columns and models'],
-    [['Esc'], 'Clear the search, the selection and focus'],
+    [['/', '⌘/Ctrl K'], 'Search tables, columns and models'],
+    [['Esc'], 'Step back one layer: a menu, a column, picked tables, focus, the selection, the sheet'],
     [['F', '0'], 'Fit the diagram to the screen'],
     [['+', '−'], 'Zoom in or out'],
     [['←', '→', '↑', '↓'], 'Pan the canvas (when it has focus)'],
     [['Space'], 'Hold to pan: drag anywhere, even over a table'],
     [['Shift click'], 'Add a table to the selection, or take it out; drag one to move them all'],
     [['Shift drag'], 'Draw a box that selects every table it touches'],
-    [['Double-click'], 'Focus on a table and its neighbors'],
-    [['Shift F'], 'Focus on the selected table, or leave focus'],
+    [['Double-click'], 'Focus on a table or a line and their neighbors'],
+    [['Shift F'], 'Focus on the selected table or line, or leave focus'],
     [['C'], 'Show the key columns, every column, or table names only'],
     [['N'], 'Show notes on the cards'],
     [['L'], 'Show relationship names on every edge, or on the selected table only'],
@@ -22,7 +22,7 @@ export const SHORTCUTS: [string[], string][] = [
     [['Shift C'], 'Copy a link to this view'],
     [['A', 'D', 'H', 'W'], 'Open Browse, Details, Diagnostics or Changes'],
     [['X', 'M'], 'Open Compare or Migrations, when the document has them'],
-    [['E'], 'Open the Download menu: JSON, PNG or SVG'],
+    [['E'], 'Open the Download dialog: schema files, diagram images and more'],
     [['S'], 'Show this list'],
     [['?'], 'Take the tour'],
 ];

@@ -1,0 +1,38 @@
+Table "primary.public.customers" {
+  id bigint [pk, increment, not null]
+  email "character varying(255)" [not null]
+  active boolean [not null, default: `true`]
+  score "double precision" [not null]
+  created_at "timestamp with time zone" [not null]
+  bio text
+}
+
+Table "primary.public.orders" {
+  id bigint [pk, not null]
+  customer_id bigint [not null]
+
+  indexes {
+    customer_id [name: 'orders_customer_id_idx']
+  }
+}
+
+Table "replica.customers" {
+  id "bigint unsigned" [pk, increment, not null]
+  email varchar(255) [not null]
+  active tinyint(1) [not null, default: `1`]
+  score double [not null]
+  created_at datetime [not null]
+  bio longtext
+}
+
+Table "replica.orders" {
+  id "bigint unsigned" [pk, not null]
+  customer_id "bigint unsigned" [not null]
+
+  indexes {
+    customer_id [name: 'orders_customer_id_foreign']
+  }
+}
+
+Ref orders_customer_id_fkey: "primary.public.orders".customer_id > "primary.public.customers".id [delete: restrict]
+Ref orders_customer_id_foreign: "replica.orders".customer_id > "replica.customers".id [delete: restrict]

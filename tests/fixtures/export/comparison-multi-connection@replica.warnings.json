@@ -1,0 +1,16 @@
+{
+  "mermaid": [
+    {
+      "code": "unsupported_feature",
+      "subject": {
+        "type": "connection",
+        "id": "connection:replica",
+        "label": "replica"
+      },
+      "message": "A Mermaid ER diagram holds tables, columns, keys and foreign keys only; left out of replica: 1 index, 1 column default, 1 referential action set."
+    }
+  ],
+  "dbml": [],
+  "markdown": [],
+  "json": []
+}

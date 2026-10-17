@@ -28,6 +28,10 @@ export type TableNodeData = {
     onSelect: (id: string) => void;
     onFocus: (id: string) => void;
     onToggle: (id: string) => void;
+    // A click on a row: the column's details, and the lines that use it lit.
+    onColumn: (id: string, column: string) => void;
+    // New or changed since the host's previous build (its changes).
+    changed: 'new' | 'changed' | null;
 };
 
 export type TableNodeType = Node<TableNodeData, 'table'>;
@@ -41,7 +45,7 @@ const zoomedOut = (s: { transform: [number, number, number] }) => s.transform[2]
 
 // One table card. A Shift-click is left to React Flow, which adds the table to the selection. Edges are drawn from routes computed outside the card, so its handles only satisfy React Flow.
 function TableNode({ data }: NodeProps<TableNodeType>) {
-    const { table, connection, subtitle, rows, state, picked, issues, combined, pivot, collapsed, highlighted, mark: compared, onSelect, onFocus, onToggle } = data;
+    const { table, connection, subtitle, rows, state, picked, issues, combined, pivot, collapsed, highlighted, mark: compared, onSelect, onFocus, onToggle, onColumn, changed } = data;
     const summary = compared ? markSummary(compared) : null;
     const allLikely = !!compared && compared.likely === compared.differences.length;
     const picture = useStore(zoomedOut);
@@ -70,6 +74,14 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                         {CHANGE_TEXT[summary.change].symbol} {summary.short}
                         <span className="sr-only">{summary.rest}</span>
                         {allLikely ? ' likely' : ''}
+                    </span>
+                )}
+                {changed && (
+                    <span className={`change-dot change-dot--${changed}`} role="img" aria-label={changed === 'new' ? 'New since the previous build' : 'Changed since the previous build'} title={changed === 'new' ? 'New since the previous build' : 'Changed since the previous build'} />
+                )}
+                {(table.note || table.comment) && (
+                    <span className="card-note" role="img" aria-label={table.note ? 'Has a note' : 'Has a comment'} title={table.note ?? table.comment ?? ''}>
+                        <Icon name="note" size={13} />
                     </span>
                 )}
                 {issues > 0 && (
@@ -117,6 +129,7 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                             className={`column${flags.length ? ` ${flags.join(' ')}` : ''}`}
                             data-column={name}
                             key={name}
+                            onClick={(event) => !event.shiftKey && onColumn(table.id, name)}
                             title={`${name}: ${column.type}${column.nullable ? ' · nullable' : ' · required'}${column.drift?.length ? ' · differs from the model' : ''}${flags.includes('declared-only') ? ' · declared only, not in the database' : ''}${comparedText}`}
                         >
                             <span className={`key${mark === 'PK' ? ' pk' : ''}`}>{mark ?? ''}</span>
@@ -134,7 +147,7 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                         </div>
                     );
                 })}
-            {hidden > 0 && rows.length > 0 && !picture && <div className="table-more">+ {hidden} more columns</div>}
+            {hidden > 0 && rows.length > 0 && !picture && <div className="table-more">+ {hidden} more {hidden === 1 ? 'column' : 'columns'}</div>}
             {hidden > 0 && rows.length > 0 && picture && <div className="table-more" aria-hidden="true" />}
         </article>
     );
@@ -167,7 +180,11 @@ function ExternalNode({ data }: NodeProps<ExternalNodeType>) {
 
 export const ExternalNodeView = memo(ExternalNode);
 
-export type RegionNodeData = { connection: string; driver: string | null; tables: number };
+export type RegionNodeData = { connection: string; driver: string | null; tables: number; diagnostics: number };
+
+// "postgresql · 12 tables · 3 diagnostics", on a frame and in images, as Laravel Schema Viewer shows hints.
+export const frameMeta = (driver: string | null, tables: number, diagnostics: number) =>
+    `${driver ?? 'unknown driver'} · ${tables} ${tables === 1 ? 'table' : 'tables'}${diagnostics ? ` · ${diagnostics} ${diagnostics === 1 ? 'diagnostic' : 'diagnostics'}` : ''}`;
 export type RegionNodeType = Node<RegionNodeData, 'region'>;
 
 // The frame around one connection's tables while every connection is on the diagram, after Laravel Schema Viewer's.
@@ -176,9 +193,7 @@ function RegionNode({ data }: NodeProps<RegionNodeType>) {
         <div className="region-node" data-connection={data.connection}>
             <span className="region-node__label">
                 <span className="region-node__name">{data.connection}</span>
-                <span className="region-node__meta">
-                    {data.driver ?? 'unknown driver'} · {data.tables} {data.tables === 1 ? 'table' : 'tables'}
-                </span>
+                <span className="region-node__meta">{frameMeta(data.driver, data.tables, data.diagnostics)}</span>
             </span>
         </div>
     );

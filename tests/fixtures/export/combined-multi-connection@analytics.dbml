@@ -1,0 +1,22 @@
+Project analytics {
+  Note: 'Synthetic application with three database connections.'
+}
+
+Table events {
+  id bigint [pk, increment, not null]
+  user_id bigint [not null]
+  name varchar(80) [not null]
+
+  indexes {
+    user_id [name: 'events_user_id_index']
+  }
+}
+
+Table users {
+  id bigint [pk, increment, not null]
+  app_user_id bigint
+  segment varchar(40) [not null]
+  Note: 'Visitors, signed in or not'
+}
+
+Ref events_user_id_foreign: events.user_id > users.id [delete: cascade]

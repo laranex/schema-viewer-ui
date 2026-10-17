@@ -1,0 +1,17 @@
+Table "default.public.users" {
+  id INTEGER [pk, not null]
+  email VARCHAR(255) [not null]
+}
+
+Table "reporting.reports" {
+  id INTEGER [pk, not null]
+  owner_id INTEGER [not null]
+  requested_by INTEGER
+}
+
+Table "reporting.users" {
+  id INTEGER [pk, not null]
+  display_name VARCHAR(80) [not null]
+}
+
+Ref fk_reports_owner: "reporting.reports".owner_id > "reporting.users".id [delete: cascade]
