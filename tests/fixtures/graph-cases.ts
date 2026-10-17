@@ -13,6 +13,14 @@ const ids = (...names: string[]) => names.map((n) => column(n, 'integer'));
 const conn = (...tables: ReturnType<typeof table>[]) => [connection('c', 'pgsql', tables, { coverage: { database: null, declared: null } })];
 const rel = (id: string, options: Partial<Relationship> & Pick<Relationship, 'table' | 'cardinality'>) => relationship(id, id, { model: 'm', type: 'test', ...options });
 const ep = (t: string, ...columns: string[]) => ({ table: T(t), columns });
+// Two connections, each with its own users table, and ids qualified by connection as producers write them.
+const A = (name: string) => `a:${name}`;
+const B = (name: string) => `b:${name}`;
+const two = (a: ReturnType<typeof table>[], b: ReturnType<typeof table>[]) => [
+    connection('a', 'pgsql', a, { coverage: { database: null, declared: null } }),
+    connection('b', 'mysql', b, { coverage: { database: null, declared: null } }),
+];
+const at = (table: string, ...columns: string[]) => ({ table, columns });
 const link = (from: { table: string; columns: string[] }, to: { table: string; columns: string[] }, rest: Partial<Link>, pairs: [string, string][]): Link => ({
     id: linkId(from.table, to.table, pairs),
     from,
@@ -180,5 +188,38 @@ export const GRAPH_CASES: Record<string, GraphCase> = {
             ],
         },
         expected: { links: [link(ep('users', 'team_id'), ep('teams', 'id'), { relationships: ['r:a', 'r:b'], note: 'first' }, [['team_id', 'id']])], derivedLinks: [] },
+    },
+    'cross-connection-relationship': {
+        description: 'A relationship from a table in one connection to a table in another is a relationship link; no constraint is implied',
+        input: {
+            connections: two([table(A('users'), 'users', ids('id'))], [table(B('sessions'), 'sessions', ids('id', 'user_id'))]),
+            relationships: [rel('r:user', { table: B('sessions'), relatedTable: A('users'), cardinality: 'many-to-one', keys: { from: at(B('sessions'), 'user_id'), to: at(A('users'), 'id') } })],
+        },
+        expected: { links: [link(at(B('sessions'), 'user_id'), at(A('users'), 'id'), { relationships: ['r:user'] }, [['user_id', 'id']])], derivedLinks: [] },
+    },
+    'cross-connection-foreign-key': {
+        description: 'A foreign key naming a table in another connection has no link: constraints never cross connections',
+        input: {
+            connections: two([table(A('users'), 'users', ids('id'))], [{ ...table(B('sessions'), 'sessions', ids('id', 'user_id')), foreignKeys: [foreignKey(B('sessions'), 'sessions_user_fk', ['user_id'], A('users'), ['id'])] }]),
+            relationships: [],
+        },
+        expected: { links: [], derivedLinks: [] },
+    },
+    'duplicate-table-names': {
+        description: 'Tables with the same name in two connections are told apart by id: each foreign key links its own connection',
+        input: {
+            connections: two(
+                [{ ...table(A('users'), 'users', ids('id', 'team_id')), foreignKeys: [foreignKey(A('users'), 'users_team_fk', ['team_id'], A('teams'), ['id'])] }, table(A('teams'), 'teams', ids('id'))],
+                [{ ...table(B('users'), 'users', ids('id', 'team_id')), foreignKeys: [foreignKey(B('users'), 'users_team_fk', ['team_id'], B('teams'), ['id'])] }, table(B('teams'), 'teams', ids('id'))],
+            ),
+            relationships: [],
+        },
+        expected: {
+            links: [
+                link(at(A('users'), 'team_id'), at(A('teams'), 'id'), { foreignKey: 'a:users:fk:users_team_fk', state: 'foreign_key' }, [['team_id', 'id']]),
+                link(at(B('users'), 'team_id'), at(B('teams'), 'id'), { foreignKey: 'b:users:fk:users_team_fk', state: 'foreign_key' }, [['team_id', 'id']]),
+            ].sort((x, y) => (x.id < y.id ? -1 : 1)),
+            derivedLinks: [],
+        },
     },
 };

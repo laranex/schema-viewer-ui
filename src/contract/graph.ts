@@ -5,7 +5,8 @@ import type { DerivedLink, Endpoint, Link, Relationship, SchemaDocument } from '
 // Producers in other languages implement the same rules (docs/contract.md, "Graph") and are checked against the
 // conformance fixtures in contract/conformance/graph.
 //
-// 1. Every foreign key whose target table is in the document is a link from its columns to the referenced columns.
+// 1. Every foreign key whose target table is in the document, in the same connection, is a link from its columns to the
+//    referenced columns. A foreign key never crosses connections; only relationships may.
 // 2. Every relationship's keys are a link the same way. Keys equal to a foreign key's, as unordered column pairs, join
 //    that foreign key's link; the relationship never creates or implies a constraint.
 // 3. A pivot relationship is two links, both from the pivot table: to the declaring side and to the related side.
@@ -28,6 +29,7 @@ export const derivedLinkId = (relationship: string) => hashId('d', ['derived', r
 
 export function buildGraph(doc: Pick<SchemaDocument, 'connections' | 'relationships'>): GraphResult {
     const columns = new Map(doc.connections.flatMap((c) => c.tables.map((t) => [t.id, new Set(t.columns.map((col) => col.name))] as const)));
+    const connectionOf = new Map(doc.connections.flatMap((c) => c.tables.map((t) => [t.id, c.id] as const)));
     const resolved = (e: Endpoint) => e.columns.length > 0 && e.columns.every((c) => columns.get(e.table)?.has(c));
     const links = new Map<string, Link & { notes: string[] }>();
 
@@ -63,6 +65,9 @@ export function buildGraph(doc: Pick<SchemaDocument, 'connections' | 'relationsh
     for (const connection of doc.connections) {
         for (const table of connection.tables) {
             for (const fk of [...table.foreignKeys].sort((a, b) => (a.id < b.id ? -1 : 1))) {
+                if (connectionOf.get(fk.foreignTable) !== connection.id) {
+                    continue;
+                }
                 add({ table: table.id, columns: fk.columns }, { table: fk.foreignTable, columns: fk.foreignColumns }, { foreignKey: fk.id });
             }
         }

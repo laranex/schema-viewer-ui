@@ -76,6 +76,7 @@ const sameList = (a: string[], b: string[]) => a.length === b.length && a.every(
 function rules(doc: SchemaDocument, errors: string[]): void {
     const tables = doc.connections.flatMap((c) => c.tables);
     const tableById = new Map(tables.map((t) => [t.id, t]));
+    const connectionOf = new Map(doc.connections.flatMap((c) => c.tables.map((t) => [t.id, c.id] as const)));
     const columnsOf = (id: string) => new Set(tableById.get(id)?.columns.map((c) => c.name) ?? []);
     const foreignKeys = tables.flatMap((t) => t.foreignKeys);
     const indexes = tables.flatMap((t) => t.indexes);
@@ -145,6 +146,9 @@ function rules(doc: SchemaDocument, errors: string[]): void {
             const excused = unresolved(DIAGNOSTIC_KINDS.unresolvedForeignKey, fk.id);
             if (!target && !excused) {
                 errors.push(`Unknown foreign-key target table: ${fk.id}`);
+            } else if (target && connectionOf.get(target.id) !== connectionOf.get(table.id)) {
+                // A constraint lives in one database; only ORM relationships may cross connections.
+                errors.push(`Foreign key crosses connections: ${fk.id}`);
             } else if (target && !fk.foreignColumns.every((c) => columnsOf(target.id).has(c)) && !excused) {
                 errors.push(`Unknown foreign-key target column: ${fk.id}`);
             }

@@ -1,4 +1,4 @@
-import type { SchemaDocument } from '../../src/contract/types';
+import type { Coverage, SchemaDocument } from '../../src/contract/types';
 import {
     both,
     column,
@@ -683,6 +683,170 @@ function combinedDrift(): SchemaDocument {
     });
 }
 
+// Three connections with different drivers, as Laravel Schema Viewer reads them: PostgreSQL for the application,
+// MySQL for analytics and SQLite for a session cache. users exists in two connections; foreign keys stay inside their
+// connection, while ORM relationships cross connections with no constraint. Only the app connection has drift.
+function combinedMultiConnection(): SchemaDocument {
+    const appUsers = 'app:public.users';
+    const teams = 'app:public.teams';
+    const visitors = 'analytics:users';
+    const events = 'analytics:events';
+    const sessions = 'cache:sessions';
+    const M = (name: string) => `App\\Models\\${name}`;
+    const R = (owner: string, name: string) => `App\\Models\\${owner}::${name}`;
+    const big = (name: string, options = {}) => column(name, 'bigint', { typeName: 'bigint', ...options });
+    const ep = (table: string, column: string) => ({ table, columns: [column] });
+    const rel = (owner: string, name: string, table: string, type: string, cardinality: 'one-to-many' | 'many-to-one', related: [string, string], from: [string, string], to: [string, string], options = {}) =>
+        relationship(R(owner, name), name, {
+            model: M(owner),
+            table,
+            relatedModel: M(related[0]),
+            relatedTable: related[1],
+            type,
+            cardinality,
+            keys: { from: ep(...from), to: ep(...to) },
+            source: { file: `app/Models/${owner.replace('\\', '/')}.php`, line: 18 },
+            ...options,
+        });
+    const full = (schemas: string[] | null, extra: Coverage['features'] = {}) =>
+        coverage(
+            {
+                tables: 'complete',
+                columns: 'complete',
+                columnTypes: 'complete',
+                defaults: 'complete',
+                comments: 'complete',
+                primaryKeys: 'complete',
+                foreignKeys: 'complete',
+                referentialActions: 'complete',
+                indexes: 'complete',
+                indexExpressions: 'complete',
+                indexPredicates: 'not_applicable',
+                includedColumns: 'not_applicable',
+                uniqueConstraints: 'complete',
+                checkConstraints: 'not_applicable',
+                models: 'not_applicable',
+                relationships: 'not_applicable',
+                ...extra,
+            },
+            schemas,
+        );
+    const declaredCoverage = coverage({ tables: 'not_applicable', models: 'complete', relationships: 'complete' });
+    const teamFk = foreignKey(appUsers, 'users_team_id_foreign', ['team_id'], teams, ['id'], { onDelete: 'SET NULL' });
+    const visitorFk = foreignKey(events, 'events_user_id_foreign', ['user_id'], visitors, ['id'], { onDelete: 'CASCADE' });
+
+    return document('combined', { name: 'laravel-schema-viewer', orm: 'eloquent' }, {
+        note: 'Synthetic application with three database connections.',
+        connections: [
+            connection(
+                'app',
+                'pgsql',
+                [
+                    table(
+                        appUsers,
+                        'users',
+                        [
+                            big('id', { autoIncrement: true }),
+                            big('team_id', { nullable: true }),
+                            column('email', 'character varying(320)', { typeName: 'varchar', provenance: both, drift: [{ field: 'type', database: 'character varying(320)', declared: 'string' }] }),
+                        ],
+                        { schema: 'public', indexes: [primaryIndex(appUsers, 'users_pkey', ['id'])], foreignKeys: [teamFk] },
+                    ),
+                    table(teams, 'teams', [big('id', { autoIncrement: true }), column('name', 'character varying(255)', { typeName: 'varchar' })], { schema: 'public', indexes: [primaryIndex(teams, 'teams_pkey', ['id'])] }),
+                ],
+                { defaultSchema: 'public', coverage: { database: full(['public']), declared: declaredCoverage } },
+            ),
+            connection(
+                'analytics',
+                'mysql',
+                [
+                    table(visitors, 'users', [big('id', { autoIncrement: true }), big('app_user_id', { nullable: true }), column('segment', 'varchar(40)', { typeName: 'varchar' })], {
+                        comment: 'Visitors, signed in or not',
+                        indexes: [primaryIndex(visitors, 'PRIMARY', ['id'], { method: 'btree' })],
+                    }),
+                    table(events, 'events', [big('id', { autoIncrement: true }), big('user_id'), column('name', 'varchar(80)', { typeName: 'varchar' })], {
+                        indexes: [primaryIndex(events, 'PRIMARY', ['id'], { method: 'btree' }), index(events, 'events_user_id_index', [part('user_id')], { method: 'btree' })],
+                        foreignKeys: [visitorFk],
+                    }),
+                ],
+                { defaultSchema: 'analytics', coverage: { database: full(['analytics'], { indexExpressions: 'partial', checkConstraints: 'unavailable' }), declared: declaredCoverage } },
+            ),
+            connection(
+                'cache',
+                'sqlite',
+                [table(sessions, 'sessions', [column('id', 'varchar'), big('user_id', { nullable: true }), column('payload', 'text')], { primaryKey: ['id'], indexes: [index(sessions, 'sessions_user_id_index', [part('user_id')])] })],
+                { coverage: { database: full(null, { comments: 'not_applicable' }), declared: declaredCoverage } },
+            ),
+        ],
+        models: [
+            model(M('User'), M('User'), [appUsers], { source: { file: 'app/Models/User.php', line: 9 } }),
+            model(M('Team'), M('Team'), [teams], { source: { file: 'app/Models/Team.php', line: 9 } }),
+            model(M('Analytics\\Visitor'), M('Analytics\\Visitor'), [visitors], { source: { file: 'app/Models/Analytics/Visitor.php', line: 9 }, extensions: { eloquent: { connection: 'analytics' } } }),
+            model(M('Analytics\\Event'), M('Analytics\\Event'), [events], { source: { file: 'app/Models/Analytics/Event.php', line: 9 }, extensions: { eloquent: { connection: 'analytics' } } }),
+            model(M('Session'), M('Session'), [sessions], { primaryKey: ['id'], source: { file: 'app/Models/Session.php', line: 9 }, extensions: { eloquent: { connection: 'cache', keyType: 'string' } } }),
+        ],
+        relationships: [
+            rel('User', 'team', appUsers, 'BelongsTo', 'many-to-one', ['Team', teams], [appUsers, 'team_id'], [teams, 'id']),
+            rel('User', 'sessions', appUsers, 'HasMany', 'one-to-many', ['Session', sessions], [sessions, 'user_id'], [appUsers, 'id'], { inverse: R('Session', 'user'), note: 'Lives in the cache connection; no foreign key is possible.' }),
+            rel('Session', 'user', sessions, 'BelongsTo', 'many-to-one', ['User', appUsers], [sessions, 'user_id'], [appUsers, 'id'], { inverse: R('User', 'sessions') }),
+            rel('Analytics\\Visitor', 'account', visitors, 'BelongsTo', 'many-to-one', ['User', appUsers], [visitors, 'app_user_id'], [appUsers, 'id']),
+            rel('Analytics\\Event', 'visitor', events, 'BelongsTo', 'many-to-one', ['Analytics\\Visitor', visitors], [events, 'user_id'], [visitors, 'id']),
+        ],
+        diagnostics: [
+            diagnostic('column_drift', 'drift', { type: 'column', id: appUsers, columns: ['email'], label: 'app · public.users.email' }, 'The database stores public.users.email as character varying(320); the model casts it as string.', { severity: 'info' }),
+            diagnostic('relationship_without_foreign_key', 'lint', { type: 'relationship', id: R('Session', 'user'), columns: ['user_id'], label: 'cache · sessions.user_id' }, 'Session::user joins cache sessions.user_id to app public.users.id across connections; no foreign key can enforce it.', { severity: 'info' }),
+            diagnostic('unsupported_metadata', 'inspection', { type: 'connection', id: 'connection:analytics', label: 'analytics' }, 'MySQL reports functional index key parts without their expressions.', { severity: 'info' }),
+        ],
+    });
+}
+
+// Declared ORM metadata across two SQLAlchemy binds with different dialects: users in both, a foreign key inside the
+// reporting bind, and a relationship from it to the default bind with no constraint.
+function declaredMultiConnection(): SchemaDocument {
+    const users = 'table:default.public.users';
+    const reportUsers = 'table:reporting.users';
+    const reports = 'table:reporting.reports';
+    const M = (name: string) => `model:app.models.${name}`;
+    const all = coverage({ tables: 'complete', columns: 'complete', columnTypes: 'complete', primaryKeys: 'complete', foreignKeys: 'complete', models: 'complete', relationships: 'complete' });
+    const fk = foreignKey(reports, 'fk_reports_owner', ['owner_id'], reportUsers, ['id'], { ...d(), onDelete: 'CASCADE' });
+    return document('declared', { name: 'python-schema-viewer', orm: 'sqlalchemy' }, {
+        connections: [
+            connection('default', 'postgresql', [table(users, 'users', [column('id', 'INTEGER', d()), column('email', 'VARCHAR(255)', d())], { ...d(), schema: 'public' })], { defaultSchema: 'public', coverage: { database: null, declared: all } }),
+            connection(
+                'reporting',
+                'mysql',
+                [
+                    table(reportUsers, 'users', [column('id', 'INTEGER', d()), column('display_name', 'VARCHAR(80)', d())], d()),
+                    table(reports, 'reports', [column('id', 'INTEGER', d()), column('owner_id', 'INTEGER', d()), column('requested_by', 'INTEGER', { ...d(), nullable: true })], { ...d(), foreignKeys: [fk] }),
+                ],
+                { coverage: { database: null, declared: all } },
+            ),
+        ],
+        models: [model(M('User'), 'app.models.User', [users]), model(M('ReportUser'), 'app.models.reporting.ReportUser', [reportUsers]), model(M('Report'), 'app.models.reporting.Report', [reports])],
+        relationships: [
+            relationship('relationship:app.models.Report.owner', 'owner', {
+                model: M('Report'),
+                table: reports,
+                relatedModel: M('ReportUser'),
+                relatedTable: reportUsers,
+                type: 'MANYTOONE',
+                cardinality: 'many-to-one',
+                keys: { from: { table: reports, columns: ['owner_id'] }, to: { table: reportUsers, columns: ['id'] } },
+            }),
+            relationship('relationship:app.models.Report.requester', 'requester', {
+                model: M('Report'),
+                table: reports,
+                relatedModel: M('User'),
+                relatedTable: users,
+                type: 'MANYTOONE',
+                cardinality: 'many-to-one',
+                keys: { from: { table: reports, columns: ['requested_by'] }, to: { table: users, columns: ['id'] } },
+                note: 'Joined in Python across binds; the databases do not know about it.',
+            }),
+        ],
+    });
+}
+
 export const VALID: Record<string, () => SchemaDocument> = {
     'declared-sqlalchemy': declaredSqlalchemy,
     'combined-eloquent': combinedEloquent,
@@ -690,4 +854,6 @@ export const VALID: Record<string, () => SchemaDocument> = {
     'database-mysql-indexes': databaseMysql,
     'database-sqlite-indexes': databaseSqlite,
     'combined-drift': combinedDrift,
+    'combined-multi-connection': combinedMultiConnection,
+    'declared-multi-connection': declaredMultiConnection,
 };

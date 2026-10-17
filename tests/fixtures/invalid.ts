@@ -102,6 +102,15 @@ export const INVALID: Record<string, InvalidCase> = {
         errors: ['Unknown foreign-key target table'],
         document: from('database-postgresql-indexes', (d) => (t(d, 'invoices').foreignKeys[0].foreignTable = 'pg:billing.missing')),
     },
+    'foreign-key-across-connections': {
+        description: 'A foreign key to a table in another connection: constraints never cross connections, only relationships do',
+        strict: false,
+        errors: ['Foreign key crosses connections'],
+        document: from('combined-multi-connection', (d) => {
+            const sessions = d.connections.find((c: Mutable) => c.name === 'cache').tables[0];
+            sessions.foreignKeys.push({ id: 'cache:sessions:fk:sessions_user_id_foreign', name: 'sessions_user_id_foreign', columns: ['user_id'], foreignTable: 'app:public.users', foreignColumns: ['id'], onUpdate: null, onDelete: null, deferrable: null, initially: null, provenance: ['database'] });
+        }),
+    },
     'foreign-key-column-counts': {
         description: 'A composite foreign key with fewer target columns',
         strict: false,
