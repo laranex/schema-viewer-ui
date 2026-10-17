@@ -8,16 +8,15 @@ type Step = { target: string | null; title: string; text: string };
 export const TOUR: Step[] = [
     { target: null, title: 'Welcome', text: 'This viewer shows a saved schema snapshot. It never connects to a database. The tour takes a minute; leave it any time with Esc.' },
     { target: '.canvas', title: 'The diagram', text: 'Each card is a table. Drag the background to pan, scroll or pinch to zoom, and drag a card by its title to move it.' },
-    { target: '.react-flow__node', title: 'A table', text: 'Click a card to see its columns, indexes, constraints, foreign keys, relationships and models on the right. Double-click it to focus on its neighbors.' },
+    { target: '.react-flow__node', title: 'A table', text: 'Click a card for its columns, indexes, constraints, foreign keys, relationships and models. Double-click it to focus on its neighbors; the chevron folds it.' },
+    { target: '.search', title: 'Search', text: 'Find any table, column, model or relationship and jump to it. Press / from anywhere.' },
     {
-        target: '.layerbar',
-        title: 'Layers',
-        text: 'Foreign keys and ORM relationships are separate: a solid line is a database constraint, a dashed line a relationship the ORM declares without one. Turn each kind on or off, fold columns, and show notes.',
+        target: '.toolbar',
+        title: 'Tools',
+        text: 'Zoom, fit, and switch between panning and box selection. Relationships turns each kind of line on or off: a solid line is a database constraint, a dashed one an ORM relationship without one. Tables and Show fold columns, show notes, hide framework tables and re-arrange.',
     },
-    { target: '.search', title: 'Search', text: 'Find tables by name, column or model. Press / from anywhere to jump here.' },
-    { target: '.details', title: 'Details', text: 'With nothing selected this is the guide: the legend, what the snapshot covers, and diagnostics, with confirmed facts apart from heuristic advice.' },
-    { target: '.canvas-tools', title: 'Tools', text: 'Switch between panning and box selection, zoom, fit, re-arrange the layout, and export the diagram as PNG or SVG.' },
-    { target: '.lsv-header .actions', title: 'Shortcuts and downloads', text: 'Every shortcut is listed under the keyboard button (S). Download the snapshot as JSON, and switch the theme here.' },
+    { target: '.tabs', title: 'Side panel', text: 'Browse every table, relationship and column; read the selection in Details; and see Diagnostics, with confirmed facts apart from heuristic advice.' },
+    { target: '.lsv-header .actions, .lsv-header .header-menu', title: 'Downloads and shortcuts', text: 'Download the snapshot or an image of the diagram, switch the theme, and list every shortcut (S).' },
 ];
 
 type Rect = { x: number; y: number; width: number; height: number };

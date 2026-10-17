@@ -14,6 +14,8 @@ export type GraphEdge = {
     sourceColumn?: string;
     targetColumn?: string;
     label: string;
+    // What the edge is, in a few words: the relationship's cardinality, FK, or through.
+    chip: string;
     // A foreign key only the ORM declares, in a combined document: not enforced by the database.
     declaredOnly: boolean;
     polymorphic: boolean;
@@ -68,6 +70,7 @@ export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdg
             sourceColumn: link.from.columns[0],
             targetColumn: link.to.columns[0],
             label: names.length ? names.join(' · ') : fkLabel,
+            chip: link.relationships.length ? (l.relationships.get(link.relationships[0])?.cardinality ?? 'relationship') : 'FK',
             declaredOnly: fk !== undefined && !fk.provenance.includes('database') && doc.source === 'combined',
             polymorphic: link.polymorphic,
             link,
@@ -81,7 +84,8 @@ export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdg
             kind: 'through',
             source: derived.from,
             target: derived.to,
-            label: `${relation?.name ?? derived.relationship} · through ${derived.via.map((id) => l.tables.get(id)?.name ?? id).join(', ')}`,
+            label: `${relation?.name ?? derived.relationship} via ${derived.via.map((id) => l.tables.get(id)?.name ?? id).join(', ')}`,
+            chip: 'through',
             declaredOnly: false,
             polymorphic: false,
             link: null,

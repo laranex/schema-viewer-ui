@@ -8,6 +8,7 @@ export type SchemaEdgeData = {
     declaredOnly: boolean;
     polymorphic: boolean;
     label: string;
+    chip: string;
     route: Route | null;
     showLabel: boolean;
     state: 'selected' | 'related' | 'none';
@@ -36,7 +37,8 @@ function SchemaEdge({ id, sourceX, sourceY, targetX, targetY, data }: EdgeProps<
                         className={`edge-label edge-label--${data.kind}`}
                         style={{ maxWidth: LABEL_WIDTH, transform: `translate(-50%, -50%) translate(${route.labelX}px, ${route.labelY}px)` }}
                     >
-                        {data.label}
+                        <span className="edge-label__text">{data.label}</span>
+                        <span className="edge-label__chip">{data.chip}</span>
                     </div>
                 </EdgeLabelRenderer>
             )}

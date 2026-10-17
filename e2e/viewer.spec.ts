@@ -21,7 +21,7 @@ test.describe('standalone viewer under a strict CSP', () => {
         await expect(page.locator('.react-flow__node')).toHaveCount(1);
         await page.goto('/element/database-sqlite-indexes/');
         await loaded(page);
-        await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+        await expect(page.getByRole('combobox', { name: 'Search the schema' })).toBeVisible();
     });
 
     test('refuses a document that is not laranex-schema 1.x', async ({ page }) => {
@@ -34,16 +34,16 @@ test.describe('standalone viewer under a strict CSP', () => {
         test.skip(isMobile, 'The details panel layout is covered by the phone test.');
         await page.goto('/f/database-postgresql-indexes/');
         await loaded(page);
-        await page.getByRole('complementary', { name: 'Tables' }).getByText('public.accounts').click();
-        const details = page.getByRole('complementary', { name: 'Selection details' });
-        await expect(details.getByRole('heading', { name: 'public.accounts' })).toBeVisible();
+        await page.locator('.browse__row', { hasText: 'public.accounts' }).click();
+        const details = page.getByRole('complementary', { name: 'Side panel' });
+        await expect(details.getByRole('heading', { name: /public\.accounts/ })).toBeVisible();
         const partial = details.locator('li.index', { hasText: 'accounts_live_email_idx' });
         await expect(partial.getByText('partial')).toBeVisible();
         await expect(partial.getByText('(deleted_at IS NULL)')).toBeVisible();
         expect(page.url()).toContain('#table=pg%3Apublic.accounts');
         await page.reload();
         await loaded(page);
-        await expect(details.getByRole('heading', { name: 'public.accounts' })).toBeVisible();
+        await expect(details.getByRole('heading', { name: /public\.accounts/ })).toBeVisible();
     });
 
     test('selects a link from the diagram and explains it', async ({ page, isMobile }) => {
@@ -51,14 +51,20 @@ test.describe('standalone viewer under a strict CSP', () => {
         await page.goto('/f/combined-drift/');
         await loaded(page);
         await page.locator('.react-flow__edge').first().click({ force: true });
-        await expect(page.getByRole('complementary', { name: 'Selection details' }).getByText(/RELATIONSHIP|FOREIGN/)).toBeVisible();
+        await expect(page.getByRole('complementary', { name: 'Side panel' }).getByText(/RELATIONSHIP|FOREIGN/)).toBeVisible();
     });
 
-    test('remembers the theme', async ({ page }) => {
+    test('remembers the theme', async ({ page, isMobile }) => {
         await page.goto('/f/database-sqlite-indexes/');
         await loaded(page);
         const before = await page.locator('.lsv').getAttribute('data-theme');
-        await page.getByRole('button', { name: /Switch to/ }).click();
+        if (isMobile) {
+            // On a phone the theme is in the ⋯ menu.
+            await page.getByRole('button', { name: 'More' }).click();
+            await page.getByRole('menuitem', { name: /theme$/ }).click();
+        } else {
+            await page.getByRole('button', { name: /Switch to/ }).click();
+        }
         const after = await page.locator('.lsv').getAttribute('data-theme');
         expect(after).not.toBe(before);
         await page.reload();
@@ -72,7 +78,12 @@ test.describe('standalone viewer under a strict CSP', () => {
         await loaded(page);
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(overflow).toBeLessThanOrEqual(0);
-        await expect(page.getByRole('complementary', { name: 'Selection details' })).toBeVisible();
+        await page.getByRole('button', { name: 'Browse' }).click();
+        await page.locator('.browse__row', { hasText: 'posts' }).click();
+        const sheet = page.getByRole('complementary', { name: 'Side panel' });
+        await expect(sheet.getByRole('heading', { name: /posts/ })).toBeVisible();
+        const inner = await sheet.evaluate((e) => e.scrollWidth - e.clientWidth);
+        expect(inner).toBeLessThanOrEqual(0);
     });
 
     test('has no serious accessibility violations', async ({ page }) => {
@@ -90,7 +101,7 @@ test.describe('standalone viewer under a strict CSP', () => {
         const card = (id: string) => page.locator(`.react-flow__node[data-id="${id}"]`);
         await card('mysql:users').locator('.table-title').click();
         await card('mysql:roles').locator('.table-title').click({ modifiers: ['Shift'] });
-        await expect(page.getByRole('complementary', { name: 'Selection details' }).getByRole('heading', { name: '2 tables' })).toBeVisible();
+        await expect(page.getByRole('complementary', { name: 'Side panel' }).getByRole('heading', { name: '2 tables' })).toBeVisible();
         const before = await card('mysql:roles').boundingBox();
         const title = (await card('mysql:users').locator('.table-title').boundingBox())!;
         await page.mouse.move(title.x + 40, title.y + 20);
@@ -105,7 +116,7 @@ test.describe('standalone viewer under a strict CSP', () => {
         test.skip(isMobile, 'Downloads are covered on desktop.');
         await page.goto('/f/combined-eloquent/');
         await loaded(page);
-        await page.getByRole('button', { name: 'Export' }).click();
+        await page.getByRole('button', { name: 'Download' }).click();
         const [png] = await Promise.all([page.waitForEvent('download'), page.getByRole('menuitem', { name: 'PNG · whole diagram' }).click()]);
         expect(png.suggestedFilename()).toBe('schema-diagram.png');
         const bytes = await (await png.createReadStream()).toArray();
@@ -134,23 +145,43 @@ test.describe('standalone viewer under a strict CSP', () => {
         await expect(users.locator('.column-name').first()).toBeAttached();
     });
 
-    test('resizes both side panels by dragging their edges', async ({ page, isMobile }) => {
-        test.skip(isMobile, 'Panels stack on phones.');
+    test('resizes the side panel by dragging its edge', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'The panel is a bottom sheet on phones.');
         await page.goto('/f/combined-eloquent/');
         await loaded(page);
-        const width = (name: string) => page.getByRole('complementary', { name }).evaluate((e) => (e as HTMLElement).offsetWidth);
-        const drag = async (name: string, dx: number) => {
-            const box = (await page.getByRole('separator', { name }).boundingBox())!;
-            await page.mouse.move(box.x + box.width / 2, box.y + 200);
-            await page.mouse.down();
-            await page.mouse.move(box.x + box.width / 2 + dx, box.y + 200, { steps: 6 });
-            await page.mouse.up();
-        };
-        const tables = await width('Tables');
-        await drag('Resize the tables panel', 80);
-        await expect.poll(() => width('Tables')).toBe(tables + 80);
-        const details = await width('Selection details');
-        await drag('Resize the details panel', -100);
-        await expect.poll(() => width('Selection details')).toBe(details + 100);
+        const width = () => page.getByRole('complementary', { name: 'Side panel' }).evaluate((e) => (e as HTMLElement).offsetWidth);
+        const before = await width();
+        const box = (await page.getByRole('separator', { name: 'Resize the side panel' }).boundingBox())!;
+        await page.mouse.move(box.x + box.width / 2, box.y + 200);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width / 2 - 100, box.y + 200, { steps: 6 });
+        await page.mouse.up();
+        await expect.poll(width).toBe(before + 100);
+    });
+
+
+    test('box-selects tables in select mode, then pans again with the hand tool', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'Phones always pan.');
+        await page.goto('/f/combined-eloquent/');
+        await loaded(page);
+        const canvas = (await page.locator('.canvas').boundingBox())!;
+        await page.getByRole('button', { name: 'Select mode' }).click();
+        await page.mouse.move(canvas.x + 4, canvas.y + 4);
+        await page.mouse.down();
+        await page.mouse.move(canvas.x + canvas.width * 0.6, canvas.y + canvas.height * 0.8, { steps: 10 });
+        await page.mouse.up();
+        await expect(page.getByRole('complementary', { name: 'Side panel' }).getByRole('heading', { name: /\d+ tables/ })).toBeVisible();
+        await page.getByRole('button', { name: 'Pan mode' }).click();
+        await expect(page.locator('.react-flow__nodesselection-rect')).toHaveCount(0);
+        const spot = await page.evaluate(() => {
+            for (let y = 150; y < 650; y += 10) for (let x = 100; x < 1000; x += 10) if (document.elementFromPoint(x, y)?.classList.contains('react-flow__pane')) return { x, y };
+            return null;
+        });
+        const before = await page.evaluate(() => (document.querySelector('.react-flow__viewport') as HTMLElement).style.transform);
+        await page.mouse.move(spot!.x, spot!.y);
+        await page.mouse.down();
+        await page.mouse.move(spot!.x + 60, spot!.y + 30, { steps: 8 });
+        await page.mouse.up();
+        await expect.poll(() => page.evaluate(() => (document.querySelector('.react-flow__viewport') as HTMLElement).style.transform)).not.toBe(before);
     });
 });

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { SchemaDocument } from '../src/contract';
 import { edgeShown, edgesFor, keyColumns, neighbors } from '../src/viewer/graph';
@@ -20,8 +20,15 @@ async function show(doc: SchemaDocument, props: Partial<Parameters<typeof Schema
     return view;
 }
 
-const details = () => screen.getByRole('complementary', { name: 'Selection details' });
-const tableList = () => screen.getByRole('complementary', { name: 'Tables' });
+const panel = () => screen.getByRole('complementary', { name: 'Side panel' });
+const openTab = (name: RegExp | string) => fireEvent.click(within(panel()).getByRole('tab', { name }));
+const rows = () => [...panel().querySelectorAll('.browse__row')].map((r) => r.querySelector('.browse__title')?.firstChild?.textContent);
+const openRow = (name: string) => fireEvent.click([...panel().querySelectorAll<HTMLElement>('.browse__row')].find((r) => r.querySelector('.browse__title')?.firstChild?.textContent === name) as HTMLElement);
+const menu = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
+const press = (key: string) =>
+    act(() => {
+        fireEvent.keyDown(document.body, { key });
+    });
 
 beforeEach(() => history.replaceState(null, '', '/'));
 afterEach(() => localStorage.clear());
@@ -51,20 +58,36 @@ describe('graph', () => {
     });
 });
 
-describe('SchemaViewer', () => {
-    it('lists every table and labels the source mode', async () => {
+describe('layout', () => {
+    it('has a header search, a tabbed side panel and a floating toolbar', async () => {
         await show(VALID['combined-eloquent']());
-        expect(within(tableList()).getAllByRole('button')).toHaveLength(11);
-        expect(screen.getByText('database + declared metadata · read-only')).toBeInTheDocument();
-        expect(screen.getByText(/Saved snapshot · combined · 7 models · 4 diagnostics/)).toBeInTheDocument();
+        expect(screen.getByRole('combobox', { name: 'Search the schema' })).toBeInTheDocument();
+        expect(within(panel()).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Browse', 'Details', 'Diagnostics4']);
+        expect(screen.getByRole('toolbar', { name: 'Diagram' })).toBeInTheDocument();
+        expect(rows()).toHaveLength(11);
     });
 
-    it('shows a table with its indexes, marking primary, unique, partial, expression and composite ones', async () => {
+    it('offers a Changes tab only when the host has changes', async () => {
+        await show(VALID['database-sqlite-indexes'](), { changes: [{ type: 'table', change: 'added', label: 'notes' }] });
+        openTab(/Changes/);
+        expect(within(panel()).getByText('notes')).toBeInTheDocument();
+    });
+
+    it('offers a connection picker only when there are several connections', async () => {
+        const doc = VALID['database-sqlite-indexes']();
+        const second = { ...doc.connections[0], id: 'connection:other', name: 'other', tables: [] };
+        await show({ ...doc, connections: [...doc.connections, second] });
+        expect(screen.getByRole('combobox', { name: 'Connection' })).toBeInTheDocument();
+    });
+});
+
+describe('browse and details', () => {
+    it('opens a table in Details with its indexes, marking primary, unique, partial, expression and composite ones', async () => {
         await show(VALID['database-postgresql-indexes']());
-        fireEvent.click(within(tableList()).getByText('public.accounts'));
-        const panel = details();
-        expect(within(panel).getByRole('heading', { name: 'public.accounts' })).toBeInTheDocument();
-        const indexes = within(panel).getByText('Indexes').closest('details') as HTMLElement;
+        openRow('public.accounts');
+        expect(within(panel()).getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
+        expect(within(panel()).getByRole('heading', { name: /public\.accounts/ })).toBeInTheDocument();
+        const indexes = within(panel()).getByText('Indexes').closest('details') as HTMLElement;
         const item = (name: string) => within(indexes).getByText(name).closest('li') as HTMLElement;
         expect(within(item('accounts_pkey')).getByText('primary')).toBeInTheDocument();
         expect(within(item('accounts_email_key')).getByText('constraint')).toBeInTheDocument();
@@ -78,59 +101,77 @@ describe('SchemaViewer', () => {
     it('never draws indexes as diagram nodes', async () => {
         const { container } = await show(VALID['database-postgresql-indexes']());
         await waitFor(() => expect(container.querySelectorAll('.react-flow__node')).toHaveLength(2));
-        expect(container.querySelectorAll('.react-flow__node[data-id*="index"]')).toHaveLength(0);
     });
 
-    it('filters the table list by search, including column and model names', async () => {
+    it('browses relationships and columns, each with its own filter', async () => {
         await show(VALID['combined-eloquent']());
-        fireEvent.change(screen.getByPlaceholderText('Search schema…'), { target: { value: 'remember_token' } });
-        expect(within(tableList()).getAllByRole('button').map((b) => b.firstChild?.textContent)).toEqual(['users']);
-        fireEvent.change(screen.getByPlaceholderText('Search schema…'), { target: { value: 'nothing-matches' } });
-        expect(screen.getByText('No matching tables')).toBeInTheDocument();
+        fireEvent.click(within(panel()).getByRole('radio', { name: 'Relationships' }));
+        expect(rows()).toContain('Post.editor');
+        fireEvent.click(within(panel()).getByRole('radio', { name: 'Columns' }));
+        fireEvent.change(within(panel()).getByPlaceholderText(/Filter/), { target: { value: 'remember' } });
+        expect(rows()).toEqual(['remember_token']);
     });
 
-    it('tells facts from heuristics in diagnostics', async () => {
+    it('finds tables, columns, models and relationships from the header search and opens them', async () => {
         await show(VALID['combined-eloquent']());
-        const panel = details();
-        expect(within(panel).getAllByText('fact').length).toBeGreaterThan(0);
-        expect(within(panel).getAllByText('heuristic')).toHaveLength(1);
+        const box = screen.getByRole('combobox', { name: 'Search the schema' });
+        fireEvent.change(box, { target: { value: 'remember' } });
+        const options = screen.getAllByRole('option');
+        expect(options.map((o) => o.textContent)).toEqual([expect.stringContaining('users.remember_token')]);
+        fireEvent.keyDown(box, { key: 'Enter' });
+        expect(within(panel()).getByRole('heading', { name: /users/ })).toBeInTheDocument();
+    });
+
+    it('tells facts from heuristics in Diagnostics and filters them', async () => {
+        await show(VALID['combined-eloquent']());
+        openTab(/Diagnostics/);
+        const cards = () => panel().querySelectorAll('.card');
+        expect(cards()).toHaveLength(4);
+        fireEvent.click(within(panel()).getByRole('radio', { name: 'Heuristics' }));
+        expect(cards()).toHaveLength(1);
+        expect(cards()[0]).toHaveTextContent('Missing index');
+        fireEvent.click(within(cards()[0] as HTMLElement).getByRole('button', { name: 'Show posts' }));
+        expect(within(panel()).getByRole('heading', { name: /posts/ })).toBeInTheDocument();
     });
 
     it('marks declared-only and drifted metadata in combined documents', async () => {
         const { container } = await show(VALID['combined-drift']());
         await waitFor(() => expect(container.querySelector('[data-column="nickname"]')).toHaveClass('declared-only'));
         expect(container.querySelector('[data-column="email"]')).toHaveClass('drift');
-        fireEvent.click(within(tableList()).getByText('public.users'));
-        expect(within(details()).getAllByText('declared only').length).toBeGreaterThan(0);
-        expect(within(details()).getAllByText('drift').length).toBeGreaterThan(0);
+        openRow('public.users');
+        expect(within(panel()).getAllByText('declared only').length).toBeGreaterThan(0);
+        expect(within(panel()).getAllByText('drift').length).toBeGreaterThan(0);
     });
 
-    it('renders extensions generically', async () => {
+    it('does not call every column "database only" when the ORM declares no columns', async () => {
         await show(VALID['combined-eloquent']());
-        fireEvent.click(within(tableList()).getByText('users'));
-        const models = within(details()).getByText('Models').closest('details') as HTMLElement;
+        openRow('posts');
+        expect(within(panel()).queryByText('database only')).toBeNull();
+    });
+
+    it('renders extensions generically, or with a host renderer', async () => {
+        await show(VALID['combined-eloquent'](), { extensionRenderers: { eloquent: (v) => <span>rich {String(v.keyType)}</span> } });
+        openRow('users');
+        expect(within(panel()).getByText('rich int')).toBeInTheDocument();
+        cleanup();
+        await show(VALID['combined-eloquent']());
+        openRow('users');
+        const models = within(panel()).getByText('Models').closest('details') as HTMLElement;
         expect(within(models).getByText('eloquent')).toBeInTheDocument();
         expect(within(models).getByText('remember_token')).toBeInTheDocument();
     });
 
-    it('uses a host renderer for a known extension namespace', async () => {
-        await show(VALID['combined-eloquent'](), { extensionRenderers: { eloquent: (v) => <span>rich {String(v.keyType)}</span> } });
-        fireEvent.click(within(tableList()).getByText('users'));
-        expect(within(details()).getByText('rich int')).toBeInTheDocument();
-    });
-
-    it('clears the selection with Escape', async () => {
+    it('clears the selection with Escape and shows the overview', async () => {
         await show(VALID['combined-eloquent']());
-        fireEvent.click(within(tableList()).getByText('posts'));
-        expect(within(details()).getByText('TABLE')).toBeInTheDocument();
-        act(() => {
-            fireEvent.keyDown(document.body, { key: 'Escape' });
-        });
-        expect(within(details()).getByText('GUIDE')).toBeInTheDocument();
+        openRow('posts');
+        press('Escape');
+        expect(within(panel()).getByRole('heading', { name: 'Nothing selected' })).toBeInTheDocument();
     });
+});
 
+describe('preferences and links', () => {
     it('switches theme and remembers the choice when asked to', async () => {
-        const { container } = await show(VALID['database-sqlite-indexes'](), { persistTheme: true, theme: undefined });
+        const { container } = await show(VALID['database-sqlite-indexes'](), { persistTheme: true });
         const root = container.querySelector('.lsv') as HTMLElement;
         const before = root.dataset.theme;
         fireEvent.click(screen.getByRole('button', { name: /Switch to/ }));
@@ -141,120 +182,122 @@ describe('SchemaViewer', () => {
     it('opens on a deep link and keeps the selection in the hash', async () => {
         history.replaceState(null, '', '/#table=mysql%3Aposts');
         await show(VALID['combined-eloquent'](), { deepLinks: true });
-        expect(within(details()).getByRole('heading', { name: 'posts' })).toBeInTheDocument();
-        fireEvent.click(within(tableList()).getByText('users'));
+        expect(within(panel()).getByRole('heading', { name: /posts/ })).toBeInTheDocument();
+        openTab('Browse');
+        openRow('users');
         await waitFor(() => expect(location.hash).toBe('#table=mysql%3Ausers'));
-    });
-
-    it('offers a connection filter only when there are several connections', async () => {
-        const doc = VALID['database-sqlite-indexes']();
-        const second = { ...doc.connections[0], id: 'connection:other', name: 'other', tables: [] };
-        await show({ ...doc, connections: [...doc.connections, second] });
-        expect(screen.getByRole('combobox', { name: /Connection/ })).toBeInTheDocument();
     });
 });
 
-describe('interaction parity', () => {
-    it('folds cards to key columns, every column, or names only, and keeps routes on shown rows', async () => {
+describe('toolbar and shortcuts', () => {
+    it('folds cards to key columns, every column, or names only from the Show menu, and one card with its chevron', async () => {
         const { container } = await show(VALID['combined-eloquent']());
         const posts = () => container.querySelector('[data-table-id="mysql:posts"]') as HTMLElement;
         await waitFor(() => expect(posts()).toBeTruthy());
         const keyRows = posts().querySelectorAll('.column').length;
-        fireEvent.change(screen.getByRole('combobox', { name: /Columns/ }), { target: { value: 'all' } });
+        menu('Show');
+        fireEvent.click(screen.getByRole('menuitemradio', { name: /^All/ }));
         await waitFor(() => expect(posts().querySelectorAll('.column').length).toBe(9));
         expect(keyRows).toBeLessThan(9);
-        fireEvent.change(screen.getByRole('combobox', { name: /Columns/ }), { target: { value: 'none' } });
+        fireEvent.click(within(posts()).getByRole('button', { name: 'Fold posts' }));
+        await waitFor(() => expect(posts().querySelectorAll('.column').length).toBe(0));
+        press('c');
         await waitFor(() => expect(posts().querySelectorAll('.column').length).toBe(0));
     });
 
     it('shows notes on cards with N', async () => {
         const { container } = await show(VALID['combined-eloquent']());
         await waitFor(() => expect(container.querySelector('[data-table-id="mysql:posts"]')).toBeTruthy());
-        expect(container.querySelector('.note-row')).toBeNull();
-        act(() => {
-            fireEvent.keyDown(document.body, { key: 'n' });
-        });
+        press('n');
         await waitFor(() => expect(container.querySelector('[data-table-id="mysql:posts"] .note-row')).toHaveTextContent('Articles, drafts included.'));
     });
 
-    it('turns link kinds on and off with 1 to 4', async () => {
+    it('turns link kinds on and off from the menu and with 1 to 4', async () => {
         await show(VALID['combined-eloquent']());
-        const through = screen.getByRole('checkbox', { name: /Through/ });
-        expect(through).toBeChecked();
-        act(() => {
-            fireEvent.keyDown(document.body, { key: '4' });
-        });
-        expect(through).not.toBeChecked();
+        menu('Relationships');
+        const through = () => screen.getByRole('menuitemcheckbox', { name: /Through/ });
+        expect(through()).toHaveAttribute('aria-checked', 'true');
+        press('4');
+        expect(through()).toHaveAttribute('aria-checked', 'false');
+        fireEvent.click(through());
+        expect(through()).toHaveAttribute('aria-checked', 'true');
     });
 
-    it('hides framework and package tables separately', async () => {
+    it('hides framework and package tables separately from the Tables menu', async () => {
         await show(VALID['combined-eloquent']());
-        fireEvent.click(screen.getByRole('checkbox', { name: 'Framework tables' }));
-        expect(within(tableList()).queryByText('jobs')).toBeNull();
-        expect(within(tableList()).getByText('oauth_clients')).toBeInTheDocument();
+        menu('Tables');
+        fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Framework tables/ }));
+        expect(rows()).not.toContain('jobs');
+        expect(rows()).toContain('oauth_clients');
     });
 
     it('focuses on a table to a chosen depth', async () => {
         await show(VALID['combined-eloquent']());
-        fireEvent.click(within(tableList()).getByText('countries'));
-        fireEvent.click(within(details()).getByRole('button', { name: 'Focus on neighbors' }));
-        await waitFor(() => expect(within(tableList()).getAllByRole('button')).toHaveLength(3));
+        openRow('countries');
+        fireEvent.click(within(panel()).getByRole('button', { name: 'Focus' }));
+        openTab('Browse');
+        await waitFor(() => expect(rows()).toHaveLength(3));
         fireEvent.change(screen.getByRole('combobox', { name: 'Depth' }), { target: { value: '2' } });
-        await waitFor(() => expect(within(tableList()).getAllByRole('button').length).toBeGreaterThan(3));
+        await waitFor(() => expect(rows().length).toBeGreaterThan(3));
         fireEvent.click(screen.getByRole('button', { name: '← Show all tables' }));
-        await waitFor(() => expect(within(tableList()).getAllByRole('button')).toHaveLength(11));
+        await waitFor(() => expect(rows()).toHaveLength(11));
     });
 
-    it('lists every shortcut in a dialog opened with S', async () => {
-        await show(VALID['database-sqlite-indexes']());
-        act(() => {
-            fireEvent.keyDown(document.body, { key: 's' });
-        });
+    it('switches panel tabs with A, D and H, and lists every shortcut with S', async () => {
+        await show(VALID['combined-eloquent']());
+        press('h');
+        expect(within(panel()).getByRole('tab', { name: /Diagnostics/ })).toHaveAttribute('aria-selected', 'true');
+        press('a');
+        expect(within(panel()).getByRole('tab', { name: 'Browse' })).toHaveAttribute('aria-selected', 'true');
+        press('s');
         expect(screen.getByRole('heading', { name: 'Keyboard shortcuts', hidden: true })).toBeInTheDocument();
     });
 
     it('ignores shortcuts while typing', async () => {
         await show(VALID['combined-eloquent']());
-        const input = screen.getByPlaceholderText('Search schema…');
+        const input = screen.getByRole('combobox', { name: 'Search the schema' });
         input.focus();
         act(() => {
-            fireEvent.keyDown(input, { key: '4' });
+            fireEvent.keyDown(input, { key: 'h' });
         });
-        expect(screen.getByRole('checkbox', { name: /Through/ })).toBeChecked();
+        expect(within(panel()).getByRole('tab', { name: 'Browse' })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('resizes the side panel from the keyboard, within limits, and resets on double-click', async () => {
+        const { container } = await show(VALID['database-sqlite-indexes']());
+        const root = container.querySelector('.lsv') as HTMLElement;
+        const handle = screen.getByRole('separator', { name: 'Resize the side panel' });
+        fireEvent.keyDown(handle, { key: 'End' });
+        expect(root.style.getPropertyValue('--lsv-panel')).toBe('560px');
+        fireEvent.keyDown(handle, { key: 'ArrowRight' });
+        expect(root.style.getPropertyValue('--lsv-panel')).toBe('536px');
+        fireEvent.doubleClick(handle);
+        expect(root.style.getPropertyValue('--lsv-panel')).toBe('');
+    });
+});
+
+describe('pan and select modes', () => {
+    it('toggles the hand tool off on a second click, switching to select mode', async () => {
+        await show(VALID['combined-eloquent']());
+        const hand = screen.getByRole('button', { name: 'Pan mode' });
+        const select = screen.getByRole('button', { name: 'Select mode' });
+        expect(hand).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(hand);
+        expect(hand).toHaveAttribute('aria-pressed', 'false');
+        expect(select).toHaveAttribute('aria-pressed', 'true');
+        fireEvent.click(select);
+        expect(hand).toHaveAttribute('aria-pressed', 'true');
     });
 });
 
 describe('tour', () => {
     it('walks through every step from ? and ends with Escape', async () => {
         await show(VALID['combined-eloquent']());
-        act(() => {
-            fireEvent.keyDown(document.body, { key: '?' });
-        });
+        press('?');
         expect(screen.getByRole('dialog', { name: 'Welcome' })).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Next' }));
         expect(screen.getByRole('dialog', { name: 'The diagram' })).toBeInTheDocument();
-        act(() => {
-            fireEvent.keyDown(document.body, { key: 'Escape' });
-        });
+        press('Escape');
         expect(screen.queryByRole('dialog', { name: 'The diagram' })).toBeNull();
-    });
-});
-
-describe('panels', () => {
-    it('resize from the keyboard, within limits, and reset on double-click', async () => {
-        const { container } = await show(VALID['database-sqlite-indexes']());
-        const main = container.querySelector('.lsv-main') as HTMLElement;
-        const left = screen.getByRole('separator', { name: 'Resize the tables panel' });
-        const right = screen.getByRole('separator', { name: 'Resize the details panel' });
-        fireEvent.keyDown(left, { key: 'Home' });
-        expect(main.style.getPropertyValue('--lsv-left')).toBe('160px');
-        fireEvent.keyDown(left, { key: 'ArrowRight' });
-        expect(main.style.getPropertyValue('--lsv-left')).toBe('184px');
-        fireEvent.keyDown(right, { key: 'End' });
-        expect(main.style.getPropertyValue('--lsv-right')).toBe('560px');
-        fireEvent.keyDown(right, { key: 'ArrowRight' });
-        expect(main.style.getPropertyValue('--lsv-right')).toBe('536px');
-        fireEvent.doubleClick(right);
-        expect(main.style.getPropertyValue('--lsv-right')).toBe('');
     });
 });

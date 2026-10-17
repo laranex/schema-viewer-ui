@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Constraint, Coverage, Diagnostic, Extensions, ForeignKey, Index, JsonValue, Provenance, Relationship, SchemaDocument, Source, Table } from '../contract/types';
-import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
+import type { ViewerChange } from '../contract/viewer-config';
 import { relationshipsOf, tableLabel, type GraphEdge, type Lookup } from './graph';
 
 // Renders one extension namespace richly; the viewer falls back to a generic rendering for the rest.
@@ -11,6 +11,7 @@ export type DetailContext = {
     lookup: Lookup;
     editor: string | null;
     renderers: ExtensionRenderers;
+    declares: Set<Kind>;
 };
 
 const SOURCE_TEXT: Record<SchemaDocument['source'], string> = {
@@ -27,26 +28,36 @@ export function Badge({ tone = 'plain', children, title }: { tone?: string; chil
     );
 }
 
-export function ProvenanceBadge({ provenance, doc }: { provenance: Provenance; doc: SchemaDocument }) {
-    if (doc.source !== 'combined') {
-        return null;
+// What kinds of entity the ORM declares somewhere in the document. "Database only" says something only about a kind
+// the ORM declares at all: Eloquent, for one, declares no columns, so every column would be "database only".
+export type Kind = 'table' | 'column' | 'index' | 'foreignKey' | 'constraint';
+
+export function declaredKinds(doc: SchemaDocument): Set<Kind> {
+    const kinds = new Set<Kind>();
+    const d = (p: Provenance) => p.includes('declared');
+    for (const t of doc.connections.flatMap((c) => c.tables)) {
+        if (d(t.provenance)) kinds.add('table');
+        if (t.columns.some((c) => d(c.provenance))) kinds.add('column');
+        if (t.indexes.some((i) => d(i.provenance))) kinds.add('index');
+        if (t.foreignKeys.some((f) => d(f.provenance))) kinds.add('foreignKey');
+        if (t.constraints.some((c) => d(c.provenance))) kinds.add('constraint');
     }
-    if (provenance.length === 2) {
-        return (
-            <Badge tone="both" title="Inspected in the database and declared by the ORM">
-                database + declared
-            </Badge>
-        );
+    return kinds;
+}
+
+export function ProvenanceBadge({ provenance, kind, ctx }: { provenance: Provenance; kind: Kind; ctx: DetailContext }) {
+    if (ctx.doc.source !== 'combined' || provenance.length === 2) {
+        return null;
     }
     return provenance[0] === 'declared' ? (
         <Badge tone="declared" title="Declared by the ORM only; not found in the database">
             declared only
         </Badge>
-    ) : (
+    ) : ctx.declares.has(kind) ? (
         <Badge tone="database" title="Found in the database; the ORM does not declare it">
             database only
         </Badge>
-    );
+    ) : null;
 }
 
 function SourceLink({ source, editor }: { source: Source | null; editor: string | null }) {
@@ -139,39 +150,20 @@ function Section({ title, count, children, open = false }: { title: string; coun
     );
 }
 
-function DiagnosticBody({ diagnostic }: { diagnostic: Diagnostic }) {
-    return (
-        <>
-            <div className="badges">
-                <Badge tone={diagnostic.severity}>{diagnostic.severity}</Badge>
-                <Badge tone={diagnostic.certainty === 'certain' ? 'fact' : 'heuristic'} title={diagnostic.certainty === 'certain' ? 'A confirmed fact read from metadata' : 'A heuristic recommendation, inferred'}>
-                    {diagnostic.certainty === 'certain' ? 'fact' : 'heuristic'}
-                </Badge>
-                <Badge>{diagnostic.category}</Badge>
-                <code>{diagnostic.kind}</code>
-            </div>
-            <p>{diagnostic.message}</p>
-            {diagnostic.subject.label && <small className="muted">{diagnostic.subject.label}</small>}
-        </>
-    );
-}
-
-export function DiagnosticItem({ diagnostic }: { diagnostic: Diagnostic }) {
-    return (
-        <li className={`diagnostic diagnostic--${diagnostic.severity}`}>
-            <DiagnosticBody diagnostic={diagnostic} />
-        </li>
-    );
-}
-
 export function DiagnosticList({ diagnostics }: { diagnostics: Diagnostic[] }) {
     // Confirmed facts first, then heuristic recommendations, each by severity.
     const rank = { error: 0, warning: 1, info: 2 } as const;
     const ordered = [...diagnostics].sort((a, b) => (a.certainty === b.certainty ? rank[a.severity] - rank[b.severity] : a.certainty === 'certain' ? -1 : 1));
     return (
-        <ul className="diagnostics">
+        <ul className="cards">
             {ordered.map((d, i) => (
-                <DiagnosticItem key={i} diagnostic={d} />
+                <li key={i} className={`card card--${d.severity}`}>
+                    <div className="card__eyebrow">
+                        {d.severity} · {d.certainty === 'certain' ? 'fact' : 'heuristic'} · {d.category}
+                    </div>
+                    <strong>{diagnosticTitle(d.kind)}</strong>
+                    <p>{d.message}</p>
+                </li>
             ))}
         </ul>
     );
@@ -199,36 +191,35 @@ function CoverageView({ coverage, name }: { coverage: Coverage; name: string }) 
     );
 }
 
-function download(item: ViewerDownload) {
-    const url = URL.createObjectURL(new Blob([item.content], { type: item.mediaType }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = item.filename;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-}
+const HUMAN: Record<string, string> = {
+    unresolved_foreign_key: 'Foreign key could not be resolved',
+    unresolved_relationship: 'Relationship could not be resolved',
+    unsupported_metadata: 'Metadata not supported',
+    inspection_unavailable: 'Inspection unavailable',
+    model_without_table: 'Model without a table',
+    table_without_model: 'Table without a model',
+    declared_only: 'Declared only',
+    database_only: 'Only in the database',
+    column_drift: 'Column differs',
+    index_drift: 'Index differs',
+    foreign_key_drift: 'Foreign key differs',
+    missing_index: 'Missing index',
+    duplicate_index: 'Duplicate index',
+    redundant_index: 'Redundant index',
+    relationship_without_foreign_key: 'Relationship without a foreign key',
+    foreign_key_without_relationship: 'Foreign key without a relationship',
+};
 
-export function Guide({
-    ctx,
-    changes,
-    downloads,
-    onSelectSubject,
-    onShortcuts,
-}: {
-    ctx: DetailContext;
-    changes?: ViewerChange[] | null;
-    downloads?: ViewerDownload[];
-    onSelectSubject: (d: Diagnostic) => void;
-    onShortcuts: () => void;
-}) {
+export const diagnosticTitle = (kind: string) => HUMAN[kind] ?? kind.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
+// What the Details tab shows with nothing selected: where the metadata came from, the legend and the coverage.
+export function Overview({ ctx, onShortcuts, onTour }: { ctx: DetailContext; onShortcuts: () => void; onTour: () => void }) {
     const { doc } = ctx;
-    const facts = doc.diagnostics.filter((d) => d.certainty === 'certain').length;
     const states = new Set(doc.links.map((l) => l.state));
     return (
         <>
-            <span className="tag">GUIDE</span>
-            <h2>Schema details</h2>
-            <p className="muted">Select a table or a connection to inspect its definition.</p>
+            <h2>Nothing selected</h2>
+            <p className="muted">Choose a table on the diagram, in Browse or in the search, or click a line between two tables.</p>
             <div className="source-mode">
                 <Badge tone={doc.source}>{doc.source}</Badge>
                 <span className="muted">{SOURCE_TEXT[doc.source]}</span>
@@ -265,81 +256,94 @@ export function Guide({
                     </li>
                 )}
             </ul>
-            <h3>Shortcuts</h3>
-            <dl className="shortcuts">
-                <dt>
-                    <kbd>/</kbd>
-                </dt>
-                <dd>Search</dd>
-                <dt>
-                    <kbd>Esc</kbd>
-                </dt>
-                <dd>Clear selection and focus</dd>
-                <dt>
-                    <kbd>+</kbd>
-                    <kbd>−</kbd>
-                </dt>
-                <dd>Zoom</dd>
-                <dt>
-                    <kbd>0</kbd>
-                </dt>
-                <dd>Fit to view</dd>
-                <dt>
-                    <kbd>←</kbd>
-                    <kbd>→</kbd>
-                </dt>
-                <dd>Pan the canvas</dd>
-            </dl>
-            <button type="button" className="detail-link" onClick={onShortcuts}>
-                All shortcuts <kbd>S</kbd>
-            </button>
-            <Section title="Coverage" count={doc.connections.length}>
-                {doc.connections.map((c) => (
-                    <div key={c.id} className="connection-coverage">
-                        <strong>{c.name}</strong> <span className="muted">{c.driver ?? 'unknown driver'}</span>
-                        {c.coverage.database && <CoverageView coverage={c.coverage.database} name="database" />}
-                        {c.coverage.declared && <CoverageView coverage={c.coverage.declared} name="declared" />}
-                    </div>
-                ))}
-            </Section>
-            {doc.diagnostics.length > 0 && (
-                <Section title={`Diagnostics · ${facts} facts, ${doc.diagnostics.length - facts} heuristics`} count={doc.diagnostics.length} open>
-                    <ul className="diagnostics">
-                        {[...doc.diagnostics]
-                            .sort((a, b) => (a.certainty === b.certainty ? 0 : a.certainty === 'certain' ? -1 : 1))
-                            .map((d, i) => (
-                                <li key={i} className={`diagnostic diagnostic--${d.severity}`}>
-                                    <button type="button" className="diagnostic-link" onClick={() => onSelectSubject(d)}>
-                                        <DiagnosticBody diagnostic={d} />
-                                    </button>
-                                </li>
-                            ))}
-                    </ul>
-                </Section>
-            )}
-            {changes && changes.length > 0 && (
-                <Section title="Changes since the previous build" count={changes.length}>
-                    <ul className="changes">
-                        {changes.map((c, i) => (
-                            <li key={i}>
-                                <Badge tone={c.change}>{c.change}</Badge> <code>{c.type}</code> {c.label ?? c.subject ?? ''}
-                                {c.message && <p className="muted">{c.message}</p>}
-                            </li>
-                        ))}
-                    </ul>
-                </Section>
-            )}
-            {downloads && downloads.length > 0 && (
-                <>
-                    <h3>Downloads</h3>
-                    {downloads.map((item) => (
-                        <button type="button" key={item.filename} className="detail-link" onClick={() => download(item)}>
-                            ↓ {item.label}
-                        </button>
-                    ))}
-                </>
-            )}
+            <h3>Coverage</h3>
+            {doc.connections.map((c) => (
+                <div key={c.id} className="connection-coverage">
+                    <strong>{c.name}</strong> <span className="muted">{c.driver ?? 'unknown driver'}</span>
+                    {c.coverage.database && <CoverageView coverage={c.coverage.database} name="database" />}
+                    {c.coverage.declared && <CoverageView coverage={c.coverage.declared} name="declared" />}
+                </div>
+            ))}
+            <div className="detail-actions">
+                <button type="button" onClick={onTour}>
+                    Take the tour
+                </button>
+                <button type="button" onClick={onShortcuts}>
+                    Shortcuts <kbd>S</kbd>
+                </button>
+            </div>
         </>
+    );
+}
+
+// The Diagnostics tab: confirmed facts apart from heuristic advice, each with a way to the table it is about.
+export function DiagnosticsPanel({ doc, tableOf, onShow }: { doc: SchemaDocument; tableOf: (d: Diagnostic) => string | undefined; onShow: (table: string) => void }) {
+    const [certainty, setCertainty] = useState<'all' | 'certain' | 'likely'>('all');
+    const rank = { error: 0, warning: 1, info: 2 } as const;
+    const shown = doc.diagnostics
+        .filter((d) => certainty === 'all' || d.certainty === certainty)
+        .sort((a, b) => (a.certainty === b.certainty ? rank[a.severity] - rank[b.severity] : a.certainty === 'certain' ? -1 : 1));
+    if (doc.diagnostics.length === 0) {
+        return <p className="muted empty-note">No diagnostics: nothing failed to read, and the producer reported no findings.</p>;
+    }
+    return (
+        <>
+            <div className="segmented" role="radiogroup" aria-label="Show diagnostics">
+                {(
+                    [
+                        ['all', `All ${doc.diagnostics.length}`],
+                        ['certain', 'Facts'],
+                        ['likely', 'Heuristics'],
+                    ] as const
+                ).map(([value, label]) => (
+                    <button key={value} type="button" role="radio" aria-checked={certainty === value} onClick={() => setCertainty(value)}>
+                        {label}
+                    </button>
+                ))}
+            </div>
+            <ul className="cards">
+                {shown.map((d, i) => {
+                    const table = tableOf(d);
+                    const name = table ? doc.connections.flatMap((c) => c.tables).find((t) => t.id === table) : undefined;
+                    return (
+                        <li key={i} className={`card card--${d.severity}`}>
+                            <div className="card__eyebrow">
+                                {d.severity} · {d.certainty === 'certain' ? 'fact' : 'heuristic'} · {d.category}
+                            </div>
+                            <strong>{diagnosticTitle(d.kind)}</strong>
+                            <p>{d.message}</p>
+                            {name && (
+                                <button type="button" className="link-button" onClick={() => onShow(name.id)}>
+                                    Show {tableLabel(name)}
+                                </button>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+        </>
+    );
+}
+
+export function ChangesPanel({ changes }: { changes: ViewerChange[] }) {
+    return (
+        <ul className="cards">
+            {changes.map((c, i) => (
+                <li key={i} className="card">
+                    <div className="card__eyebrow">
+                        {c.change} · {c.type}
+                    </div>
+                    <strong>{c.label ?? c.subject ?? c.type}</strong>
+                    {c.message && <p>{c.message}</p>}
+                    {c.fields &&
+                        Object.entries(c.fields).map(([field, [before, after]]) => (
+                            <p key={field} className="muted">
+                                <code>{field}</code>: {JSON.stringify(before)} → {JSON.stringify(after)}
+                            </p>
+                        ))}
+                </li>
+            ))}
+        </ul>
     );
 }
 
@@ -367,7 +371,7 @@ function IndexItem({ index, ctx }: { index: Index; ctx: DetailContext }) {
                     {index.partial && <Badge tone="partial">partial</Badge>}
                     {index.expression && <Badge tone="expression">expression</Badge>}
                     {index.method && <Badge>{index.method}</Badge>}
-                    <ProvenanceBadge provenance={index.provenance} doc={ctx.doc} />
+                    <ProvenanceBadge provenance={index.provenance} kind="index" ctx={ctx} />
                 </span>
             </div>
             <div className="parts">
@@ -424,7 +428,7 @@ function ConstraintItem({ constraint, ctx }: { constraint: Constraint; ctx: Deta
                 <code key={c}>{c}</code>
             ))}
             {constraint.expression && <code className="expression">{constraint.expression}</code>}
-            <ProvenanceBadge provenance={constraint.provenance} doc={ctx.doc} />
+            <ProvenanceBadge provenance={constraint.provenance} kind="constraint" ctx={ctx} />
         </li>
     );
 }
@@ -433,7 +437,7 @@ function ForeignKeyItem({ fk, ctx, onSelectTable }: { fk: ForeignKey; ctx: Detai
     const target = ctx.lookup.tables.get(fk.foreignTable);
     return (
         <li>
-            <strong>{fk.name ?? 'unnamed'}</strong> <ProvenanceBadge provenance={fk.provenance} doc={ctx.doc} />
+            <strong>{fk.name ?? 'unnamed'}</strong> <ProvenanceBadge provenance={fk.provenance} kind="foreignKey" ctx={ctx} />
             <div>
                 <code>{fk.columns.join(', ')}</code> →{' '}
                 {target ? (
@@ -493,6 +497,7 @@ export function TableDetails({
     edges,
     onFocus,
     onClear,
+    onCopyLink,
     onSelectEdge,
     onSelectTable,
 }: {
@@ -501,6 +506,7 @@ export function TableDetails({
     edges: GraphEdge[];
     onFocus: () => void;
     onClear: () => void;
+    onCopyLink: () => void;
     onSelectEdge: (edge: GraphEdge) => void;
     onSelectTable: (id: string) => void;
 }) {
@@ -524,11 +530,28 @@ export function TableDetails({
     const incoming = [...lookup.tables.values()].flatMap((t) => (t.id === table.id ? [] : t.foreignKeys.filter((f) => f.foreignTable === table.id).map((f) => ({ t, f }))));
     return (
         <>
-            <span className="tag">TABLE</span> <ProvenanceBadge provenance={table.provenance} doc={doc} />
-            <h2>{tableLabel(table)}</h2>
+            <h2 className="details__title">
+                {tableLabel(table)} <ProvenanceBadge provenance={table.provenance} kind="table" ctx={ctx} />
+            </h2>
+            <p className="details__subtitle">
+                {connection?.name ?? ''} · {table.columns.length} columns
+                {table.owner.kind !== 'application' ? ` · ${table.owner.package ?? table.owner.kind}` : ''}
+            </p>
+            {models.length > 0 && (
+                <div className="chips">
+                    {models.map((m) => (
+                        <code key={m.id} title={m.className}>
+                            {m.className}
+                        </code>
+                    ))}
+                </div>
+            )}
             <div className="detail-actions">
                 <button type="button" onClick={onFocus}>
-                    Focus on neighbors
+                    Focus
+                </button>
+                <button type="button" onClick={onCopyLink}>
+                    Copy link
                 </button>
                 <button type="button" onClick={onClear}>
                     Clear
@@ -561,7 +584,7 @@ export function TableDetails({
                                     <code>{c.type}</code>
                                     {c.nullable ? <span className="muted"> null</span> : null}
                                     {c.autoIncrement ? <Badge>auto</Badge> : null}
-                                    <ProvenanceBadge provenance={c.provenance} doc={doc} />
+                                    <ProvenanceBadge provenance={c.provenance} kind="column" ctx={ctx} />
                                     {c.enum && <div className="muted">enum {c.enum.name ?? ''}: {c.enum.values.join(', ')}</div>}
                                     {c.default && (
                                         <div className="muted">

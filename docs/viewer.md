@@ -2,13 +2,21 @@
 
 ## Layout
 
-- **Tables** (left): every table shown, searchable by table, column or model name. Press <kbd>/</kbd> to search.
-- **Diagram** (middle): tables as cards, links as edges. Drag the background to pan, scroll or pinch to zoom, drag a
-  card by its title to move it. Double-click a card to focus on it and its neighbors.
-- **Details** (right): the guide when nothing is selected; a table's columns, indexes, constraints, foreign keys,
-  relationships and models when one is; a link's foreign key and relationships when an edge is.
+The layout follows Laravel Schema Viewer's:
 
-Both side panels resize: drag their edges, or focus a handle and use the arrow keys. Double-click a handle to reset.
+- **Header**: the search box finds any table, column, model or relationship and opens it (<kbd>/</kbd>); then the
+  connection, the Download menu (the JSON document, host files, and PNG or SVG images), the theme and Shortcuts.
+- **Diagram**: tables as cards, links as edges, a minimap in the corner. Drag the background to pan, scroll or pinch
+  to zoom, drag a card by its title to move it, fold a card with its chevron, double-click it to focus on its
+  neighbors.
+- **Toolbar** (bottom): zoom, fit, the hand (pan) and select tools — click the active one again to switch —, and the
+  Relationships, Tables and Show menus.
+- **Side panel** (right, resizable): **Browse** (Tables & Models, Relationships, Columns, each with a filter),
+  **Details** (the selection, or an overview of the document), **Diagnostics** (facts apart from heuristics, each with
+  a way to its table) and **Changes** when the host provides them.
+
+On a phone the header keeps only the search and a ⋯ menu, the diagram fills the screen, and the side panel is a bottom
+sheet: tap a table, Browse, or the diagnostics count to open it.
 
 ## Edges
 
@@ -41,7 +49,8 @@ it never infers a constraint from a relationship.
 | <kbd>Y</kbd> <kbd>G</kbd> <kbd>P</kbd> | Your, framework and package tables |
 | <kbd>[</kbd> <kbd>]</kbd> | Previous or next connection |
 | <kbd>Shift</kbd> <kbd>C</kbd> | Copy a link to this view |
-| <kbd>E</kbd> | Export PNG or SVG |
+| <kbd>A</kbd> <kbd>D</kbd> <kbd>H</kbd> <kbd>W</kbd> | Browse, Details, Diagnostics, Changes |
+| <kbd>E</kbd> | Download menu: JSON, PNG or SVG |
 | <kbd>S</kbd> | All shortcuts |
 | <kbd>?</kbd> | The tour |
 

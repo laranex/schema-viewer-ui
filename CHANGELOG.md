@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The viewer takes Laravel Schema Viewer's layout, in this package's colors: a header with a schema-wide search (tables, columns, models, relationships), connection picker, Download menu, theme and Shortcuts; the diagram across the page with a minimap; a floating toolbar with zoom, fit, hand and select tools and the Relationships, Tables and Show menus; and one resizable side panel with Browse (Tables & Models, Relationships, Columns), Details, Diagnostics (facts apart from heuristics) and Changes tabs. Cards show model names, nullable marks, pivot tables, highlighted link columns and a fold chevron; edge labels carry their cardinality. The `status` prop is gone with the footer.
+- Phones get Laravel's phone layout: a compact header with a ⋯ menu, the diagram across the screen, an icon toolbar, and the side panel as a bottom sheet.
+
+### Fixed
+
+- A box selection no longer clears itself: the edges it covers used to replace the selected tables.
+- The hand tool pans again after a box selection, and a second click on the active tool switches to the other one.
+- Shift-clicking a card's title adds the table to the selection instead of replacing it.
+- "Database only" badges appear only for kinds of entity the ORM declares, instead of on every Eloquent column.
+- The side panel never scrolls sideways; long names, class names and expressions wrap.
+
 ## [0.1.0] - 2026-10-17
 
 ### Added

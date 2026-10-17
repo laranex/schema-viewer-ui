@@ -20,7 +20,7 @@ import 'laranex-schema-viewer-ui/styles.css';
 | `persistTheme` | `boolean` | `true` | Remember the theme in `localStorage`. |
 | `deepLinks` | `boolean` | `true` | Keep the view in the URL hash. |
 | `downloadHref` | `string \| null` | — | Where Download JSON points; `null` hides it. |
-| `title`, `status`, `className` | `ReactNode`, `ReactNode`, `string` | — | Header title, footer status, root class. |
+| `title`, `className` | `ReactNode`, `string` | — | Header title, root class. |
 | `layout` | `(request) => Promise<Positions>` | ELK | Replace the automatic layout, for tests or custom placement. |
 
 ## Contract helpers

@@ -19,7 +19,8 @@ export const SHORTCUTS: [string[], string][] = [
     [['Y', 'G', 'P'], 'Show or hide your tables, framework tables, package tables'],
     [['[', ']'], 'Previous or next connection, or all of them'],
     [['Shift C'], 'Copy a link to this view'],
-    [['E'], 'Export the diagram or the visible area as PNG or SVG'],
+    [['A', 'D', 'H', 'W'], 'Open Browse, Details, Diagnostics or Changes'],
+    [['E'], 'Open the Download menu: JSON, PNG or SVG'],
     [['S'], 'Show this list'],
     [['?'], 'Take the tour'],
 ];
