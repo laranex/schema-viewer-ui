@@ -1,0 +1,5 @@
+# Contract artifacts are canonical bytes (LF), and tests compare them byte for byte on every platform.
+* text=auto eol=lf
+*.woff binary
+*.woff2 binary
+*.png binary
