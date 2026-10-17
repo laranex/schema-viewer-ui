@@ -159,7 +159,7 @@ function invalid(input: unknown): string | null {
     if (typeof doc !== 'object' || doc === null || Array.isArray(doc) || doc.format !== 'laranex-schema' || typeof doc.version !== 'string') {
         return 'The input is not a laranex-schema document.';
     }
-    if (Number(doc.version.split('.')[0]) !== MAJOR) {
+    if (doc.version.split('.')[0] !== String(MAJOR)) {
         return `The document is laranex-schema ${doc.version}; the gate reads ${MAJOR}.x.`;
     }
     return validateDocument(input, { strict: doc.version === VERSION }).ok ? null : `The document fails laranex-schema ${doc.version} validation.`;
