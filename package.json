@@ -43,7 +43,7 @@
   "files": [
     "dist",
     "contract",
-    "docs/contract.md",
+    "docs",
     "NOTICE"
   ],
   "engines": {
