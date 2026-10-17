@@ -5,7 +5,7 @@ import type { SchemaDocument } from '../src/contract';
 import { editorHref } from '../src/viewer/Details';
 import { frameAround, type LayoutRequest } from '../src/viewer/layout';
 import { SchemaViewer } from '../src/viewer/SchemaViewer';
-import { CARD_WIDTH } from '../src/viewer/graph';
+import { CARD_WIDTH, diagnosticScope, lookup } from '../src/viewer/graph';
 import { Ident } from '../src/viewer/ui';
 import { VALID } from './fixtures/documents';
 import { root } from './helpers';
@@ -111,5 +111,44 @@ describe('layout stability', () => {
         ]);
         expect(frame).toEqual({ connection: 'app', x: 52, y: 88, width: 900 + CARD_WIDTH - 100 + 96, height: 780 - 200 + 64 + 96 });
         expect(frameAround('app', [{ x: 0, y: 0, height: 40 }]).width).toBeGreaterThanOrEqual(240);
+    });
+});
+
+describe('diagnostics per connection', () => {
+    // The multi-connection fixture, plus one diagnostic about the whole document.
+    const multi = (): SchemaDocument => {
+        const doc = VALID['combined-multi-connection']();
+        const [first] = doc.diagnostics;
+        return { ...doc, diagnostics: [...doc.diagnostics, { ...first, id: 'n-document', kind: 'inspection_unavailable', category: 'inspection', subject: { type: 'document', id: null, columns: null, label: null }, message: 'About the whole document.' }] };
+    };
+
+    it('finds the connections each diagnostic concerns from its subject', () => {
+        const doc = multi();
+        const scope = diagnosticScope(doc, lookup(doc));
+        expect(doc.diagnostics.map((d) => scope.connectionsOf(d))).toEqual([['connection:app'], ['connection:analytics'], ['connection:cache'], []]);
+        expect(scope.tableOf(doc.diagnostics[2])).toBe('cache:sessions');
+    });
+
+    it('counts and lists the diagnostics of the connection in view, keeping the document’s', async () => {
+        const { container } = await show(multi());
+        const tab = () => within(panel()).getByRole('tab', { name: /Diagnostics/ });
+        expect(tab()).toHaveTextContent('Diagnostics4');
+        await waitFor(() => expect(container.querySelectorAll('.region-node')).toHaveLength(3));
+        expect([...container.querySelectorAll('.region-node__meta')].map((m) => m.textContent)).toEqual(['postgresql · 2 tables · 1 diagnostic', 'mysql · 2 tables · 1 diagnostic', 'sqlite · 1 table · 1 diagnostic']);
+        fireEvent.change(screen.getByRole('combobox', { name: 'Connection' }), { target: { value: 'connection:analytics' } });
+        await waitFor(() => expect(tab()).toHaveTextContent('Diagnostics2'));
+        fireEvent.click(tab());
+        expect(panel().querySelector('.diagnostics-scope')).toHaveTextContent('Connection analytics and the whole document; 2 more on other connections.');
+        const cards = [...panel().querySelectorAll('.cards > li')];
+        expect(cards.map((c) => c.querySelector('strong')?.textContent)).toEqual(['Metadata not supported', 'Inspection unavailable']);
+        expect(cards[1].querySelector('.card__eyebrow')).toHaveTextContent('whole document');
+    });
+
+    it('shows a diagnostic’s extensions', async () => {
+        const doc = multi();
+        doc.diagnostics[0] = { ...doc.diagnostics[0], extensions: { laravel: { ignore: 'users.legacy' } } };
+        await show(doc, { extensionRenderers: { laravel: (v) => <p>Ignore with {String(v.ignore)}</p> } });
+        fireEvent.click(within(panel()).getByRole('tab', { name: /Diagnostics/ }));
+        expect(within(panel()).getByText('Ignore with users.legacy')).toBeInTheDocument();
     });
 });

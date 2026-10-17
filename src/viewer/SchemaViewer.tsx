@@ -1,6 +1,6 @@
 import { Background, BackgroundVariant, MiniMap, ReactFlow, ReactFlowProvider, useReactFlow, useStoreApi, useViewport, type EdgeChange, type NodeChange } from '@xyflow/react';
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
-import type { Diagnostic, SchemaDocument, Table } from '../contract/types';
+import type { SchemaDocument, Table } from '../contract/types';
 import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
 import { Browse, tableSubtitle, type BrowseMode } from './Browse';
 import { ComparePanel, FILTER_PARAM, filtersFrom, type CompareFilters } from './Compare';
@@ -12,6 +12,7 @@ import {
     CARD_WIDTH,
     columnMarks,
     EDGE_KINDS,
+    diagnosticScope,
     edgesFor,
     FOLDS,
     isNote,
@@ -33,7 +34,7 @@ import { MigrationsPanel } from './Migrations';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
 import { SearchBox, type SearchResult } from './Search';
 import { ShortcutsDialog } from './Shortcuts';
-import { EXTERNAL_HEIGHT, ExternalNodeView, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
+import { EXTERNAL_HEIGHT, ExternalNodeView, frameMeta, RegionNodeView, TableNodeView, type ExternalNodeType, type RegionNodeType, type TableNodeType } from './TableNode';
 import { Tour } from './Tour';
 import { useTheme, type Theme } from './theme';
 import { Icon, Menu, MenuCheck, MenuItem, MenuLabel, MenuRadio, MenuSeparator, TabList, type TabSpec } from './ui';
@@ -165,27 +166,22 @@ function Viewer({
     const owners = useMemo(() => new Set(tables.map(({ table }) => table.owner.kind)), [tables]);
     const kindsPresent = useMemo(() => new Set(edges.map((e) => e.kind)), [edges]);
     const pivots = useMemo(() => new Set(doc.relationships.flatMap((r) => (r.pivot ? [r.pivot.table] : []))), [doc]);
+    const scope = useMemo(() => diagnosticScope(doc, lookup), [doc, lookup]);
     const issues = useMemo(() => {
         const counts = new Map<string, number>();
-        const tableOf = (d: Diagnostic): string | undefined => {
-            const id = d.subject.id;
-            if (id === null) {
-                return undefined;
-            }
-            if (lookup.tables.has(id)) {
-                return id;
-            }
-            return tables.find(({ table }) => table.indexes.some((i) => i.id === id) || table.foreignKeys.some((f) => f.id === id) || table.constraints.some((c) => c.id === id))?.table.id ?? lookup.relationships.get(id)?.table;
-        };
+        // Per connection, for the frames; diagnostics about the whole document count on none.
+        const perConnection = new Map<string, number>();
         doc.diagnostics.forEach((d) => {
-            const t = tableOf(d);
+            const t = scope.tableOf(d);
             if (t) {
                 counts.set(t, (counts.get(t) ?? 0) + 1);
             }
+            for (const c of scope.connectionsOf(d)) {
+                perConnection.set(c, (perConnection.get(c) ?? 0) + 1);
+            }
         });
-        return { counts, tableOf };
-    }, [doc, lookup, tables]);
-
+        return { counts, perConnection, tableOf: scope.tableOf };
+    }, [doc, scope]);
     const [connection, setConnection] = useState(() => {
         const known = (id: string | null | undefined) => (id && doc.connections.some((c) => c.id === id) ? id : null);
         const wanted = known(initialHash.get('connection')) ?? known(defaultConnection) ?? '';
@@ -360,6 +356,8 @@ function Viewer({
         return tables.filter(({ table, connection: c }) => (!connection || c.id === connection) && !hiddenOwners.has(table.owner.kind) && (!near || near.has(table.id)));
     }, [tables, connection, hiddenOwners, focus, edges]);
     const visibleIds = useMemo(() => new Set(visible.map(({ table }) => table.id)), [visible]);
+    // The Diagnostics tab and counts follow the connection in view; those about the whole document always show.
+    const diagnostics = useMemo(() => (connection ? doc.diagnostics.filter((d) => { const on = scope.connectionsOf(d); return on.length === 0 || on.includes(connection); }) : doc.diagnostics), [doc, scope, connection]);
     // With one connection shown, the tables of other connections that its relationships reach: drawn as references,
     // so a cross-connection relationship never silently disappears. Table id to connection id.
     const externals = useMemo(() => {
@@ -659,6 +657,7 @@ function Viewer({
                         connection: lookup.connections.get(r.connection)?.name ?? r.connection,
                         driver: lookup.connections.get(r.connection)?.driver ?? null,
                         tables: visible.filter((v) => v.connection.id === r.connection).length,
+                        diagnostics: issues.perConnection.get(r.connection) ?? 0,
                     },
                 }),
             ),
@@ -700,7 +699,7 @@ function Viewer({
                     }),
                 ),
         ],
-        [frames, visible, externals, positions, dragging, nodeData, picked, heights, spacePan, lookup, related, openExternal],
+        [frames, visible, externals, positions, dragging, nodeData, picked, heights, spacePan, lookup, related, openExternal, issues],
     );
 
     // Routes over settled positions; edges touching a card being dragged float until it is dropped.
@@ -930,7 +929,7 @@ function Viewer({
             width: r.width,
             height: r.height,
             title: lookup.connections.get(r.connection)?.name ?? r.connection,
-            meta: `${lookup.connections.get(r.connection)?.driver ?? 'unknown driver'} · ${visible.filter((v) => v.connection.id === r.connection).length} tables`,
+            meta: frameMeta(lookup.connections.get(r.connection)?.driver ?? null, visible.filter((v) => v.connection.id === r.connection).length, issues.perConnection.get(r.connection) ?? 0),
         }));
         const allNodes = [...imageNodes, ...referenceNodes];
         const imageEdges = shownEdges.flatMap((e) => {
@@ -1081,7 +1080,7 @@ function Viewer({
     const tabs: TabSpec<Tab>[] = [
         { value: 'browse', label: 'Browse', icon: 'tables' },
         { value: 'details', label: 'Details', icon: 'details' },
-        { value: 'diagnostics', label: 'Diagnostics', icon: 'warning', count: doc.diagnostics.length, tone: 'warning' },
+        { value: 'diagnostics', label: 'Diagnostics', icon: 'warning', count: diagnostics.length, tone: 'warning' },
         ...(changes && changes.length ? [{ value: 'changes' as const, label: 'Changes', icon: 'changes' as const, count: changes.length }] : []),
         ...(doc.comparisons.length
             ? [
@@ -1192,6 +1191,10 @@ function Viewer({
             {tab === 'diagnostics' && (
                 <DiagnosticsPanel
                     doc={doc}
+                    diagnostics={diagnostics}
+                    connection={connection ? (lookup.connections.get(connection)?.name ?? connection) : null}
+                    documentWide={(d) => scope.connectionsOf(d).length === 0}
+                    renderers={extensionRenderers}
                     lookup={lookup}
                     tableOf={issues.tableOf}
                     onShow={(id) => openTable(id)}
@@ -1487,9 +1490,9 @@ function Viewer({
                             <button type="button" className="sheet-bar__main" aria-expanded={sheetOpen} onClick={() => setSheetOpen(!sheetOpen)}>
                                 {sheetTitle}
                             </button>
-                            {doc.diagnostics.length > 0 && !(sheetOpen && tab === 'diagnostics') && (
-                                <button type="button" className="sheet-bar__issues" onClick={() => openTab('diagnostics')} aria-label={`${doc.diagnostics.length} diagnostics`}>
-                                    <Icon name="warning" size={14} /> {doc.diagnostics.length}
+                            {diagnostics.length > 0 && !(sheetOpen && tab === 'diagnostics') && (
+                                <button type="button" className="sheet-bar__issues" onClick={() => openTab('diagnostics')} aria-label={`${diagnostics.length} diagnostics`}>
+                                    <Icon name="warning" size={14} /> {diagnostics.length}
                                 </button>
                             )}
                             <button type="button" className="sheet-bar__action" onClick={() => (sheetOpen ? setSheetOpen(false) : openTab(selection ? 'details' : tab === 'compare' || tab === 'migrations' ? tab : 'browse'))}>

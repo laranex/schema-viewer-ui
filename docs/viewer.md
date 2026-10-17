@@ -27,12 +27,14 @@ Folding one card keeps every table where it is, dragged ones included. Changing 
 A document may hold several connections, each with its own driver. The viewer never assumes one:
 
 - **All connections** (the default): each connection is laid out on its own inside a labelled frame showing its name,
-  driver and table count, so tables of the same name in two connections never mix. Relationships between connections
+  driver, table count and diagnostic count, so tables of the same name in two connections never mix. Relationships between connections
   run between the frames. A frame follows its tables: drag one out and the frame grows to contain it.
 - **One connection**: pick it in the header's connection menu (on a phone, in the ⋯ menu), step through them with
   <kbd>[</kbd> <kbd>]</kbd>, or open `#connection=<id>`. Tables on other connections that its relationships reach stay
   on the diagram as dashed reference nodes marked "On connection …": they cannot be moved or folded, and clicking one
   opens that table on its own connection.
+- **Diagnostics** follow the connection in view: with one connection shown, the tab, its count and the phone sheet's
+  count list that connection's diagnostics and those about the whole document (marked "whole document").
 - With more than one connection, every table label names its connection, `analytics · public.users`: cards, Browse,
   search results, Details headings, edge details, the phone sheet and image exports.
 - A relationship between two connections is always drawn as an ORM-only (dashed) edge with a `cross-connection` chip.

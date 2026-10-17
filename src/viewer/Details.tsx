@@ -172,7 +172,7 @@ function Section({ title, count, children, open = false }: { title: string; coun
     );
 }
 
-export function DiagnosticList({ diagnostics }: { diagnostics: Diagnostic[] }) {
+export function DiagnosticList({ diagnostics, renderers = {} }: { diagnostics: Diagnostic[]; renderers?: ExtensionRenderers }) {
     // Confirmed facts first, then heuristic recommendations, each by severity.
     const rank = { error: 0, warning: 1, info: 2 } as const;
     const ordered = [...diagnostics].sort((a, b) => (a.certainty === b.certainty ? rank[a.severity] - rank[b.severity] : a.certainty === 'certain' ? -1 : 1));
@@ -185,6 +185,7 @@ export function DiagnosticList({ diagnostics }: { diagnostics: Diagnostic[] }) {
                     </div>
                     <strong>{diagnosticTitle(d.kind)}</strong>
                     <p>{d.message}</p>
+                    <ExtensionsView extensions={d.extensions} renderers={renderers} />
                 </li>
             ))}
         </ul>
@@ -371,31 +372,54 @@ const SUBJECT_ACTION: Record<keyof SubjectActions, string> = { comparison: 'Show
 
 export function DiagnosticsPanel({
     doc,
+    diagnostics = doc.diagnostics,
+    connection = null,
+    documentWide,
     lookup,
     tableOf,
     onShow,
     onSubject,
+    renderers = {},
 }: {
     doc: SchemaDocument;
+    // The diagnostics to list: those of the connection in view and the whole document's.
+    diagnostics?: Diagnostic[];
+    // The connection in view, by name; null with every connection shown.
+    connection?: string | null;
+    documentWide?: (d: Diagnostic) => boolean;
     lookup: Lookup;
     tableOf: (d: Diagnostic) => string | undefined;
     onShow: (table: string) => void;
     onSubject?: SubjectActions;
+    renderers?: ExtensionRenderers;
 }) {
     const [certainty, setCertainty] = useState<'all' | 'certain' | 'likely'>('all');
     const rank = { error: 0, warning: 1, info: 2 } as const;
-    const shown = doc.diagnostics
+    const shown = diagnostics
         .filter((d) => certainty === 'all' || d.certainty === certainty)
         .sort((a, b) => (a.certainty === b.certainty ? rank[a.severity] - rank[b.severity] : a.certainty === 'certain' ? -1 : 1));
-    if (doc.diagnostics.length === 0) {
-        return <p className="muted empty-note">No diagnostics: nothing failed to read, and the producer reported no findings.</p>;
+    const elsewhere = doc.diagnostics.length - diagnostics.length;
+    const scopeNote = connection && (
+        <p className="muted diagnostics-scope">
+            Connection <strong>{connection}</strong> and the whole document
+            {elsewhere > 0 ? `; ${elsewhere} more on other connections` : ''}.
+        </p>
+    );
+    if (diagnostics.length === 0) {
+        return (
+            <>
+                {scopeNote}
+                <p className="muted empty-note">{doc.diagnostics.length === 0 ? 'No diagnostics: nothing failed to read, and the producer reported no findings.' : 'No diagnostics for this connection.'}</p>
+            </>
+        );
     }
     return (
         <>
+            {scopeNote}
             <div className="segmented" role="radiogroup" aria-label="Show diagnostics">
                 {(
                     [
-                        ['all', `All ${doc.diagnostics.length}`],
+                        ['all', `All ${diagnostics.length}`],
                         ['certain', 'Facts'],
                         ['likely', 'Heuristics'],
                     ] as const
@@ -414,9 +438,11 @@ export function DiagnosticsPanel({
                         <li key={d.id} className={`card card--${d.severity}`}>
                             <div className="card__eyebrow">
                                 {d.severity} · {d.certainty === 'certain' ? 'fact' : 'heuristic'} · {d.category}
+                                {connection && documentWide?.(d) ? ' · whole document' : ''}
                             </div>
                             <strong>{diagnosticTitle(d.kind)}</strong>
                             <p>{d.message}</p>
+                            <ExtensionsView extensions={d.extensions} renderers={renderers} />
                             {name && (
                                 <button type="button" className="link-button" onClick={() => onShow(name.id)}>
                                     Show {lookup.label(name.id)}
@@ -752,7 +778,7 @@ export function TableDetails({
             )}
             {diagnostics.length > 0 && (
                 <Section title="Diagnostics" count={diagnostics.length} open>
-                    <DiagnosticList diagnostics={diagnostics} />
+                    <DiagnosticList diagnostics={diagnostics} renderers={ctx.renderers} />
                 </Section>
             )}
             <Section title="Columns" count={table.columns.length} open>

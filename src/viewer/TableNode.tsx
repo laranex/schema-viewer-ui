@@ -167,7 +167,11 @@ function ExternalNode({ data }: NodeProps<ExternalNodeType>) {
 
 export const ExternalNodeView = memo(ExternalNode);
 
-export type RegionNodeData = { connection: string; driver: string | null; tables: number };
+export type RegionNodeData = { connection: string; driver: string | null; tables: number; diagnostics: number };
+
+// "postgresql · 12 tables · 3 diagnostics", on a frame and in images, as Laravel Schema Viewer shows hints.
+export const frameMeta = (driver: string | null, tables: number, diagnostics: number) =>
+    `${driver ?? 'unknown driver'} · ${tables} ${tables === 1 ? 'table' : 'tables'}${diagnostics ? ` · ${diagnostics} ${diagnostics === 1 ? 'diagnostic' : 'diagnostics'}` : ''}`;
 export type RegionNodeType = Node<RegionNodeData, 'region'>;
 
 // The frame around one connection's tables while every connection is on the diagram, after Laravel Schema Viewer's.
@@ -176,9 +180,7 @@ function RegionNode({ data }: NodeProps<RegionNodeType>) {
         <div className="region-node" data-connection={data.connection}>
             <span className="region-node__label">
                 <span className="region-node__name">{data.connection}</span>
-                <span className="region-node__meta">
-                    {data.driver ?? 'unknown driver'} · {data.tables} {data.tables === 1 ? 'table' : 'tables'}
-                </span>
+                <span className="region-node__meta">{frameMeta(data.driver, data.tables, data.diagnostics)}</span>
             </span>
         </div>
     );

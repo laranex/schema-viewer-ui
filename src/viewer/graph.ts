@@ -1,4 +1,4 @@
-import type { Connection, DerivedLink, Link, Model, Relationship, SchemaDocument, Table } from '../contract/types';
+import type { Connection, DerivedLink, Diagnostic, Link, Model, Relationship, SchemaDocument, Table } from '../contract/types';
 
 // Pure document-to-diagram functions. The viewer draws the links and derived links the document stores; it never
 // derives relationships or constraints of its own.
@@ -76,6 +76,53 @@ export function lookup(doc: SchemaDocument): Lookup {
         models: new Map(doc.models.map((m) => [m.id, m])),
         foreignKeys: new Map([...tables.values()].flatMap((t) => t.foreignKeys.map((f) => [f.id, f] as const))),
     };
+}
+
+// What a diagnostic is about: its table, when it has one, and the connections it concerns. No connection means the whole
+// document (subject "document", or an id the document does not have); a comparison concerns both of its sides.
+export type DiagnosticScope = { tableOf: (d: Diagnostic) => string | undefined; connectionsOf: (d: Diagnostic) => string[] };
+
+export function diagnosticScope(doc: SchemaDocument, l: Lookup): DiagnosticScope {
+    const owner = new Map<string, string>();
+    for (const t of l.tables.values()) {
+        for (const part of [...t.indexes, ...t.foreignKeys, ...t.constraints]) {
+            owner.set(part.id, t.id);
+        }
+    }
+    const links = new Map(doc.links.map((k) => [k.id, k.from.table]));
+    const inferred = new Map(doc.inferredAssociations.map((a) => [a.id, a.table]));
+    const tableOf = (d: Diagnostic): string | undefined => {
+        const id = d.subject.id;
+        if (id === null) {
+            return undefined;
+        }
+        if (l.tables.has(id)) {
+            return id;
+        }
+        return owner.get(id) ?? l.relationships.get(id)?.table ?? links.get(id) ?? inferred.get(id) ?? l.models.get(id)?.tables.find((t) => l.tables.has(t));
+    };
+    const comparisons = new Map(doc.comparisons.map((c) => [c.id, [...new Set([c.baseline.connection, c.target.connection])]]));
+    const tracks = new Map(doc.migrations.map((t) => [t.id, t.connection]));
+    const connectionsOf = (d: Diagnostic): string[] => {
+        const id = d.subject.id;
+        if (id === null || d.subject.type === 'document') {
+            return [];
+        }
+        if (d.subject.type === 'connection') {
+            return l.connections.has(id) ? [id] : [];
+        }
+        if (d.subject.type === 'comparison') {
+            return comparisons.get(id) ?? [];
+        }
+        if (d.subject.type === 'migration') {
+            const c = tracks.get(id);
+            return c ? [c] : [];
+        }
+        const table = tableOf(d);
+        const c = table === undefined ? undefined : l.connectionOf.get(table);
+        return c ? [c] : [];
+    };
+    return { tableOf, connectionsOf };
 }
 
 export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdge[] {

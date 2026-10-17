@@ -84,6 +84,12 @@ All notable changes to this project are documented here. The format follows
 - Connection frames follow their tables: a table dragged out of its frame enlarges it, on the diagram and in images.
 - The Compare filters are kept in deep links (`#object=…&change=…&severity=…&certainty=…`).
 - On a phone, a deep link to a table, line, association or view opens the bottom sheet on its tab.
+- Diagnostics follow the connection in view: with one connection shown, the Diagnostics tab, its count and the phone
+  sheet's count cover that connection and the whole document (labelled "whole document"), with a note of how many are
+  on other connections. A diagnostic's connection comes from its subject (table, column, index, foreign key,
+  constraint, relationship, link, model, inferred association, migration track, or both sides of a comparison).
+- Connection frames show their diagnostic count, "postgresql · 12 tables · 3 diagnostics", on the diagram and in
+  images; a diagnostic's `extensions` are shown, through the host's `extensionRenderers` when it has one.
 
 ## [0.2.0] - 2026-10-17
 
