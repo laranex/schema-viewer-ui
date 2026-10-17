@@ -1,12 +1,30 @@
 import { Background, BackgroundVariant, ReactFlow, ReactFlowProvider, useReactFlow, useViewport, type EdgeChange, type NodeChange } from '@xyflow/react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import type { Diagnostic, SchemaDocument } from '../contract/types';
+import type { Diagnostic, SchemaDocument, Table } from '../contract/types';
 import type { ViewerChange, ViewerDownload } from '../contract/viewer-config';
 import { EdgeDetails, Guide, TableDetails, type DetailContext, type ExtensionRenderers } from './Details';
-import { cardHeight, CARD_WIDTH, edgeShown, edgesFor, keyColumns, lookup as buildLookup, matchesTable, neighbors, shownColumns, tableLabel, type GraphEdge } from './graph';
+import {
+    cardHeight,
+    cardRows,
+    CARD_WIDTH,
+    EDGE_KINDS,
+    edgesFor,
+    FOLDS,
+    isNote,
+    keyColumns,
+    lookup as buildLookup,
+    matchesTable,
+    neighbors,
+    tableLabel,
+    within,
+    type EdgeKind,
+    type Fold,
+    type GraphEdge,
+} from './graph';
 import { ARRANGEMENTS, autoLayout, type Arrangement, type LayoutRequest, type Positions } from './layout';
 import { route, type Box } from './routing';
 import { EdgeMarkers, SchemaEdgeView, type SchemaEdgeType } from './SchemaEdge';
+import { ShortcutsDialog } from './Shortcuts';
 import { TableNodeView, type TableNodeType } from './TableNode';
 import { useTheme, type Theme } from './theme';
 
@@ -28,7 +46,7 @@ export type SchemaViewerProps = {
     onThemeChange?: (theme: Theme) => void;
     // Remember the theme button's choice in localStorage.
     persistTheme?: boolean;
-    // Keep the selection in the URL hash (#table=…, #link=…, #focus=…, #connection=…) and open on it.
+    // Keep the view in the URL hash (#table=…, #link=…, #focus=…, #depth=…, #connection=…) and open on it.
     deepLinks?: boolean;
     // Where Download JSON points; null hides it. By default it downloads the document shown.
     downloadHref?: string | null;
@@ -39,6 +57,7 @@ export type SchemaViewerProps = {
 };
 
 type Selection = { kind: 'table' | 'edge'; id: string } | null;
+type Owner = Table['owner']['kind'];
 
 const nodeTypes = { table: TableNodeView };
 const edgeTypes = { schema: SchemaEdgeView };
@@ -48,6 +67,8 @@ const SUBTITLE: Record<SchemaDocument['source'], string> = {
     database: 'database metadata · read-only',
     combined: 'database + declared metadata · read-only',
 };
+
+const KIND_LABEL: Record<EdgeKind, string> = { both: 'FK + ORM', foreign_key: 'FK only', relationship: 'ORM only', through: 'Through' };
 
 export function SchemaViewer(props: SchemaViewerProps) {
     return (
@@ -88,6 +109,7 @@ function Viewer({
 }: SchemaViewerProps) {
     const flow = useReactFlow();
     const { theme, toggle } = useTheme(controlledTheme, onThemeChange, persistTheme);
+    const root = useRef<HTMLDivElement>(null);
     const canvas = useRef<HTMLElement>(null);
     const search = useRef<HTMLInputElement>(null);
     const searchId = useId();
@@ -97,7 +119,8 @@ function Viewer({
     const edges = useMemo(() => edgesFor(doc, lookup), [doc, lookup]);
     const keys = useMemo(() => keyColumns(doc), [doc]);
     const tables = useMemo(() => doc.connections.flatMap((c) => c.tables.map((table) => ({ table, connection: c }))), [doc]);
-    const hasOwned = useMemo(() => tables.some(({ table }) => table.owner.kind !== 'application'), [tables]);
+    const owners = useMemo(() => new Set(tables.map(({ table }) => table.owner.kind)), [tables]);
+    const kindsPresent = useMemo(() => new Set(edges.map((e) => e.kind)), [edges]);
     const issues = useMemo(() => {
         const counts = new Map<string, number>();
         const tableOf = (d: Diagnostic): string | undefined => {
@@ -120,25 +143,45 @@ function Viewer({
     }, [doc, lookup, tables]);
 
     const [connection, setConnection] = useState(() => initialHash.get('connection') ?? defaultConnection ?? '');
-    const [showForeignKeys, setShowForeignKeys] = useState(true);
-    const [showOrm, setShowOrm] = useState(true);
-    const [allColumns, setAllColumns] = useState(false);
-    const [showOwned, setShowOwned] = useState(true);
+    const [kinds, setKinds] = useState<Set<EdgeKind>>(() => new Set(EDGE_KINDS));
+    const [fold, setFold] = useState<Fold>('keys');
+    const [notes, setNotes] = useState(false);
+    const [allLabels, setAllLabels] = useState(true);
+    const [hiddenOwners, setHiddenOwners] = useState<Set<Owner>>(() => new Set());
     const [query, setQuery] = useState('');
-    const [focus, setFocus] = useState<string | null>(() => initialHash.get('focus'));
+    const [focus, setFocus] = useState<{ id: string; depth: number } | null>(() => {
+        const id = initialHash.get('focus');
+        return id ? { id, depth: Math.max(1, Math.min(3, Number(initialHash.get('depth')) || 1)) } : null;
+    });
     const [selection, setSelection] = useState<Selection>(() => {
         const table = initialHash.get('table');
         const link = initialHash.get('link');
         return table ? { kind: 'table', id: table } : link ? { kind: 'edge', id: link } : null;
     });
+    // Tables picked together with Shift: dragged together, listed together.
+    const [group, setGroup] = useState<string[]>([]);
+    const groupRef = useRef(group);
+    groupRef.current = group;
     const [arrangement, setArrangement] = useState<Arrangement>('left-right');
     const [arrangeCount, setArrangeCount] = useState(0);
     const [positions, setPositions] = useState<Positions>({});
     const [dragging, setDragging] = useState<Record<string, { x: number; y: number }>>({});
     const [phase, setPhase] = useState<'arranging' | 'ready' | 'error'>('arranging');
     const [layoutError, setLayoutError] = useState<string | null>(null);
+    const [panMode, setPanMode] = useState(true);
+    const [spacePan, setSpacePan] = useState(false);
+    const [shortcuts, setShortcuts] = useState(false);
+    const [toast, setToast] = useState<string | null>(null);
 
-    // The selection, focus and connection in the URL hash, so a view can be shared.
+    useEffect(() => {
+        if (!toast) {
+            return;
+        }
+        const timer = setTimeout(() => setToast(null), 1800);
+        return () => clearTimeout(timer);
+    }, [toast]);
+
+    // The view in the URL hash, so it can be shared.
     useEffect(() => {
         if (!deepLinks || typeof history === 'undefined') {
             return;
@@ -148,7 +191,10 @@ function Viewer({
             params.set('connection', connection);
         }
         if (focus) {
-            params.set('focus', focus);
+            params.set('focus', focus.id);
+            if (focus.depth > 1) {
+                params.set('depth', String(focus.depth));
+            }
         }
         if (selection) {
             params.set(selection.kind === 'table' ? 'table' : 'link', selection.id);
@@ -159,17 +205,26 @@ function Viewer({
         }
     }, [deepLinks, connection, focus, selection]);
 
-    const rows = useMemo(() => new Map(tables.map(({ table }) => [table.id, shownColumns(table, allColumns, keys.get(table.id))])), [tables, allColumns, keys]);
-    const heights = useMemo(() => Object.fromEntries(tables.map(({ table }) => [table.id, cardHeight(rows.get(table.id)?.length ?? 0, table.columns.length)])), [tables, rows]);
+    const rows = useMemo(() => new Map(tables.map(({ table }) => [table.id, cardRows(table, fold, keys.get(table.id), notes)])), [tables, fold, keys, notes]);
+    const heights = useMemo(
+        () =>
+            Object.fromEntries(
+                tables.map(({ table }) => {
+                    const shown = rows.get(table.id) ?? [];
+                    return [table.id, cardHeight(shown.length, table.columns.length - shown.filter((r) => !isNote(r)).length)];
+                }),
+            ),
+        [tables, rows],
+    );
 
     // The tables laid out: connection, ownership and focus. Search only hides cards, so the diagram keeps its shape.
     const placed = useMemo(() => {
-        const near = focus ? neighbors(focus, edges) : null;
-        return tables.filter(({ table, connection: c }) => (!connection || c.id === connection) && (showOwned || table.owner.kind === 'application') && (!near || near.has(table.id)));
-    }, [tables, connection, showOwned, focus, edges]);
+        const near = focus ? within(focus.id, edges, focus.depth) : null;
+        return tables.filter(({ table, connection: c }) => (!connection || c.id === connection) && !hiddenOwners.has(table.owner.kind) && (!near || near.has(table.id)));
+    }, [tables, connection, hiddenOwners, focus, edges]);
     const visible = useMemo(() => placed.filter(({ table, connection: c }) => matchesTable(table, c.name, query, doc.models)), [placed, query, doc.models]);
     const visibleIds = useMemo(() => new Set(visible.map(({ table }) => table.id)), [visible]);
-    const shownEdges = useMemo(() => edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target) && edgeShown(e, showForeignKeys, showOrm)), [edges, visibleIds, showOrm, showForeignKeys]);
+    const shownEdges = useMemo(() => edges.filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target) && kinds.has(e.kind)), [edges, visibleIds, kinds]);
 
     const fit = useCallback(
         (ids?: string[]) => {
@@ -212,12 +267,15 @@ function Viewer({
     }, [placedIds, heights, layoutEdges, arrangement, arrangeCount, layout]);
 
     const related = useMemo(() => {
+        if (group.length > 1) {
+            return new Set(group);
+        }
         if (selection?.kind === 'table') {
             return neighbors(selection.id, shownEdges);
         }
         const edge = selection && edges.find((e) => e.id === selection.id);
         return new Set(edge ? [edge.source, edge.target, ...(edge.derived?.via ?? [])] : []);
-    }, [selection, shownEdges, edges]);
+    }, [selection, shownEdges, edges, group]);
 
     const center = useCallback(
         (id: string) => {
@@ -233,12 +291,19 @@ function Viewer({
     const selectTable = useCallback(
         (id: string, centered = false) => {
             setSelection({ kind: 'table', id });
+            setGroup([id]);
             if (centered) {
                 center(id);
             }
         },
         [center],
     );
+    const focusOn = useCallback((id: string) => {
+        setQuery('');
+        setSelection({ kind: 'table', id });
+        setGroup([id]);
+        setFocus((f) => ({ id, depth: f?.depth ?? 1 }));
+    }, []);
 
     // Once laid out: the selected table, or the whole diagram, in view.
     useEffect(() => {
@@ -252,6 +317,7 @@ function Viewer({
     }, [phase, positions]);
 
     const combined = doc.source === 'combined';
+    const picked = useMemo(() => new Set(group), [group]);
     const nodeData = useMemo(() => {
         const data = new Map<string, TableNodeType['data']>();
         for (const { table, connection: c } of visible) {
@@ -260,13 +326,15 @@ function Viewer({
                 connection: c.name,
                 rows: rows.get(table.id) ?? [],
                 state: selection?.kind === 'table' && selection.id === table.id ? 'selected' : related.has(table.id) ? 'related' : 'none',
+                picked: group.length > 1 && picked.has(table.id),
                 issues: issues.counts.get(table.id) ?? 0,
                 combined,
-                onSelect: (id) => setSelection({ kind: 'table', id }),
+                onSelect: (id) => selectTable(id),
+                onFocus: focusOn,
             });
         }
         return data;
-    }, [visible, rows, selection, related, issues, combined]);
+    }, [visible, rows, selection, related, issues, combined, group, picked, selectTable, focusOn]);
 
     const nodes = useMemo<TableNodeType[]>(
         () =>
@@ -277,16 +345,20 @@ function Viewer({
                     type: 'table',
                     position: dragging[table.id] ?? positions[table.id],
                     data: nodeData.get(table.id) as TableNodeType['data'],
-                    dragHandle: '.table-title',
-                    selected: selection?.kind === 'table' && selection.id === table.id,
+                    dragHandle: spacePan ? '.no-drag-while-panning' : '.table-title',
+                    selected: picked.has(table.id),
                     width: CARD_WIDTH,
                     height: heights[table.id],
                     ariaLabel: `Table ${tableLabel(table)}`,
                 })),
-        [visible, positions, dragging, nodeData, selection, heights],
+        [visible, positions, dragging, nodeData, picked, heights, spacePan],
     );
 
     // Routes over settled positions; edges touching a card being dragged float until it is dropped.
+    const labelled = useCallback(
+        (e: GraphEdge) => (allLabels ? e.kind !== 'foreign_key' : selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id)) || e.id === selection?.id,
+        [allLabels, selection],
+    );
     const routes = useMemo(() => {
         const boxes = new Map<string, Box>();
         for (const { table } of visible) {
@@ -297,9 +369,9 @@ function Viewer({
         }
         return route(
             boxes,
-            shownEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceColumn: e.sourceColumn, targetColumn: e.targetColumn, labelled: e.kind !== 'foreign_key' || e.id === selection?.id })),
+            shownEdges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceColumn: e.sourceColumn, targetColumn: e.targetColumn, labelled: labelled(e) })),
         );
-    }, [visible, positions, heights, rows, shownEdges, selection]);
+    }, [visible, positions, heights, rows, shownEdges, labelled]);
 
     const flowEdges = useMemo<SchemaEdgeType[]>(
         () =>
@@ -307,7 +379,7 @@ function Viewer({
                 .filter((e) => positions[e.source] && positions[e.target])
                 .map((e) => {
                     const selected = selection?.kind === 'edge' && selection.id === e.id;
-                    const near = selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id);
+                    const near = (selection?.kind === 'table' && (e.source === selection.id || e.target === selection.id)) || (group.length > 1 && picked.has(e.source) && picked.has(e.target));
                     return {
                         id: e.id,
                         type: 'schema',
@@ -322,35 +394,45 @@ function Viewer({
                             polymorphic: e.polymorphic,
                             label: e.label,
                             route: dragging[e.source] || dragging[e.target] ? null : (routes.get(e.id) ?? null),
-                            showLabel: e.kind !== 'foreign_key' || selected,
+                            showLabel: labelled(e),
                             state: selected ? 'selected' : near ? 'related' : 'none',
                         },
                     };
                 }),
-        [shownEdges, positions, selection, dragging, routes],
+        [shownEdges, positions, selection, dragging, routes, labelled, group, picked],
     );
 
     const onNodesChange = useCallback((changes: NodeChange<TableNodeType>[]) => {
+        const added: string[] = [];
+        const removed: string[] = [];
         for (const change of changes) {
-            if (change.type === 'select' && change.selected) {
-                setSelection({ kind: 'table', id: change.id });
+            if (change.type === 'select') {
+                (change.selected ? added : removed).push(change.id);
             } else if (change.type === 'position' && change.position && change.dragging) {
                 const { id, position } = change;
                 setDragging((d) => ({ ...d, [id]: position }));
             }
         }
+        if (added.length || removed.length) {
+            const g = groupRef.current;
+            const next = [...g.filter((id) => !removed.includes(id)), ...added.filter((id) => !g.includes(id))];
+            groupRef.current = next;
+            setGroup(next);
+            setSelection(next.length ? { kind: 'table', id: next[next.length - 1] } : (s) => (s?.kind === 'edge' ? s : null));
+        }
     }, []);
 
-    // Dropping a card commits its position, and the routes follow.
-    const onNodeDragStop = useCallback((_: unknown, node: TableNodeType) => {
-        setPositions((p) => ({ ...p, [node.id]: node.position }));
-        setDragging(({ [node.id]: _dropped, ...rest }) => rest);
+    // Dropping cards commits their positions, and the routes follow.
+    const onNodeDragStop = useCallback((_: unknown, _node: TableNodeType, moved: TableNodeType[]) => {
+        setPositions((p) => ({ ...p, ...Object.fromEntries(moved.map((n) => [n.id, n.position])) }));
+        setDragging((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !moved.some((n) => n.id === id))));
     }, []);
 
     const onEdgesChange = useCallback((changes: EdgeChange<SchemaEdgeType>[]) => {
         for (const change of changes) {
             if (change.type === 'select' && change.selected) {
                 setSelection({ kind: 'edge', id: change.id });
+                setGroup([]);
             }
         }
     }, []);
@@ -372,42 +454,94 @@ function Viewer({
             return;
         }
         const pan: Record<string, [number, number]> = { ArrowLeft: [50, 0], ArrowRight: [-50, 0], ArrowUp: [0, 50], ArrowDown: [0, -50] };
-        if (event.key === '+' || event.key === '=') {
-            zoomBy(1.2);
-        } else if (event.key === '-') {
-            zoomBy(1 / 1.2);
-        } else if (event.key === '0') {
-            fit();
-        } else if (pan[event.key]) {
+        if (pan[event.key]) {
             event.preventDefault();
             const { x, y, zoom } = flow.getViewport();
             void flow.setViewport({ x: x + pan[event.key][0], y: y + pan[event.key][1], zoom });
         }
     };
 
-    // / and Escape work anywhere on the page, but not while typing into another field.
-    const root = useRef<HTMLDivElement>(null);
+    const toggleIn = <T,>(set: Set<T>, value: T) => {
+        const next = new Set(set);
+        if (!next.delete(value)) {
+            next.add(value);
+        }
+        return next;
+    };
+    const stepConnection = (by: number) => {
+        const ids = ['', ...doc.connections.map((c) => c.id)];
+        setFocus(null);
+        setConnection((c) => ids[(ids.indexOf(c) + by + ids.length) % ids.length]);
+    };
+    const copyLink = () => {
+        void navigator.clipboard?.writeText(location.href).then(
+            () => setToast('Link copied'),
+            () => setToast('Could not copy the link'),
+        );
+    };
+
+    // Shortcuts work while the viewer has focus or nothing else does, and never while typing.
+    const actions = useRef<Record<string, () => void>>({});
+    actions.current = {
+        f: () => fit(),
+        '0': () => fit(),
+        '+': () => zoomBy(1.2),
+        '=': () => zoomBy(1.2),
+        '-': () => zoomBy(1 / 1.2),
+        c: () => setFold((f) => FOLDS[(FOLDS.findIndex((x) => x.value === f) + 1) % FOLDS.length].value),
+        C: copyLink,
+        F: () => (focus ? setFocus(null) : selection?.kind === 'table' && focusOn(selection.id)),
+        n: () => setNotes((n) => !n),
+        l: () => setAllLabels((l) => !l),
+        '1': () => setKinds((k) => toggleIn(k, 'both')),
+        '2': () => setKinds((k) => toggleIn(k, 'foreign_key')),
+        '3': () => setKinds((k) => toggleIn(k, 'relationship')),
+        '4': () => setKinds((k) => toggleIn(k, 'through')),
+        y: () => setHiddenOwners((o) => toggleIn(o, 'application')),
+        g: () => setHiddenOwners((o) => toggleIn(o, 'framework')),
+        p: () => setHiddenOwners((o) => toggleIn(o, 'package')),
+        '[': () => stepConnection(-1),
+        ']': () => stepConnection(1),
+        s: () => setShortcuts(true),
+    };
     useEffect(() => {
-        const listener = (event: globalThis.KeyboardEvent) => {
+        const down = (event: globalThis.KeyboardEvent) => {
             const target = event.target as HTMLElement | null;
-            const typing = target?.closest?.('input, select, textarea, [contenteditable="true"]');
-            if (event.key === '/' && !typing) {
-                event.preventDefault();
-                search.current?.focus();
-            } else if (event.key === 'Escape') {
+            const typing = !!target?.closest?.('input, select, textarea, [contenteditable="true"]');
+            const ours = !(target instanceof Element) || target === document.body || !!root.current?.contains(target);
+            if (event.key === 'Escape') {
                 if (target === search.current && search.current?.value) {
                     setQuery('');
                     return;
                 }
-                if (typing && !root.current?.contains(target)) {
-                    return;
+                if (ours) {
+                    setFocus(null);
+                    setSelection(null);
+                    setGroup([]);
                 }
-                setFocus(null);
-                setSelection(null);
+                return;
+            }
+            if (typing || !ours || event.metaKey || event.ctrlKey || event.altKey) {
+                return;
+            }
+            if (event.key === '/') {
+                event.preventDefault();
+                search.current?.focus();
+            } else if (event.key === ' ' && !target?.closest?.('button')) {
+                event.preventDefault();
+                setSpacePan(true);
+            } else if (actions.current[event.key]) {
+                event.preventDefault();
+                actions.current[event.key]();
             }
         };
-        document.addEventListener('keydown', listener);
-        return () => document.removeEventListener('keydown', listener);
+        const up = (event: globalThis.KeyboardEvent) => event.key === ' ' && setSpacePan(false);
+        document.addEventListener('keydown', down);
+        document.addEventListener('keyup', up);
+        return () => {
+            document.removeEventListener('keydown', down);
+            document.removeEventListener('keyup', up);
+        };
     }, []);
 
     // Refit when search changes what is shown; layout changes refit on their own.
@@ -452,9 +586,16 @@ function Viewer({
             : phase === 'arranging'
               ? `Arranging ${placed.length} tables…`
               : `Saved snapshot · ${doc.source} · ${doc.models.length} models · ${doc.diagnostics.length} diagnostics`);
+    const panning = panMode || spacePan;
+    const ownerLabel: Record<Owner, string> = { application: 'Your tables', framework: 'Framework tables', package: 'Package tables' };
 
     return (
-        <div ref={root} className={`lsv${className ? ` ${className}` : ''}`} data-theme={theme} data-loaded={phase === 'ready' ? 'true' : phase === 'error' ? 'error' : 'false'}>
+        <div
+            ref={root}
+            className={`lsv${panMode ? ' pan-mode' : ''}${spacePan ? ' space-pan' : ''}${className ? ` ${className}` : ''}`}
+            data-theme={theme}
+            data-loaded={phase === 'ready' ? 'true' : phase === 'error' ? 'error' : 'false'}
+        >
             <header className="lsv-header">
                 <div className="brand">
                     <span className="brand-mark" aria-hidden="true">
@@ -466,6 +607,9 @@ function Viewer({
                     </div>
                 </div>
                 <div className="actions">
+                    <button type="button" className="theme" onClick={() => setShortcuts(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (S)">
+                        ⌨
+                    </button>
                     <button type="button" className="theme" onClick={toggle} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`} title="Switch theme">
                         {theme === 'dark' ? (
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -506,26 +650,40 @@ function Viewer({
                         </select>
                     </label>
                 )}
-                <label>
-                    <input type="checkbox" checked={showForeignKeys} onChange={(e) => setShowForeignKeys(e.target.checked)} />
-                    <span className="line-key key--foreign_key" />
-                    Foreign keys
-                </label>
-                <label>
-                    <input type="checkbox" checked={showOrm} onChange={(e) => setShowOrm(e.target.checked)} />
-                    <span className="line-key key--relationship" />
-                    ORM relationships
-                </label>
-                <label>
-                    <input type="checkbox" checked={allColumns} onChange={(e) => setAllColumns(e.target.checked)} />
-                    All columns
-                </label>
-                {hasOwned && (
-                    <label>
-                        <input type="checkbox" checked={showOwned} onChange={(e) => setShowOwned(e.target.checked)} />
-                        Framework and package tables
+                {EDGE_KINDS.filter((k) => kindsPresent.has(k)).map((k) => (
+                    <label key={k} title={`Shortcut ${EDGE_KINDS.indexOf(k) + 1}`}>
+                        <input type="checkbox" checked={kinds.has(k)} onChange={() => setKinds((s) => toggleIn(s, k))} />
+                        <span className={`line-key key--${k}`} />
+                        {KIND_LABEL[k]}
                     </label>
-                )}
+                ))}
+                <label>
+                    Columns
+                    <select value={fold} onChange={(e) => setFold(e.target.value as Fold)} title="Shortcut C">
+                        {FOLDS.map((f) => (
+                            <option key={f.value} value={f.value}>
+                                {f.label}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label title="Shortcut N">
+                    <input type="checkbox" checked={notes} onChange={(e) => setNotes(e.target.checked)} />
+                    Notes
+                </label>
+                <label title="Shortcut L">
+                    <input type="checkbox" checked={allLabels} onChange={(e) => setAllLabels(e.target.checked)} />
+                    Names
+                </label>
+                {owners.size > 1 &&
+                    (['application', 'framework', 'package'] as Owner[])
+                        .filter((o) => owners.has(o))
+                        .map((o) => (
+                            <label key={o}>
+                                <input type="checkbox" checked={!hiddenOwners.has(o)} onChange={() => setHiddenOwners((s) => toggleIn(s, o))} />
+                                {ownerLabel[o]}
+                            </label>
+                        ))}
                 <label>
                     Layout
                     <select value={arrangement} onChange={(e) => setArrangement(e.target.value as Arrangement)}>
@@ -556,7 +714,7 @@ function Viewer({
                     <div className="table-list">
                         {visible.length === 0 && <p className="list-empty">No tables match.</p>}
                         {visible.map(({ table, connection: c }) => (
-                            <button type="button" key={table.id} className={selection?.id === table.id ? 'selected' : ''} onClick={() => selectTable(table.id, true)}>
+                            <button type="button" key={table.id} className={selection?.id === table.id || (group.length > 1 && picked.has(table.id)) ? 'selected' : ''} onClick={() => selectTable(table.id, true)}>
                                 {tableLabel(table)}
                                 <small>
                                     {doc.connections.length > 1 ? `${c.name} · ` : ''}
@@ -581,8 +739,12 @@ function Viewer({
                         minZoom={0.05}
                         maxZoom={2.5}
                         nodesConnectable={false}
-                        selectionKeyCode={null}
-                        multiSelectionKeyCode={null}
+                        nodesDraggable={!spacePan}
+                        nodeDragThreshold={3}
+                        panOnDrag={panning ? true : [1, 2]}
+                        selectionOnDrag={!panning}
+                        selectionKeyCode="Shift"
+                        multiSelectionKeyCode="Shift"
                         deleteKeyCode={null}
                         zoomOnDoubleClick={false}
                         onlyRenderVisibleElements={nodes.length > 60}
@@ -592,34 +754,78 @@ function Viewer({
                     <div className="canvas-top">
                         <span className="pill">SCHEMA EXPLORER</span>
                         {focus && (
-                            <button type="button" className="unfocus" onClick={() => setFocus(null)}>
-                                ← Show all tables
-                            </button>
+                            <>
+                                <button type="button" className="unfocus" onClick={() => setFocus(null)}>
+                                    ← Show all tables
+                                </button>
+                                <label className="focus-depth">
+                                    Depth
+                                    <select value={focus.depth} onChange={(e) => setFocus({ ...focus, depth: Number(e.target.value) })}>
+                                        {[1, 2, 3].map((d) => (
+                                            <option key={d} value={d}>
+                                                {d}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </>
                         )}
                     </div>
-                    <CanvasTools onZoomIn={() => zoomBy(1.25)} onZoomOut={() => zoomBy(0.8)} onFit={() => fit()} onArrange={() => setArrangeCount((n) => n + 1)} />
+                    <CanvasTools
+                        panMode={panMode}
+                        onPanMode={() => setPanMode((p) => !p)}
+                        onZoomIn={() => zoomBy(1.25)}
+                        onZoomOut={() => zoomBy(0.8)}
+                        onFit={() => fit()}
+                        onArrange={() => setArrangeCount((n) => n + 1)}
+                    />
                     {visible.length === 0 && (
                         <div className="empty">
                             <strong>No matching tables</strong>
                             <span className="muted">Try another search or connection.</span>
                         </div>
                     )}
+                    {toast && (
+                        <div className="toast" role="status">
+                            {toast}
+                        </div>
+                    )}
                 </section>
                 <aside className="details" aria-label="Selection details">
-                    {selectedTable ? (
+                    {group.length > 1 ? (
+                        <>
+                            <span className="tag">SELECTION</span>
+                            <h2>{group.length} tables</h2>
+                            <p className="muted">Drag one to move them together. Shift-click a table to add or remove it.</p>
+                            <ul className="picked-list">
+                                {group.map((id) => {
+                                    const t = lookup.tables.get(id);
+                                    return (
+                                        t && (
+                                            <li key={id}>
+                                                <button type="button" className="detail-link" onClick={() => selectTable(id, true)}>
+                                                    {tableLabel(t)}
+                                                </button>
+                                            </li>
+                                        )
+                                    );
+                                })}
+                            </ul>
+                        </>
+                    ) : selectedTable ? (
                         <TableDetails
                             ctx={ctx}
                             table={selectedTable}
                             edges={edges.filter((e) => e.source === selectedTable.id || e.target === selectedTable.id)}
-                            onFocus={() => (setQuery(''), setFocus(selectedTable.id))}
-                            onClear={() => setSelection(null)}
-                            onSelectEdge={(edge: GraphEdge) => setSelection({ kind: 'edge', id: edge.id })}
+                            onFocus={() => focusOn(selectedTable.id)}
+                            onClear={() => (setSelection(null), setGroup([]))}
+                            onSelectEdge={(edge: GraphEdge) => (setSelection({ kind: 'edge', id: edge.id }), setGroup([]))}
                             onSelectTable={(id) => selectTable(id, true)}
                         />
                     ) : selectedEdge ? (
                         <EdgeDetails edge={selectedEdge} ctx={ctx} onSelectTable={(id) => selectTable(id, true)} />
                     ) : (
-                        <Guide ctx={ctx} changes={changes} downloads={downloads} onSelectSubject={selectSubject} />
+                        <Guide ctx={ctx} changes={changes} downloads={downloads} onSelectSubject={selectSubject} onShortcuts={() => setShortcuts(true)} />
                     )}
                 </aside>
             </main>
@@ -629,14 +835,33 @@ function Viewer({
                 </span>
                 <span>Laranex Schema Viewer · MIT</span>
             </footer>
+            <ShortcutsDialog open={shortcuts} onClose={() => setShortcuts(false)} />
         </div>
     );
 }
 
-function CanvasTools({ onZoomIn, onZoomOut, onFit, onArrange }: { onZoomIn: () => void; onZoomOut: () => void; onFit: () => void; onArrange: () => void }) {
+function CanvasTools({
+    panMode,
+    onPanMode,
+    onZoomIn,
+    onZoomOut,
+    onFit,
+    onArrange,
+}: {
+    panMode: boolean;
+    onPanMode: () => void;
+    onZoomIn: () => void;
+    onZoomOut: () => void;
+    onFit: () => void;
+    onArrange: () => void;
+}) {
     const { zoom } = useViewport();
     return (
         <div className="canvas-tools">
+            <button type="button" onClick={onPanMode} aria-pressed={!panMode} title={panMode ? 'Select mode: drag the background to select tables' : 'Pan mode: drag the background to move the diagram'}>
+                {panMode ? '✥' : '⬚'}
+            </button>
+            <span className="divider" />
             <button type="button" onClick={onZoomOut} aria-label="Zoom out" title="Zoom out (−)">
                 −
             </button>
@@ -645,7 +870,7 @@ function CanvasTools({ onZoomIn, onZoomOut, onFit, onArrange }: { onZoomIn: () =
                 +
             </button>
             <span className="divider" />
-            <button type="button" onClick={onFit} title="Fit to view (0)">
+            <button type="button" onClick={onFit} title="Fit to view (F)">
                 Fit
             </button>
             <button type="button" onClick={onArrange} title="Reset the layout">

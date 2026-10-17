@@ -91,21 +91,36 @@ export function edgesFor(doc: SchemaDocument, l: Lookup = lookup(doc)): GraphEdg
     return edges;
 }
 
+export const EDGE_KINDS: EdgeKind[] = ['both', 'foreign_key', 'relationship', 'through'];
+
 // Whether an edge is on with these layers: foreign keys, ORM relationships, or both.
 export const edgeShown = (edge: GraphEdge, foreignKeys: boolean, orm: boolean) =>
     edge.kind === 'both' ? foreignKeys || orm : edge.kind === 'foreign_key' ? foreignKeys : orm;
 
 // The table and every table one edge away, including the intermediate tables of a through relationship.
 export function neighbors(id: string, edges: GraphEdge[]): Set<string> {
-    const result = new Set([id]);
-    for (const edge of edges) {
-        if (edge.source === id || edge.target === id) {
-            result.add(edge.source);
-            result.add(edge.target);
-            edge.derived?.via.forEach((v) => result.add(v));
+    return within(id, edges, 1);
+}
+
+// The table and every table up to depth edges away.
+export function within(id: string, edges: GraphEdge[], depth: number): Set<string> {
+    const seen = new Set([id]);
+    let frontier = [id];
+    for (let level = 0; level < depth && frontier.length; level++) {
+        const next: string[] = [];
+        for (const edge of edges) {
+            if (frontier.includes(edge.source) || frontier.includes(edge.target)) {
+                for (const t of [edge.source, edge.target, ...(edge.derived?.via ?? [])]) {
+                    if (!seen.has(t)) {
+                        seen.add(t);
+                        next.push(t);
+                    }
+                }
+            }
         }
+        frontier = next;
     }
-    return result;
+    return seen;
 }
 
 export function matchesTable(table: Table, connection: string, query: string, models: Model[]): boolean {
@@ -142,6 +157,28 @@ export function keyColumns(doc: SchemaDocument): Map<string, Set<string>> {
     return keys;
 }
 
+// How much of a card shows: every column, the key columns, or the table name only.
+export type Fold = 'all' | 'keys' | 'none';
+export const FOLDS: { value: Fold; label: string }[] = [
+    { value: 'keys', label: 'Key columns' },
+    { value: 'all', label: 'All columns' },
+    { value: 'none', label: 'Table names' },
+];
+
+// A card row that holds a note rather than a column: the table's (NOTE) or a column's (NOTE + name).
+export const NOTE = '\u0000note:';
+export const isNote = (row: string) => row.startsWith(NOTE);
+
+// The rows a card shows, in order, with note rows while notes are on.
+export function cardRows(table: Table, fold: Fold, keys: Set<string> | undefined, notes: boolean): string[] {
+    const columns = fold === 'none' ? [] : shownColumns(table, fold === 'all', keys);
+    if (!notes || fold === 'none') {
+        return columns;
+    }
+    const noted = new Set(table.columns.filter((c) => c.note).map((c) => c.name));
+    return [...(table.note ? [NOTE] : []), ...columns.flatMap((c) => (noted.has(c) ? [c, `${NOTE}${c}`] : [c]))];
+}
+
 // The column rows a card shows: key columns, and columns the database and the ORM disagree on or only the ORM declares,
 // so a folded card never hides drift. With nothing else to show it shows its first three columns, as the Python viewer
 // does, so a card is never empty.
@@ -154,7 +191,8 @@ export function shownColumns(table: Table, all: boolean, keys: Set<string> | und
     return shown.length ? shown : table.columns.slice(0, 3).map((c) => c.name);
 }
 
-export const cardHeight = (rows: number, total: number) => HEADER_HEIGHT + rows * ROW_HEIGHT + (rows < total ? MORE_HEIGHT : 0) + 2;
+// rows: every row the card shows, notes included; hidden: the columns folded away.
+export const cardHeight = (rows: number, hidden: number) => HEADER_HEIGHT + rows * ROW_HEIGHT + (hidden > 0 && rows > 0 ? MORE_HEIGHT : 0) + 2;
 
 export function relationshipsOf(doc: SchemaDocument, tableId: string): Relationship[] {
     return doc.relationships.filter((r) => r.table === tableId || r.relatedTable === tableId || r.pivot?.table === tableId || (r.through ?? []).includes(tableId));

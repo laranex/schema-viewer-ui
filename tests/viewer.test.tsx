@@ -153,3 +153,73 @@ describe('SchemaViewer', () => {
         expect(screen.getByRole('combobox', { name: /Connection/ })).toBeInTheDocument();
     });
 });
+
+describe('interaction parity', () => {
+    it('folds cards to key columns, every column, or names only, and keeps routes on shown rows', async () => {
+        const { container } = await show(VALID['combined-eloquent']());
+        const posts = () => container.querySelector('[data-table-id="mysql:posts"]') as HTMLElement;
+        await waitFor(() => expect(posts()).toBeTruthy());
+        const keyRows = posts().querySelectorAll('.column').length;
+        fireEvent.change(screen.getByRole('combobox', { name: /Columns/ }), { target: { value: 'all' } });
+        await waitFor(() => expect(posts().querySelectorAll('.column').length).toBe(9));
+        expect(keyRows).toBeLessThan(9);
+        fireEvent.change(screen.getByRole('combobox', { name: /Columns/ }), { target: { value: 'none' } });
+        await waitFor(() => expect(posts().querySelectorAll('.column').length).toBe(0));
+    });
+
+    it('shows notes on cards with N', async () => {
+        const { container } = await show(VALID['combined-eloquent']());
+        await waitFor(() => expect(container.querySelector('[data-table-id="mysql:posts"]')).toBeTruthy());
+        expect(container.querySelector('.note-row')).toBeNull();
+        act(() => {
+            fireEvent.keyDown(document.body, { key: 'n' });
+        });
+        await waitFor(() => expect(container.querySelector('[data-table-id="mysql:posts"] .note-row')).toHaveTextContent('Articles, drafts included.'));
+    });
+
+    it('turns link kinds on and off with 1 to 4', async () => {
+        await show(VALID['combined-eloquent']());
+        const through = screen.getByRole('checkbox', { name: /Through/ });
+        expect(through).toBeChecked();
+        act(() => {
+            fireEvent.keyDown(document.body, { key: '4' });
+        });
+        expect(through).not.toBeChecked();
+    });
+
+    it('hides framework and package tables separately', async () => {
+        await show(VALID['combined-eloquent']());
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Framework tables' }));
+        expect(within(tableList()).queryByText('jobs')).toBeNull();
+        expect(within(tableList()).getByText('oauth_clients')).toBeInTheDocument();
+    });
+
+    it('focuses on a table to a chosen depth', async () => {
+        await show(VALID['combined-eloquent']());
+        fireEvent.click(within(tableList()).getByText('countries'));
+        fireEvent.click(within(details()).getByRole('button', { name: 'Focus on neighbors' }));
+        await waitFor(() => expect(within(tableList()).getAllByRole('button')).toHaveLength(3));
+        fireEvent.change(screen.getByRole('combobox', { name: 'Depth' }), { target: { value: '2' } });
+        await waitFor(() => expect(within(tableList()).getAllByRole('button').length).toBeGreaterThan(3));
+        fireEvent.click(screen.getByRole('button', { name: '← Show all tables' }));
+        await waitFor(() => expect(within(tableList()).getAllByRole('button')).toHaveLength(11));
+    });
+
+    it('lists every shortcut in a dialog opened with S', async () => {
+        await show(VALID['database-sqlite-indexes']());
+        act(() => {
+            fireEvent.keyDown(document.body, { key: 's' });
+        });
+        expect(screen.getByRole('heading', { name: 'Keyboard shortcuts', hidden: true })).toBeInTheDocument();
+    });
+
+    it('ignores shortcuts while typing', async () => {
+        await show(VALID['combined-eloquent']());
+        const input = screen.getByPlaceholderText('Search schema…');
+        input.focus();
+        act(() => {
+            fireEvent.keyDown(input, { key: '4' });
+        });
+        expect(screen.getByRole('checkbox', { name: /Through/ })).toBeChecked();
+    });
+});

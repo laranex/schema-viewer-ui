@@ -208,7 +208,19 @@ function download(item: ViewerDownload) {
     setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-export function Guide({ ctx, changes, downloads, onSelectSubject }: { ctx: DetailContext; changes?: ViewerChange[] | null; downloads?: ViewerDownload[]; onSelectSubject: (d: Diagnostic) => void }) {
+export function Guide({
+    ctx,
+    changes,
+    downloads,
+    onSelectSubject,
+    onShortcuts,
+}: {
+    ctx: DetailContext;
+    changes?: ViewerChange[] | null;
+    downloads?: ViewerDownload[];
+    onSelectSubject: (d: Diagnostic) => void;
+    onShortcuts: () => void;
+}) {
     const { doc } = ctx;
     const facts = doc.diagnostics.filter((d) => d.certainty === 'certain').length;
     const states = new Set(doc.links.map((l) => l.state));
@@ -278,6 +290,9 @@ export function Guide({ ctx, changes, downloads, onSelectSubject }: { ctx: Detai
                 </dt>
                 <dd>Pan the canvas</dd>
             </dl>
+            <button type="button" className="detail-link" onClick={onShortcuts}>
+                All shortcuts <kbd>S</kbd>
+            </button>
             <Section title="Coverage" count={doc.connections.length}>
                 {doc.connections.map((c) => (
                     <div key={c.id} className="connection-coverage">

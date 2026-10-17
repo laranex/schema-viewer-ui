@@ -82,4 +82,22 @@ test.describe('standalone viewer under a strict CSP', () => {
         const serious = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
         expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
     });
+
+    test('picks several tables with Shift and moves them together', async ({ page, isMobile }) => {
+        test.skip(isMobile, 'Shift-click needs a keyboard.');
+        await page.goto('/f/combined-eloquent/');
+        await loaded(page);
+        const card = (id: string) => page.locator(`.react-flow__node[data-id="${id}"]`);
+        await card('mysql:users').locator('.table-title').click();
+        await card('mysql:roles').locator('.table-title').click({ modifiers: ['Shift'] });
+        await expect(page.getByRole('complementary', { name: 'Selection details' }).getByRole('heading', { name: '2 tables' })).toBeVisible();
+        const before = await card('mysql:roles').boundingBox();
+        const title = (await card('mysql:users').locator('.table-title').boundingBox())!;
+        await page.mouse.move(title.x + 40, title.y + 20);
+        await page.mouse.down();
+        await page.mouse.move(title.x + 140, title.y + 80, { steps: 8 });
+        await page.mouse.up();
+        const after = await card('mysql:roles').boundingBox();
+        expect(Math.round(after!.x - before!.x)).toBeGreaterThan(50);
+    });
 });

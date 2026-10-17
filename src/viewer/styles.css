@@ -1091,3 +1091,108 @@
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Notes on cards (N), a toast, the shortcuts dialog and selection boxes. */
+.lsv .note-row {
+    height: 27px;
+    line-height: 27px;
+    padding: 0 12px 0 37px;
+    border-bottom: 1px solid var(--line);
+    font: italic 11px var(--font-sans);
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.lsv .table-card.picked {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow);
+}
+.lsv .react-flow__selection,
+.lsv .react-flow__nodesselection-rect {
+    background: var(--accent-soft);
+    border: 1px dashed var(--accent);
+}
+.lsv.pan-mode .react-flow__pane,
+.lsv.space-pan .react-flow__pane,
+.lsv.space-pan .react-flow__node {
+    cursor: grab;
+}
+.lsv:not(.pan-mode) .react-flow__pane {
+    cursor: crosshair;
+}
+.lsv .canvas-tools button[aria-pressed='true'] {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+}
+.lsv .focus-depth {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 4px 2px 10px;
+    box-shadow: var(--shadow);
+    font-size: 12px;
+}
+.lsv .focus-depth select {
+    border: 0;
+    padding: 2px 6px;
+}
+.lsv .toast {
+    position: absolute;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--fg);
+    color: var(--bg);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    z-index: 10;
+}
+.lsv dialog.lsv-dialog {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--fg);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    width: min(560px, calc(100% - 32px));
+    max-height: calc(100% - 64px);
+}
+.lsv dialog.lsv-dialog::backdrop {
+    background: rgb(0 0 0 / 35%);
+}
+.lsv .dialog-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.lsv .dialog-head h2 {
+    margin: 0;
+}
+.lsv dialog .shortcuts {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 8px 12px;
+    font-size: 12px;
+    margin: 0;
+}
+.lsv dialog .shortcuts dt {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+}
+.lsv dialog .shortcuts dd {
+    margin: 0;
+    color: var(--muted);
+}
+.lsv .picked-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
