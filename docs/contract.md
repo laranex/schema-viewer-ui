@@ -339,7 +339,7 @@ unqualified scope. Producers resolve their configured comparisons, and the gate 
   baseline connection id, baseline schema, target connection id and target schema (null first). `errors`
   `{ kind, request, message }`, in the order of the sorted requests, a request's own errors in the order above.
 
-`{request}` spells each scope as `name` or `name:schema` (the request's own names and schemas, so `name:*` for a
+`{request}` spells each scope as `name` or `name:schema` (`spellScope(name, schema)`; the request's own names and schemas, so `name:*` for a
 wildcard), baseline and target joined by ` → ` (U+2192 with single spaces). A producer reports every error as a
 configuration error and writes no comparison for that request. A request whose two scopes are equal is a
 configuration error producers reject when they read their configuration; expansion passes it through.
@@ -573,6 +573,10 @@ findings, errors }`
   or absent when none was requested or configured, as in [Requested comparisons](#requested-comparisons)
   (connection names; a target schema `"*"`). The report's `requested` lists them without duplicates, sorted by
   baseline connection, baseline schema, target connection and target schema (null before any string).
+  Producers reject duplicate requests before calling the gate, whether configured or given as arguments: run
+  `expandComparisonRequests` over them and treat each `duplicate` error as a configuration or usage error (a CI gate
+  exits 2 with its message). The gate itself drops duplicates and never reports them, so it cannot tell a producer's
+  configuration mistake apart from a repeated request.
 
 ### Validation
 

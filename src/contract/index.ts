@@ -20,6 +20,7 @@ export {
     normalizeType,
     REQUEST_ERROR_KINDS,
     scopeCovered,
+    spellScope,
     storeComparisons,
     validateSeverityOverrides,
     WILDCARD,
