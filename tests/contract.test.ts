@@ -2,11 +2,12 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { assertDocument, buildGraph, canonicalJson, compareScopes, comparisonId, diagnosticId, documentRevision, gateReportJsonSchema, inferAssociations, InvalidDocumentError, jsonSchema, migrationHistory, migrationState, UnsupportedDocumentError, validateDocument, validateGateReport } from '../src/contract';
+import { assertDocument, buildGraph, canonicalJson, compareScopes, comparisonId, diagnosticId, documentRevision, gateDocument, gateReportJsonSchema, inferAssociations, InvalidDocumentError, jsonSchema, migrationHistory, migrationState, UnsupportedDocumentError, validateDocument, validateGateReport } from '../src/contract';
 import { sha256 } from '../src/contract/sha256';
 import { VALID } from './fixtures/documents';
 import { COMPARISON_CASES } from './fixtures/comparison-cases';
 import { GATE_INVALID, GATE_VALID } from './fixtures/gate';
+import { GATE_CASES } from './fixtures/gate-cases';
 import { GRAPH_CASES } from './fixtures/graph-cases';
 import { INFERENCE_CASES } from './fixtures/inference-cases';
 import { MIGRATION_CASES } from './fixtures/migration-cases';
@@ -63,6 +64,7 @@ describe('contract artifacts', () => {
     it('comparison conformance cases are current', () => artifacts('conformance/comparison', COMPARISON_CASES));
     it('migration conformance cases are current', () => artifacts('conformance/migrations', MIGRATION_CASES));
     it('inference conformance cases are current', () => artifacts('conformance/inference', INFERENCE_CASES));
+    it('gate conformance cases are current', () => artifacts('conformance/gate', GATE_CASES));
 });
 
 describe('valid fixtures', () => {
@@ -151,6 +153,84 @@ describe('gate reports', () => {
     }
     it('exits 2 for an incomplete comparison, 1 for qualifying drift and 0 otherwise', () => {
         expect([GATE_VALID.passed.exitCode, GATE_VALID.drift.exitCode, GATE_VALID.incomplete.exitCode]).toEqual([0, 1, 2]);
+    });
+});
+
+describe('gate conformance', () => {
+    const schema = new Ajv2020({ strict: true, allErrors: true }).compile(gateReportJsonSchema());
+    for (const [name, c] of Object.entries(GATE_CASES)) {
+        it(`${name}: ${c.description}`, () => {
+            expect(validateGateReport(c.expected, { strict: true }).errors).toEqual([]);
+            expect(schema(c.expected), JSON.stringify(schema.errors)).toBe(true);
+            expect(gateDocument(c.input.document, { thresholds: c.input.thresholds, requested: c.input.requested })).toEqual(c.expected);
+        });
+    }
+
+    it('reads valid case documents strictly, so only the invalid and newer-minor cases test validation', () => {
+        for (const [name, c] of Object.entries(GATE_CASES)) {
+            const invalid = c.expected.errors.some((e) => e.kind === 'invalid_document' || e.kind === 'validation_incomplete');
+            expect(validateDocument(c.input.document, { strict: true }).ok, name).toBe(!invalid);
+        }
+    });
+});
+
+describe('gateDocument', () => {
+    const tenants = VALID['comparison-tenant-schemas']();
+    const request = (target: string | null, connection = 'app') => ({ baseline: { connection: 'app', schema: 'tenant_a' }, target: { connection, schema: target } });
+
+    it('reports input that could not be parsed as JSON', () => {
+        expect(gateDocument(undefined).errors).toEqual([{ kind: 'invalid_document', message: 'The input could not be parsed as JSON.' }]);
+    });
+
+    it('defaults each threshold separately', () => {
+        expect(gateDocument(tenants).thresholds).toEqual({ severity: 'warning', certainty: 'certain' });
+        expect(gateDocument(tenants, { thresholds: { certainty: 'likely' } }).thresholds).toEqual({ severity: 'warning', certainty: 'likely' });
+        expect(gateDocument(tenants, { thresholds: null }).thresholds).toEqual({ severity: 'warning', certainty: 'certain' });
+    });
+
+    it('sorts and deduplicates requested comparisons', () => {
+        const r = gateDocument(tenants, { requested: [request('tenant_b'), request('*'), request('tenant_b')] });
+        expect(r.requested).toEqual([request('*'), request('tenant_b')]);
+        expect(r.comparisons).toEqual([tenants.comparisons[0].id]);
+        expect(r.errors).toEqual([]);
+    });
+
+    it('cannot expand a * target without the schemas the inspection read', () => {
+        const doc = VALID['comparison-multi-connection']();
+        const r = gateDocument({ ...doc, connections: doc.connections.map((c) => ({ ...c, coverage: { ...c.coverage, database: { ...c.coverage.database, schemas: null } } })) }, { requested: [{ baseline: { connection: 'primary', schema: null }, target: { connection: 'replica', schema: '*' } }] });
+        expect(r.errors).toEqual([{ kind: 'comparison_not_found', message: 'Requested comparison primary → replica:* cannot be expanded: the inspection of connection replica lists no schemas.' }]);
+    });
+
+    it('excludes the baseline\'s own scope from a * expansion, also when the baseline is the default schema', () => {
+        const r = gateDocument(tenants, { requested: [{ baseline: { connection: 'app', schema: null }, target: { connection: 'app', schema: '*' } }] });
+        expect(r.errors.map((e) => e.message)).toEqual(['Requested comparison app → app:tenant_a is not in the document.', 'Requested comparison app → app:tenant_b is not in the document.']);
+    });
+
+    it('reports a request naming a connection the document does not have', () => {
+        const r = gateDocument(tenants, { requested: [request(null, 'nowhere')] });
+        expect(r.errors).toEqual([{ kind: 'comparison_not_found', message: 'Requested comparison app:tenant_a → nowhere names connection nowhere, which the document does not have.' }]);
+    });
+
+    it('labels diagnostics by their subject label, else what their id names, else the id', () => {
+        const doc = VALID['combined-multi-connection']();
+        const r = gateDocument(doc);
+        const labels = r.findings.filter((f) => f.source === 'diagnostic').map((f) => f.label);
+        expect(labels.length).toBeGreaterThan(0);
+        expect(labels.every((l) => l.length > 0)).toBe(true);
+    });
+
+    it('produces valid reports for every valid fixture, and the same bytes on every run', () => {
+        for (const build of Object.values(VALID)) {
+            const r = gateDocument(build());
+            expect(validateGateReport(r, { strict: true }).errors).toEqual([]);
+            expect(canonicalJson(gateDocument(build()))).toBe(canonicalJson(r));
+        }
+    });
+
+    it('never throws, whatever the input', () => {
+        for (const input of [null, 0, 'text', [], {}, { format: 'laranex-schema' }, { format: 'laranex-schema', version: 2 }, { format: 'laranex-schema', version: '2.0' }]) {
+            expect(gateDocument(input).exitCode).toBe(2);
+        }
     });
 });
 

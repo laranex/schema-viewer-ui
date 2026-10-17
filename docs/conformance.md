@@ -14,6 +14,7 @@ Producers in PHP, Python and TypeScript write the same contract, so the package 
 | `contract/conformance/comparison/*.json` | `{ description, input: { document, baseline, target, overrides, limit }, expected }`: comparison cases with hand-written expected comparisons |
 | `contract/conformance/migrations/*.json` | `{ description, input: { revisions, current }, expected: { history, status, pending, unknownRevisions } }` |
 | `contract/conformance/inference/*.json` | `{ description, input: { source, connections, models, relationships, links }, expected: { inferredAssociations } }` |
+| `contract/conformance/gate/*.json` | `{ description, input: { document, thresholds, requested }, expected }`: gate cases with hand-written expected reports |
 | `contract/fixtures/gate/{valid,invalid}/*.json` | Gate reports, and broken ones (`{ description, errors, report }`) |
 | `contract/check.mjs` | Checks any producer's output: strict validation, stored links and inferred associations, canonical form |
 
@@ -21,8 +22,8 @@ Producers in PHP, Python and TypeScript write the same contract, so the package 
 
 1. Every valid fixture passes its validator and round-trips to identical canonical bytes.
 2. Every invalid fixture is rejected; rule errors use the listed messages.
-3. Its graph builder, comparison, migration status and inference turn every conformance input into exactly the
-   expected output, ids included.
+3. Its graph builder, comparison, migration status, inference and gate turn every conformance input into exactly
+   the expected output, ids, labels and messages included.
 4. Its own output passes `check.mjs`:
 
 ```bash

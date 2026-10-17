@@ -444,22 +444,133 @@ confidence, evidence, ambiguities, extensions? }`
 ## Gate reports
 
 A gate checks a document in CI and prints a `laranex-schema-gate` report, a separate format with its own JSON Schema
-(`contract/gate-report.schema.json`) and validator (`validateGateReport()`).
+(`contract/gate-report.schema.json`) and validator (`validateGateReport()`). Every producer's gate follows the rules
+below, which `gateDocument(input, { thresholds, requested })` implements and `contract/conformance/gate/` checks:
+equal inputs give byte-equal reports in canonical form (see [Canonical serialization](#canonical-serialization)). A
+gate reads only the document: never a database, ORM metadata or application code.
 
-`{ format: "laranex-schema-gate", version: "1.0", passed, exitCode, thresholds, counts, findings, errors }`
+`{ format: "laranex-schema-gate", version: "1.0", passed, exitCode, thresholds, requested, comparisons, counts,
+findings, errors }`
 
-- `thresholds` `{ severity, certainty }`: a finding qualifies when its severity is at least `severity` and, with
-  certainty `certain`, it is certain (with `likely`, both qualify).
-- `findings` `{ source, id, kind, severity, certainty, label, message }`, sorted by source, id and kind: `diagnostic`
-  (a diagnostic id, its kind), `comparison` (a difference id, kind `<object_type>_<change>` in snake case, such as
-  `primary_key_missing`), `migration` (a track id, kind `migration_<status>`; defaults: `behind` and `diverged`
-  error, `uninitialized` warning, certain).
-- `errors` `{ kind, message }`, sorted: what kept the check from completing: `comparison_incomplete` (any comparison
-  with `complete` false), `migration_unknown` (a checked track with status `unknown`), `inspection_failed`,
-  `validation_incomplete`, `invalid_document` (open list).
-- `counts` `{ findings, qualifying, error, warning, info }` count the findings.
-- `exitCode`: **2** when `errors` is non-empty, whatever the findings: an incomplete check never passes; else **1**
-  when a finding qualifies; else **0**. `passed` is true exactly when it is 0.
+### Input
+
+- **The document**, as parsed JSON. Input that could not be parsed is reported, not thrown (`gateDocument(undefined)`).
+- **Thresholds** `{ severity, certainty }`, each defaulting separately to `warning` and `certain`. A finding
+  **qualifies** when its severity is at least `severity` (`info` < `warning` < `error`) and, with certainty
+  `certain`, it is certain; with `likely`, certain and likely findings both qualify.
+- **Requested comparisons**, a list of `{ baseline: { connection, schema }, target: { connection, schema } }`, empty
+  or absent when none was requested or configured. `connection` is the connection's **name** (as users configure
+  it); `schema` is a schema or null for the unqualified scope (see [Comparisons](#comparisons)). A target schema `"*"`
+  stands for every schema the target connection's inspection read; `"*"` in a baseline is an ordinary schema name.
+  The report's `requested` lists them without duplicates, sorted by baseline connection, baseline schema, target
+  connection and target schema (null before any string).
+
+### Validation
+
+The gate validates the document itself before anything else, in this order; the first that applies gives one
+`invalid_document` error, and the report then has no other error, no findings and no checked comparisons:
+
+| Input | `invalid_document` message |
+|---|---|
+| Not parseable as JSON | `The input could not be parsed as JSON.` |
+| Not an object with `format` `"laranex-schema"` and a string `version` | `The input is not a laranex-schema document.` |
+| `version` whose text before the first `.` is not `2` | `The document is laranex-schema {version}; the gate reads 2.x.` |
+| `"2.0"` failing strict validation, or a newer `2.x` failing lenient validation | `The document fails laranex-schema {version} validation.` |
+
+A valid document of a newer minor (any `2.x` other than `2.0`), which only lenient validation accepted, is checked as
+below with the error `validation_incomplete`: `The document is laranex-schema {version}; only 2.0 is validated
+strictly, so what {version} adds was not checked.` The validator's own messages are not part of the report; a gate
+prints them beside it.
+
+### Checked comparisons
+
+- No requested comparisons: every stored comparison is checked. Zero comparisons is valid.
+- Requested comparisons: **only** the requested ones are checked; other stored comparisons are neither findings nor
+  errors. Each request is resolved against the document, and each failure is a `comparison_not_found` error:
+  1. Each connection name the document does not have: `Requested comparison {request} names connection {name},
+     which the document does not have.` (once per name; nothing more is checked for that request).
+  2. A `"*"` target expands to the schemas in the target connection's coverage `schemas` (`declared` coverage in a
+     `declared` document, else `database`), sorted, without duplicates, leaving out the baseline's own scope (same
+     connection, and the schema equals the baseline's, or the baseline's schema is null and the schema is the
+     connection's `defaultSchema`). Coverage or its `schemas` null: `Requested comparison {request} cannot be
+     expanded: the inspection of connection {name} lists no schemas.` Nothing left: `Requested comparison {request}
+     matches no schema.`
+  3. Each resulting pair must be a stored comparison with exactly those scopes (connection ids, schemas):
+     otherwise `Requested comparison {pair} is not in the document.`
+
+`{request}` and `{pair}` spell scopes as `name` or `name:schema` (the request's own names; `name:*` for a wildcard),
+baseline and target joined by ` → ` (U+2192 with single spaces). The report's `comparisons` lists the checked
+comparisons' ids, sorted. Wildcard expansion belongs to the gate, so producers pass requests as configured.
+
+### Findings
+
+`findings` `{ source, id, kind, severity, certainty, label, message }`. Only these are findings:
+
+| Source | What | `id` | `kind` | Severity, certainty | `label` | `message` |
+|---|---|---|---|---|---|---|
+| `comparison` | Every listed difference of every checked comparison | The difference's | `<object_type>_<change>` in snake case: `column_changed`, `primary_key_missing`, … | The difference's | `{pair} · {ref}` | `Only in the baseline` (missing), `Only in the target` (extra), `Differs in {fields}` (changed) |
+| `diagnostic` | Every diagnostic of category `drift` or `reconciliation` | The diagnostic's | The diagnostic's | The diagnostic's | See below | The diagnostic's `message` |
+| `migration` | Every track with status `behind`, `diverged` or `uninitialized` | The track's | `migration_<status>` | `behind`, `diverged`: error, certain; `uninitialized`: warning, certain | `{connection} · {schema}`, or `{connection}` when `schema` is null | See below |
+
+- A comparison finding's `{pair}` spells the comparison's scopes by connection name as above; `{ref}` is the
+  difference's baseline label, or its target label when it has no baseline (an extra object); `{fields}` the
+  changed fields in their stored order, joined by `, `.
+- A diagnostic finding's label is the subject's `label` when not null; else the name its id resolves to in the
+  document: a connection's name; a table as `{connection} · {table}` (`schema.table`, or `table`); a column as that
+  plus `.` and the subject's columns joined by `, `; an index, foreign key or constraint as its table's form plus
+  `.` and its name (its id when unnamed); a model's class name; a relationship as `{model class}.{name}`; a
+  comparison's `{pair}`; a migration track's label. Otherwise the subject's id, or `document` for the document.
+- Migration messages, with `{provider}` the track's provider:
+  - `behind`: `{provider} revisions not applied: {pending}`, the pending revisions joined by `, `.
+  - `diverged`: `The {provider} version table records overlapping revisions, one an ancestor of another:
+    {current}`, the current revisions joined by `, `. This is the status rule's overlapping version table, not
+    multiple heads (a `migration_multiple_heads` diagnostic, category `lint`, which is no finding).
+  - `uninitialized`: `The database has no {provider} version table` when `versionTable` is null, else `The
+    {provider} version table records no revision`.
+  - `up_to_date` is no finding; `unknown` is an error.
+- Nothing else is a finding. Diagnostics of category `extraction` (such as `unresolved_foreign_key`), `lint` and
+  `inspection` never qualify and never fail the gate; an inspection diagnostic of severity `error` is an error (below).
+
+Findings are sorted by source, id and kind. `counts` `{ findings, qualifying, error, warning, info }` count all
+findings, the qualifying ones, and each severity.
+
+### Errors
+
+`errors` `{ kind, message }` say why the check is incomplete; an incomplete check never passes. The kinds are a closed
+list:
+
+| Kind | When | Message |
+|---|---|---|
+| `invalid_document` | See [Validation](#validation) | As listed there |
+| `validation_incomplete` | A valid newer 2.x minor | As listed there |
+| `comparison_not_found` | A requested comparison is not in the document | See [Checked comparisons](#checked-comparisons) |
+| `comparison_incomplete` | A checked comparison with `complete` false | `Comparison {pair} is incomplete: {reasons}.`, or `Comparison {pair} is incomplete.` without reasons |
+| `coverage_incomplete` | In a `database` or `combined` document, a connection whose `database` coverage has `tables` or `columns` other than `complete` (left out counts as `unknown`), or any feature `unavailable` | `Connection {name}: the database inspection is incomplete: {gaps}.` |
+| `inspection_failed` | Each diagnostic of category `inspection` with severity `error` | `{kind} on {label}: {message}`, with the diagnostic's kind, finding label and message |
+| `migration_unknown` | Each migration track with status `unknown` | `Migration track {label} ({provider}) has an unknown status: {reason}.` |
+
+- `comparison_incomplete` reasons, joined by `; `: `{omitted} of {total} differences omitted` when `omitted` > 0
+  (`total` the summary's sum); then `the baseline {scope} was not inspected completely` and `the target {scope} was
+  not inspected completely` for each side whose coverage does not support the comparison (the
+  [comparison rule](#comparisons): every compared feature `complete` or `not_applicable`, and the scope's schema
+  read).
+- `coverage_incomplete` gaps: `{feature} {state}` for each failing feature in the [coverage](#coverage) feature order,
+  joined by `, `. `partial` features other than tables and columns (a dialect's known limit, such as SQLite check
+  constraints) and `not_applicable` ones never fail a connection; the comparisons that read them are judged by
+  their own `complete`. `declared` coverage never fails the gate.
+- `migration_unknown` reason, the first that applies: `the version table could not be read` (`current` null), `the
+  migration scripts could not be read` (`history` null), `the database records revisions the scripts do not have:
+  {unknownRevisions}` (joined by `, `), else `the history is missing revisions it needs`.
+
+Errors are sorted by kind and message; equal errors are listed once.
+
+### Exit code
+
+| Exit code | When | `passed` |
+|---|---|---|
+| **2** | `errors` is not empty, whatever the findings | false |
+| **1** | No error, and at least one finding qualifies | false |
+| **0** | Otherwise (findings below the thresholds are still listed) | true |
 
 ## Extensions
 
@@ -513,5 +624,5 @@ node node_modules/laranex-schema-viewer-ui/contract/check.mjs path/to/snapshot.j
 
 `check.mjs` runs strict validation (which checks comparison ids, order and summaries and recomputes migration
 statuses), compares the stored links and inferred associations with the shared builders, and checks canonical form.
-Producers in other languages also run `contract/conformance/{graph,comparison,migrations,inference}/*.json` through
-their own implementations and `contract/fixtures/invalid/*.json` through their own validators, where they have them.
+Producers in other languages also run `contract/conformance/{graph,comparison,migrations,inference,gate}/*.json`
+through their own implementations and `contract/fixtures/invalid/*.json` through their own validators, where they have them.

@@ -70,11 +70,11 @@ describe('every valid fixture', () => {
         });
     }
 
-    it('never computes comparisons, migration statuses or inferences itself', () => {
+    it('never computes comparisons, migration statuses, inferences or gate reports itself', () => {
         const sources = readdirSync(root('src/viewer')).concat(readdirSync(root('src/standalone')).map((f) => `../standalone/${f}`));
         for (const file of sources.filter((f) => /\.tsx?$/.test(f))) {
             const text = readFileSync(root('src/viewer', file), 'utf8');
-            expect(text, file).not.toMatch(/compareScopes|migrationState|migrationHistory|inferAssociations|contract\/(comparison|migration|inference)/);
+            expect(text, file).not.toMatch(/compareScopes|migrationState|migrationHistory|inferAssociations|gateDocument|contract\/(comparison|migration|inference|gate)/);
         }
     });
 });

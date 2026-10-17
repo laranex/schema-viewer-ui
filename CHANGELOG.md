@@ -28,7 +28,16 @@ All notable changes to this project are documented here. The format follows
   conformance cases in `contract/conformance/{comparison,migrations,inference}/`; `check.mjs` also checks stored
   inferred associations. The viewer never computes these.
 - The `laranex-schema-gate` CI report: `contract/gate-report.schema.json`, `validateGateReport()` and fixtures, with
-  exit codes 0 (pass), 1 (qualifying drift) and 2 (incomplete comparison, failed inspection or validation).
+  exit codes 0 (pass), 1 (qualifying drift) and 2 (incomplete or invalid check).
+- The normative gate (`docs/contract.md`, "Gate reports") and its reference implementation `gateDocument(input,
+  { thresholds, requested })`, with conformance cases in `contract/conformance/gate/`. Findings are only comparison
+  differences, `drift` and `reconciliation` diagnostics, and `behind`, `diverged` and `uninitialized` migration
+  tracks, each with an exact label and message; extraction, lint and inspection warnings never fail the gate. Errors
+  (exit 2) are a closed list: `invalid_document`, `validation_incomplete` (a newer 2.x minor read leniently),
+  `comparison_not_found` (a requested comparison, or a `*` expansion, that the document does not have),
+  `comparison_incomplete`, `coverage_incomplete` (tables or columns not read completely, or a feature unavailable),
+  `inspection_failed` and `migration_unknown`. When comparisons are requested only those are checked. Reports also
+  list the `requested` and checked `comparisons`.
 - Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`, `migrations-alembic`
   and `inferred-associations`, and invalid fixtures for each new rule.
 - Viewer **Compare** tab for stored comparisons: baseline and target selectors built from the stored scopes (with a

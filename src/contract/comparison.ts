@@ -175,14 +175,17 @@ function side(doc: Pick<SchemaDocument, 'source' | 'connections'>, scope: Scope)
     };
 }
 
-function covered(s: Side): boolean {
-    const c = s.coverage;
-    if (!c || !COMPARISON_FEATURES.every((f) => c.features[f] === 'complete' || c.features[f] === 'not_applicable')) {
+// Whether a side's coverage supports a comparison: every compared feature complete or not applicable, and the scope's
+// schema read when both it and the coverage's schemas are known.
+export function scopeCovered(coverage: Coverage | null, connection: Connection, schema: string | null): boolean {
+    if (!coverage || !COMPARISON_FEATURES.every((f) => coverage.features[f] === 'complete' || coverage.features[f] === 'not_applicable')) {
         return false;
     }
-    const schema = s.scope.schema ?? s.connection.defaultSchema;
-    return schema === null || c.schemas === null || c.schemas.includes(schema);
+    const read = schema ?? connection.defaultSchema;
+    return read === null || coverage.schemas === null || coverage.schemas.includes(read);
 }
+
+const covered = (s: Side) => scopeCovered(s.coverage, s.connection, s.scope.schema);
 
 type Found = { objectType: ObjectType; key: string[]; change: Change; baseline: DifferenceRef | null; target: DifferenceRef | null; fields: FieldDifference[]; likely: boolean };
 
