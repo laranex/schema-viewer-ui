@@ -110,19 +110,22 @@ export function tableMarks(doc: SchemaDocument, tableId: string): TableMark[] {
 }
 
 // What a table's card says about it in one comparison, in words.
-export function markSummary(mark: TableMark): { change: Change; text: string; title: string } {
+// short is what a card shows; short + rest is the whole text.
+export function markSummary(mark: TableMark): { change: Change; text: string; short: string; rest: string; title: string } {
     const other = mark.side === 'baseline' ? 'target' : 'baseline';
     if (mark.table && mark.table.change !== 'changed') {
         const change = mark.table.change;
         return {
             change,
             text: change === 'missing' ? 'missing in target' : 'extra in target',
+            short: change,
+            rest: ' in target',
             title: change === 'missing' ? 'Missing: only the baseline has this table; the target does not' : 'Extra: only the target has this table; the baseline does not',
         };
     }
     const n = mark.differences.length;
     const likely = mark.likely ? `, ${mark.likely} likely (heuristic)` : '';
-    return { change: 'changed', text: `${n} ${n === 1 ? 'difference' : 'differences'}`, title: `${n} ${n === 1 ? 'difference' : 'differences'} against the ${other}${likely}; this table is on the ${mark.side} side` };
+    return { change: 'changed', text: `${n} ${n === 1 ? 'difference' : 'differences'}`, short: String(n), rest: n === 1 ? ' difference' : ' differences', title: `${n} ${n === 1 ? 'difference' : 'differences'} against the ${other}${likely}; this table is on the ${mark.side} side` };
 }
 
 // Inferred associations by the stored link they annotate: an inference never adds a link of its own.

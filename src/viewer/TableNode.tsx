@@ -67,8 +67,9 @@ function TableNode({ data }: NodeProps<TableNodeType>) {
                 </button>
                 {summary && (
                     <span className={`cmp-chip cmp-chip--${summary.change}${allLikely ? ' cmp-chip--likely' : ''}`} title={summary.title}>
-                        {CHANGE_TEXT[summary.change].symbol} {summary.text}
-                        {allLikely ? ' · likely' : ''}
+                        {CHANGE_TEXT[summary.change].symbol} {summary.short}
+                        <span className="sr-only">{summary.rest}</span>
+                        {allLikely ? ' likely' : ''}
                     </span>
                 )}
                 {issues > 0 && (
