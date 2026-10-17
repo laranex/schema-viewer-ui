@@ -16,6 +16,10 @@ export const pages = {
     'mysql.html': ['database-mysql-indexes', 'MySQL indexes'],
     'sqlite.html': ['database-sqlite-indexes', 'SQLite indexes'],
     'connections.html': ['combined-multi-connection', 'Three connections · combined (Eloquent)'],
+    'compare.html': ['comparison-tenant-schemas', 'Tenant schemas compared · database'],
+    'compare-incomplete.html': ['comparison-incomplete', 'Incomplete comparison · database'],
+    'migrations.html': ['migrations-alembic', 'Alembic migration status · database'],
+    'inferred.html': ['inferred-associations', 'Inferred associations · combined (SQLAlchemy)'],
 };
 
 export async function prepareDemo() {

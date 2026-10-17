@@ -13,7 +13,9 @@ The layout follows Laravel Schema Viewer's:
   Relationships, Tables and Show menus.
 - **Side panel** (right, resizable): **Browse** (Tables & Models, Relationships, Columns, each with a filter),
   **Details** (the selection, or an overview of the document), **Diagnostics** (facts apart from heuristics, each with
-  a way to its table) and **Changes** when the host provides them.
+  a way to its table) and **Changes** when the host provides them; **Compare** and **Migrations** when the document
+  stores comparisons or migration tracks, and an **Inferred** mode in Browse when it stores inferred associations. See
+  [Comparisons, migrations and inferences](./views.md).
 
 ## Several connections
 
@@ -43,8 +45,9 @@ sheet: tap a table, Browse, or the diagnostics count to open it.
 | Dashed | An ORM relationship with no foreign key behind it |
 | Dotted | An ORM relationship through intermediate tables |
 | Dashed, orange | A foreign key only the ORM declares, not found in the database (combined documents) |
+| Dash-dot, violet, `FK · inferred` | A foreign key with an inferred association: a heuristic, no ORM relationship declared |
 
-Each kind has its own layer toggle (keys <kbd>1</kbd>–<kbd>4</kbd>). The viewer draws the links the document stores;
+Each kind has its own layer toggle (keys <kbd>1</kbd>–<kbd>4</kbd>; <kbd>5</kbd> for the inferred marks). The viewer draws the links the document stores;
 it never infers a constraint from a relationship.
 
 ## Shortcuts
@@ -62,10 +65,12 @@ it never infers a constraint from a relationship.
 | <kbd>N</kbd> | Notes on cards |
 | <kbd>L</kbd> | Relationship names everywhere or on the selection |
 | <kbd>1</kbd>–<kbd>4</kbd> | FK + ORM, FK only, ORM only, through edges |
+| <kbd>5</kbd> | Inferred-association marks on foreign-key edges |
 | <kbd>Y</kbd> <kbd>G</kbd> <kbd>P</kbd> | Your, framework and package tables |
 | <kbd>[</kbd> <kbd>]</kbd> | Previous or next connection, or all of them |
 | <kbd>Shift</kbd> <kbd>C</kbd> | Copy a link to this view |
 | <kbd>A</kbd> <kbd>D</kbd> <kbd>H</kbd> <kbd>W</kbd> | Browse, Details, Diagnostics, Changes |
+| <kbd>X</kbd> <kbd>M</kbd> | Compare, Migrations (when the document has them) |
 | <kbd>E</kbd> | Download menu: JSON, PNG or SVG |
 | <kbd>S</kbd> | All shortcuts |
 | <kbd>?</kbd> | The tour |
@@ -79,6 +84,7 @@ list each differing field with both values. Diagnostics separate **facts** (read
 
 ## Deep links
 
-The URL hash keeps the view: `#table=<id>`, `#link=<id>`, `#focus=<id>&depth=2`, `#connection=<id>`. An unknown connection id opens every connection; a `#table=` on another connection than
+The URL hash keeps the view: `#table=<id>`, `#link=<id>`, `#inferred=<id>`, `#focus=<id>&depth=2`, `#connection=<id>`,
+`#view=compare&comparison=<id>&difference=<id>` and `#view=migrations&migration=<id>`. An unknown connection id opens every connection; a `#table=` on another connection than
 `#connection=` opens the table's own connection. Press
 <kbd>Shift</kbd> <kbd>C</kbd> to copy it.
