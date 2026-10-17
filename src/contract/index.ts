@@ -9,4 +9,5 @@ export { comparisonId, diagnosticId, differenceId, inferredAssociationId, migrat
 export { compareScopes, COMPARISON_FEATURES, defaultSeverity, inScope, normalizeSql, normalizeType, type CompareOptions, type SeverityOverride } from './comparison';
 export { migrationHistory, migrationState, type MigrationState } from './migration';
 export { candidateKeys, inferAssociations } from './inference';
+export { GATE_FORMAT, GATE_VERSION, gateReportJsonSchema, qualifies, validateGateReport, type GateError, type GateFinding, type GateReport, type GateValidationResult } from './gate';
 export type { ViewerConfig, ViewerChange, ViewerDownload } from './viewer-config';

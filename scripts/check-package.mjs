@@ -69,7 +69,7 @@ try {
     if (!page.includes('<link rel="icon" href="favicon.svg" type="image/svg+xml">') || !page.includes('<link rel="icon" href="favicon.ico" sizes="32x32">')) {
         fail('index.html does not link the favicon by relative URLs');
     }
-    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/check.mjs', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
+    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/check.mjs', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
         if (!existsSync(join(installed, required))) {
             fail(`missing ${required}`);
         }

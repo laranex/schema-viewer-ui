@@ -2,10 +2,11 @@ import Ajv2020 from 'ajv/dist/2020.js';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { assertDocument, buildGraph, canonicalJson, compareScopes, comparisonId, diagnosticId, documentRevision, inferAssociations, InvalidDocumentError, jsonSchema, migrationHistory, migrationState, UnsupportedDocumentError, validateDocument } from '../src/contract';
+import { assertDocument, buildGraph, canonicalJson, compareScopes, comparisonId, diagnosticId, documentRevision, gateReportJsonSchema, inferAssociations, InvalidDocumentError, jsonSchema, migrationHistory, migrationState, UnsupportedDocumentError, validateDocument, validateGateReport } from '../src/contract';
 import { sha256 } from '../src/contract/sha256';
 import { VALID } from './fixtures/documents';
 import { COMPARISON_CASES } from './fixtures/comparison-cases';
+import { GATE_INVALID, GATE_VALID } from './fixtures/gate';
 import { GRAPH_CASES } from './fixtures/graph-cases';
 import { INFERENCE_CASES } from './fixtures/inference-cases';
 import { MIGRATION_CASES } from './fixtures/migration-cases';
@@ -40,6 +41,20 @@ describe('contract artifacts', () => {
             writeFileSync(file, generated);
         }
         expect(readFileSync(file, 'utf8')).toBe(generated);
+    });
+
+    it('gate-report.schema.json is generated from the gate report shape', () => {
+        const file = root('contract/gate-report.schema.json');
+        const generated = `${JSON.stringify(gateReportJsonSchema(), null, 2)}\n`;
+        if (update) {
+            writeFileSync(file, generated);
+        }
+        expect(readFileSync(file, 'utf8')).toBe(generated);
+    });
+
+    it('gate report fixtures are current', () => {
+        artifacts('fixtures/gate/valid', GATE_VALID);
+        artifacts('fixtures/gate/invalid', GATE_INVALID);
     });
 
     it('valid fixtures are current', () => artifacts('fixtures/valid', Object.fromEntries(Object.entries(VALID).map(([n, f]) => [n, f()]))));
@@ -115,6 +130,28 @@ describe('inference conformance', () => {
             expect(inferAssociations(c.input)).toEqual(c.expected.inferredAssociations);
         });
     }
+});
+
+describe('gate reports', () => {
+    const schema = new Ajv2020({ strict: true, allErrors: true }).compile(gateReportJsonSchema());
+    for (const [name, r] of Object.entries(GATE_VALID)) {
+        it(`${name} passes strict validation and the JSON Schema`, () => {
+            expect(validateGateReport(r, { strict: true }).errors).toEqual([]);
+            expect(schema(r), JSON.stringify(schema.errors)).toBe(true);
+        });
+    }
+    for (const [name, c] of Object.entries(GATE_INVALID)) {
+        it(`${name}: ${c.description}`, () => {
+            const result = validateGateReport(c.report, { strict: true });
+            expect(result.ok).toBe(false);
+            for (const message of c.errors) {
+                expect(result.errors.some((e) => e.includes(message)), `expected "${message}" in ${JSON.stringify(result.errors)}`).toBe(true);
+            }
+        });
+    }
+    it('exits 2 for an incomplete comparison, 1 for qualifying drift and 0 otherwise', () => {
+        expect([GATE_VALID.passed.exitCode, GATE_VALID.drift.exitCode, GATE_VALID.incomplete.exitCode]).toEqual([0, 1, 2]);
+    });
 });
 
 describe('id rules', () => {
