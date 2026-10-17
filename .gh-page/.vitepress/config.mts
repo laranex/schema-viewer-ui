@@ -57,7 +57,7 @@ export default defineConfig({
         { text: 'React API', link: '/react' },
       ] },
       { text: 'THE CONTRACT', items: [
-        { text: 'laranex-schema 1.0', link: '/contract' },
+        { text: 'laranex-schema 2.0', link: '/contract' },
         { text: 'Validation & conformance', link: '/conformance' },
       ] },
       { text: 'REFERENCE', items: [

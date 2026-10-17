@@ -19,7 +19,7 @@ async function copy() {
     <p class="lx-eyebrow">ONE CONTRACT, ONE VIEWER, EVERY FRAMEWORK</p>
     <h1>Laranex<i>.</i><br /><span>Schema Viewer UI</span></h1>
     <p class="lx-lead">The shared ERD viewer and the <code>laranex-schema</code> contract<br />behind the Laravel, Python and Node.js schema viewers.</p>
-    <div class="lx-tags"><span>React Flow</span><span>ELK layout</span><span>laranex-schema 1.0</span><span>JSON Schema</span><span class="accent">No Node.js at runtime</span><span>MIT</span></div>
+    <div class="lx-tags"><span>React Flow</span><span>ELK layout</span><span>laranex-schema 2.0</span><span>JSON Schema</span><span class="accent">No Node.js at runtime</span><span>MIT</span></div>
     <div class="lx-terminal">
       <div class="lx-terminal-bar"><i></i><i></i><i></i><span>install</span><button @click="copy" :aria-label="message">{{ message === 'Copied' ? 'Copied ✓' : 'Copy' }}</button></div>
       <div class="lx-install"><span aria-hidden="true">$</span><code>{{ command }}</code></div>

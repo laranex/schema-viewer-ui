@@ -80,7 +80,7 @@ never leaves the page.
 All of this is already in the contract: connections, `schema` and `defaultSchema`; column `type` and `typeName`,
 `nullable`, `autoIncrement`, `enum` (named type and values), `default` as SQL text (literal, expression, sequence,
 identity), `generated`, `comment` and `note`; ordered `primaryKey`; index `parts` (column or expression, order, nulls,
-length, collation, operator class), `unique`, `primary`, `backs`, `method`, `partial`, `predicate`, `included` and
+length, collation, operator class), `unique`, `backs`, `method`, `partial`, `predicate`, `included` and
 `dialectOptions`; unique and check constraints; foreign keys with ordered columns, `onDelete`, `onUpdate`, `deferrable`
 and `initially`; `provenance` and `coverage`, so exports can state what was inspected; relationships with
 `cardinality`, `keys`, `pivot`, `polymorphic` and `through`.
