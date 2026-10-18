@@ -1,5 +1,11 @@
 # Quick start
 
+::: warning Development only
+The viewer is for development. Never serve it or a snapshot in production, and protect the page, its files and the
+snapshot with server-side authentication, even locally: see [Security](./security.md). To add it to an existing
+application, follow [Embedding in client applications](./embedding.md).
+:::
+
 ## Render a document in React
 
 ```tsx
@@ -36,7 +42,8 @@ schema/
 └── snapshot.json   ← your laranex-schema document
 ```
 
-Open `schema/index.html` through a web server (not `file://`, which blocks `fetch`).
+Open `schema/index.html` through a web server (not `file://`, which blocks `fetch`) that requires authentication for
+every file in `schema/`, the snapshot included. Keep `snapshot.json` out of version control.
 
 ## Or use the element
 

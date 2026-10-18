@@ -35,6 +35,11 @@ All notable changes to this project are documented here. The format follows
 
 - `docs/exports.md`: every export of a private schema is a sensitive file, and storing and sharing a downloaded file is
   the owner's responsibility; fixed the offline page's JSON escape (`<` is written as `\u003c`).
+- Embedding in client applications (`docs/embedding.md`): the viewer as a protected, development-only page in React
+  (Vite), Next.js, Vue, Angular, FastAPI and Node.js applications, with production exclusion and snapshot delivery.
+- Security (`docs/security.md`): the development-only policy, mandatory authentication, Basic Auth limits, snapshots
+  and production exclusion.
+- `docs/integration.md`: the inline JSON block's escape reads `\u003c` again.
 
 ## [0.3.0] - 2026-10-18
 

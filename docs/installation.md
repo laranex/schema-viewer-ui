@@ -19,6 +19,17 @@ the standalone bundle (`dist/viewer/`) need no peers.
 | `laranex-schema-viewer-ui/contract/*` | Fixtures, graph conformance cases and `check.mjs` |
 | `laranex-schema-viewer-ui/viewer/*` | The standalone bundle: `index.html`, `app.js`, `app.css`, `assets/`, `offline.js`, `manifest.json` |
 
+## In an application, for development only
+
+To embed the viewer in your own application, install it as a development dependency, so production installs and
+builds do not contain it:
+
+```bash
+npm install --save-dev laranex-schema-viewer-ui
+```
+
+Then follow [Embedding in client applications](./embedding.md) and [Security](./security.md).
+
 ## Without Node.js at runtime
 
 Laravel and Python packages ship a copy of `dist/viewer/` inside their own package and serve it as static files. See

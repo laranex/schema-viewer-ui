@@ -28,6 +28,12 @@ Sequelize and MikroORM. This package gives them one place to meet:
 - Provenance, drift and coverage: what the database says, what the ORM declares, and what could not be read.
 - Diagnostics, with confirmed facts kept apart from heuristic advice.
 
+## Development only
+
+The viewer shows a database's complete structure, so it is a development tool: never expose it or its snapshots in
+production, and put authentication in front of it even in local development. See [Security](./security.md), and
+[Embedding in client applications](./embedding.md) to add it to your application as a protected development page.
+
 ## What it is not
 
 - It never connects to a database or imports application code; producers do that, at build time.
