@@ -1,5 +1,10 @@
 # Integrating the shared viewer
 
+::: tip Adding the viewer to your own application?
+This page is for framework packages that host the viewer. To embed it in an existing application as a protected,
+development-only page, see [Embedding in client applications](./embedding.md) and [Security](./security.md).
+:::
+
 Every host renders the same viewer from the same `laranex-schema` document. Hosts differ only in how they produce the
 document (see [contract.md](contract.md)) and how they serve the page.
 
@@ -44,7 +49,7 @@ the host serves those files and gives the viewer the document in one of three wa
 1. **A snapshot URL.** Serve the document as `snapshot.json` beside `index.html`, as the Python package does with
    `/snapshot.json`. The bundled `index.html` already has `<div id="schema-viewer" data-snapshot-url="snapshot.json">`.
 2. **An inline JSON block.** Render the page with `<script type="application/json" id="schema-viewer-data">` holding
-   the document or a `ViewerConfig`. Escape `<` as `<` inside it. It is data, not script, so no CSP nonce is
+   the document or a `ViewerConfig`. Escape every `<` as `\u003c` inside it. It is data, not script, so no CSP nonce is
    needed.
 3. **A global.** Set `window.__SCHEMA_VIEWER__ = { document, … }` from a script the page's CSP allows (for example a
    nonce-bearing script, as Laravel's page does) before `app.js` runs.

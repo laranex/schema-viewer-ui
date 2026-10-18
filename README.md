@@ -26,6 +26,11 @@ The viewer displays the comparisons, migration tracks and inferred associations 
 Migrations tabs, difference marks on the diagram, inferred marks on foreign-key edges) and never computes them; see
 [docs/views.md](docs/views.md).
 
+The viewer is a development-only tool: never expose it or its snapshots in production, and require authentication
+even in local development. [docs/embedding.md](docs/embedding.md) shows how to add it to an existing React, Next.js,
+Vue, Angular, FastAPI or Node.js application as a protected development page; [docs/security.md](docs/security.md) is
+the policy.
+
 Hosts without Node.js serve `node_modules/laranex-schema-viewer-ui/dist/viewer/` as static files (including its
 `favicon.svg` and `favicon.ico`) with a `snapshot.json` beside `index.html`, or use
 `<laranex-schema-viewer src="snapshot.json">`. Using the viewer (layout, connections, line ends, column details,

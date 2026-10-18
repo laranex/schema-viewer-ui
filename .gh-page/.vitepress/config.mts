@@ -54,6 +54,8 @@ export default defineConfig({
         { text: 'Using the viewer', link: '/viewer' },
         { text: 'Comparisons, migrations, inferences', link: '/views' },
         { text: 'Downloads and exports', link: '/exports' },
+        { text: 'Embedding in applications', link: '/embedding' },
+        { text: 'Security', link: '/security' },
         { text: 'Integrating a host', link: '/integration' },
         { text: 'React API', link: '/react' },
       ] },
