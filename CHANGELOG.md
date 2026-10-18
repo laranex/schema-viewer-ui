@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-18
+
+### Upgrading from 0.2.0
+
+- Producers must write `laranex-schema` 2.0 documents: `version: "2.0"`, the three required arrays (empty when not
+  produced), diagnostic ids, index `parts`/`backs` instead of `columns`/`primary`, and canonical driver names. Check a
+  producer with `node contract/check.mjs` and the fixtures in `contract/fixtures/`.
+- The viewer and validators reject 1.x documents; rebuild saved snapshots with a producer that writes 2.0.
+
 ### Changed
 
 - **Breaking:** the contract is `laranex-schema` 2.0. Validators accept only 2.x (1.x is rejected with one clear
@@ -77,7 +86,8 @@ All notable changes to this project are documented here. The format follows
   `validateSeverityOverrides` with exact messages, which `compareScopes` now enforces, in `overrides/`;
   `comparisonDiagnostics`, the exact `comparison_incomplete` diagnostic, in `comparison-diagnostics/`; and
   `storeComparisons` in `store/`. The gate expands requests and words coverage with these exports.
-- Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`, `migrations-alembic`
+- Fixtures `comparison-tenant-schemas`, `comparison-multi-connection`, `comparison-incomplete`,
+  `comparison-schema-named-tables` (tables, columns and indexes named like the compared schemas), `migrations-alembic`
   and `inferred-associations`, and invalid fixtures for each new rule.
 - Viewer **Compare** tab for stored comparisons: baseline and target selectors built from the stored scopes (with a
   swap when the reverse comparison is stored), the baseline → target direction everywhere, summary counts, `omitted`
@@ -181,6 +191,7 @@ All notable changes to this project are documented here. The format follows
 - The standalone bundle (`dist/viewer`): `app.js`, `app.css`, lazily loaded ELK and fonts, `index.html` and a `manifest.json` with file hashes. It reads the document from an inline JSON script, `window.__SCHEMA_VIEWER__` or a snapshot URL, defines the `<laranex-schema-viewer>` element, and runs under `script-src 'self'`.
 - Contract documentation (`docs/contract.md`) and the roadmap for client-side exports and index analysis (`ROADMAP.md`).
 
-[Unreleased]: https://github.com/laranex/schema-viewer-ui/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/laranex/schema-viewer-ui/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/laranex/schema-viewer-ui/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/laranex/schema-viewer-ui/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/laranex/schema-viewer-ui/releases/tag/v0.1.0

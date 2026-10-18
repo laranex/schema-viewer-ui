@@ -1,6 +1,6 @@
 {
   "name": "laranex-schema-viewer-ui",
-  "version": "0.3.0-dev.0",
+  "version": "0.3.0",
   "description": "The unified laranex-schema contract and the shared ERD viewer for Laravel, Python and Node.js: a React component, a standalone static bundle, JSON Schema, validator, graph builder and conformance fixtures.",
   "license": "MIT",
   "author": "Laranex",
