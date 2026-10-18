@@ -797,7 +797,8 @@ curl -i -u "$SCHEMA_VIEWER_USER" http://127.0.0.1:5173/dev/schema-viewer/snapsho
 ```
 
 Request the page and each viewer file the same way: all of them must answer `401` without credentials. Then build for
-production and search the output (see [Production exclusion](./security.md#production-exclusion)).
+production and search the output (see [Production exclusion](./security.md#production-exclusion)), and keep the
+snapshot out of Git with the [snapshot scan](./security.md#git-protection).
 
 Every example on this page was run against `laranex-schema-viewer-ui` 0.3.0 with a synthetic fixture: unauthenticated
 requests to the page, every viewer file and the snapshot were refused with `401`, authenticated ones rendered the
