@@ -57,6 +57,10 @@ the host serves those files and gives the viewer the document in one of three wa
 Pages that use no framework can also write `<laranex-schema-viewer src="snapshot.json"></laranex-schema-viewer>` and
 include `app.css` and `app.js`, or call `window.LaranexSchemaViewer.mount(element, url)`.
 
+Whichever way the host delivers it, the page, every viewer file, the document and every download need the same
+server-side protection: the viewer itself enforces no authentication. See
+[Every delivery path](./security.md#every-delivery-path) and [Who enforces what](./security.md#who-enforces-what).
+
 ### Content-Security-Policy
 
 The bundle runs under `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'` (the Python server's
@@ -70,8 +74,9 @@ Flow's positioning styles.
 
 `app.js` (≈145 kB gzipped) loads `assets/elk.bundled-*.js` (≈440 kB gzipped) when it first lays out. Fonts are IBM
 Plex Sans and Mono, latin subset, in `assets/`. `offline.js` (≈2 MB, ≈620 kB gzipped) is the viewer as one script
-with ELK inlined; it is only fetched when someone saves the page as offline HTML. Serve `assets/*` as static files with long cache lifetimes; their
-names carry content hashes. `app.js`, `app.css` and `index.html` keep fixed names, so serve them with revalidation.
+with ELK inlined; it is only fetched when someone saves the page as offline HTML. `assets/*` names carry content hashes; `app.js`,
+`app.css` and `index.html` keep fixed names. Serve every file behind the host's check with `Cache-Control: no-store`,
+as [Security](./security.md#every-delivery-path) requires, so no shared cache keeps a copy.
 
 ## Versions
 

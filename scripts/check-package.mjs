@@ -82,7 +82,7 @@ try {
     if (!page.includes('<link rel="icon" href="favicon.svg" type="image/svg+xml">') || !page.includes('<link rel="icon" href="favicon.ico" sizes="16x16 32x32">')) {
         fail('index.html does not link the favicon by relative URLs');
     }
-    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/scan-report.schema.json', 'contract/allowlist.schema.json', 'contract/synthetic.json', 'contract/check.mjs', 'contract/scan.mjs', 'contract/conformance/scan', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'contract/conformance/gate', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
+    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/scan-report.schema.json', 'contract/allowlist.schema.json', 'contract/synthetic.json', 'contract/check.mjs', 'contract/scan.mjs', 'contract/conformance/scan', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'contract/conformance/gate', 'docs/contract.md', 'LICENSE', 'NOTICE', 'SECURITY.md']) {
         if (!existsSync(join(installed, required))) {
             fail(`missing ${required}`);
         }

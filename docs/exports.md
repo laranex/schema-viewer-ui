@@ -12,11 +12,9 @@ document and scoped JSON, DBML, Mermaid, Markdown, SVG and PNG. "No schema data 
 network, not the file you save; keep exports out of version control, build output and public places.
 
 Once you download or export a file, storing, sharing and distributing it is your responsibility as the owner of the
-repository or the file, not the package's. The package's own part is safe defaults, protecting the snapshots its hosts
-generate, the [snapshot scanner](./contract.md#snapshot-scanning) for the formats it can recognise, and serving the
-viewer securely. It does not track or scan downloaded files outside your repository and build workflow. The scanner
-recognises JSON documents, including those inside the offline HTML page, but not DBML, Mermaid, Markdown, SVG or PNG,
-and not compressed or encoded payloads.
+repository or the file: see [Responsibility boundary](./security.md#responsibility-boundary). The
+[snapshot scanner](./security.md#git-protection) recognises JSON documents, including those inside the offline HTML
+page, but not the other formats ([Limitations](./security.md#limitations)).
 
 ## The dialog
 

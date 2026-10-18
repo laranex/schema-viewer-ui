@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `SECURITY.md` (shipped in the package): supported versions, how to report a vulnerability, the security model and a
+  summary of the policy. `CONTRIBUTING.md`: synthetic fixtures, the allowlist, the snapshot scan and the tests.
+- Security (`docs/security.md`): who enforces what, every delivery path, Git protection with `contract/scan.mjs`
+  (exit codes, allowlist, `.gitignore`, a pre-commit hook), the scanner's limitations, incident response and the
+  responsibility boundary. The README has a security notice.
+
+### Changed
+
+- `docs/integration.md`: serve every viewer file with `Cache-Control: no-store` behind the host's check, as the
+  security policy requires, instead of long cache lifetimes for `assets/*`. `docs/exports.md` links the security
+  page's responsibility boundary instead of repeating it.
+
 ## [0.4.0] - 2026-10-18
 
 ### Upgrading from 0.3.0

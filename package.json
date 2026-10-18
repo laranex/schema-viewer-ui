@@ -49,7 +49,8 @@
     "contract",
     "docs/contract.md",
     "docs/integration.md",
-    "NOTICE"
+    "NOTICE",
+    "SECURITY.md"
   ],
   "engines": {
     "node": ">=22.12"
