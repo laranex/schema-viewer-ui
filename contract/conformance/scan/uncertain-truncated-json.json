@@ -1,0 +1,50 @@
+{
+  "description": "Half of a canonical document is not JSON but shows its keys",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 1
+    },
+    "errors": [],
+    "exitCode": 3,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "uncertain",
+        "path": "storage/partial.json",
+        "reason": "unparseable_json",
+        "scope": "tracked",
+        "sha256": "a7579cb984d4990642ffc38948fa5574ffe9c3a6aa104c28639b15300d3b36dc",
+        "status": "uncertain"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\n  \"comparisons\": [],\n  \"connections\": [\n    {\n      \"coverage\": {\n        \"database\": {\n          \"complete\": false,\n          \"features\": {\n            \"checkConstraints\": \"partial\",\n            \"columnTypes\": \"complete\",\n            \"columns\": \"complete\",\n            \"comments\": \"not_applicable\",\n            \"defaults\": \"complete\",\n            \"foreignKeys\": \"complete\",\n            \"includedColumns\": \"not_applicable\",\n            \"indexExpressions\": \"complete\",\n            \"indexPredicates\": \"complete\",\n            \"indexes\": \"complete\",\n            \"models\": \"not_applicable\",\n            \"primaryKeys\": \"complete\",\n            \"referentialActions\": \"complete\",\n            \"relationships\": \"not_applicable\",\n            \"tables\": \"complete\",\n            \"uniqueConstraints\": \"complete\"\n          },\n          \"schemas\": null\n        },\n        \"declared\": null\n      },\n      \"defaultSchema\": null,\n      \"driver\": \"sqlite\",\n      \"id\": \"connection:main\",\n      \"name\": \"main\",\n      \"tables\": [\n        {\n          \"columns\": [\n            {\n              \"autoIncrement\": true,\n              \"collation\": null,\n              \"comment\": null,\n              \"default\": null,\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"id\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"INTEGER\",\n              \"typeName\": \"integer\"\n            },\n            {\n              \"autoIncrement\": false,\n              \"collation\": \"NOCASE\",\n              \"comment\": null,\n              \"default\": null,\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"title\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"TEXT\",\n              \"typeName\": \"text\"\n            },\n            {\n              \"autoIncrement\": false,\n              \"collation\": null,\n              \"comment\": null,\n              \"default\": null,\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"slug\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"TEXT\",\n              \"typeName\": \"text\"\n            },\n            {\n              \"autoIncrement\": false,\n              \"collation\": null,\n              \"comment\": null,\n              \"default\": {\n                \"kind\": \"literal\",\n                \"value\": \"0\"\n              },\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"archived\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"INTEGER\",\n              \"typeName\": \"integer\"\n            }\n          ],\n          \"comment\": null,\n          \"constraints\": [\n            {\n              \"columns\": [\n                \"slug\"\n              ],\n              \"expression\": null,\n              \"id\": \"sqlite:main.notes:constraint:notes_slug\",\n              \"kind\": \"unique\",\n              \"name\": \"notes_slug\",\n              \"provenance\": [\n                \"database\"\n              ]\n            },\n            {\n              \"columns\": [\n                \"archived\"\n              ],\n              \"expression\": \"archived IN (0, 1)\",\n              \"id\": \"sqlite:main.notes:constraint:notes_archived_flag\",\n              \"kind\": \"check\",\n              \"name\": \"notes_archived_flag\",\n              \"provenance\": [\n                \"database\"\n              ]\n            }\n          ],\n          \"foreignKeys\": [],\n          \"id\": \"sqlite:main.notes\",\n          \"indexes\": [\n            {\n              \"backs\": {\n                \"constraint\": \"sqlite:main.",
+        "path": "storage/partial.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

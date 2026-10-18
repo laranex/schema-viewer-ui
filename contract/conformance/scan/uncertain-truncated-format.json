@@ -1,0 +1,50 @@
+{
+  "description": "A compact document cut short still has the format pair",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 1
+    },
+    "errors": [],
+    "exitCode": 3,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "uncertain",
+        "path": "storage/tail.json",
+        "reason": "unparseable_json",
+        "scope": "tracked",
+        "sha256": "6e6ff572effe63d264bc4019206bf7eb5ee8aecde7a161a8af45652fbbd7aa1a",
+        "status": "uncertain"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"format\":\"laranex-schema\",\"version\":\"2.0\",\"source\":\"database\",\"generator\":{\"name\":\"synthetic\",\"orm\":null},\"note\":null,\"conn",
+        "path": "storage/tail.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

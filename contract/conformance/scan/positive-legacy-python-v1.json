@@ -1,0 +1,50 @@
+{
+  "description": "The Python v1 viewer format with its tables (legacy, temporary)",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "legacy",
+        "path": "build/schema.json",
+        "reason": "viewer_v1",
+        "scope": "tracked",
+        "sha256": "9b9669e85922d06cc1f1976061121676086e7db47f075fbf3375e305096399e1",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"format\":\"laranex-schema-viewer\",\"version\":1,\"generator\":\"python\",\"tables\":[{\"name\":\"users\",\"columns\":[]}]}",
+        "path": "build/schema.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

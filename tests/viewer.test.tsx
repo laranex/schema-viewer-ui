@@ -74,7 +74,7 @@ describe('every valid fixture', () => {
         const sources = readdirSync(root('src/viewer')).concat(readdirSync(root('src/standalone')).map((f) => `../standalone/${f}`));
         for (const file of sources.filter((f) => /\.tsx?$/.test(f))) {
             const text = readFileSync(root('src/viewer', file), 'utf8');
-            expect(text, file).not.toMatch(/compareScopes|expandComparisonRequests|coverageGaps|scopeCovered|validateSeverityOverrides|comparisonDiagnostics|storeComparisons|migrationState|migrationHistory|inferAssociations|gateDocument|contract\/(comparison|migration|inference|gate)/);
+            expect(text, file).not.toMatch(/compareScopes|expandComparisonRequests|coverageGaps|scopeCovered|validateSeverityOverrides|comparisonDiagnostics|storeComparisons|migrationState|migrationHistory|inferAssociations|gateDocument|scanContent|scanFiles|contract\/(comparison|migration|inference|gate|scan)/);
         }
     });
 });

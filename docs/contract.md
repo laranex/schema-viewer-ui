@@ -676,6 +676,158 @@ Errors are sorted by kind and message; equal errors are listed once.
 | **1** | No error, and at least one finding qualifies | false |
 | **0** | Otherwise (findings below the thresholds are still listed) | true |
 
+## Snapshot scanning
+
+A snapshot describes a private schema: table and column names, comments, notes, constraints and model classes. It must
+not be committed or published by accident, in a private repository too. The scanner finds snapshots by content, not by
+file name, in what a repository tracks, what it would add, its build output and, on request, its history, and fails
+CI on anything it cannot vouch for. `scanContent()` and `scanFiles()` implement the rules below,
+`contract/scan.mjs` is the command line every producer's CI runs, and `contract/conformance/scan/` checks them. A scan
+reads only file content and Git objects: no network, no database, no application code.
+
+The scanner is a guard against accidents, not against someone hiding a snapshot on purpose: a renamed, encoded or
+compressed file is not found.
+
+### Scopes
+
+| Scope | Files | Mode |
+|---|---|---|
+| `tracked` | Every regular file in the Git index (`git ls-files -s`), read from the index (`git cat-file`), so the staged bytes are scanned whatever the working tree holds, and a file tracked before it was ignored is still found. Symbolic links and submodules are not files. | tree |
+| `untracked` | Files Git would add: `git ls-files --others --exclude-standard`, read from the working tree. Ignored files are not scanned here. | tree |
+| `artifacts` | Every file under a given directory (a build output, an unpacked package, a site), ignore rules not applied. A symbolic link to a file is read; one to a directory is not followed and makes the scan incomplete. | artifact |
+| `history` | On request only: every version of a candidate file that a commit reachable from any ref introduced (`git log --all --raw -m --root`, merges included), once per path and blob, with the first commit `git log` lists for it. A shallow clone has no complete history: the scan fails. | tree |
+
+A file is a **candidate** by its extension, compared case-insensitively: `.json`, `.html`, `.htm` in tree mode, and
+also `.js`, `.mjs`, `.cjs`, `.map` in artifact mode (source code in a repository names the format legitimately; built
+JavaScript holding a document does not). Other files are not read. Paths are POSIX paths relative to the scan root,
+the Git work tree's top level (else the current directory); an artifact file's path is `<artifact-dir>/<relative>`,
+the directory as given relative to the root (absolute when outside it, `<relative>` alone for the root itself).
+
+### Content signature
+
+A candidate larger than **64 MiB** (67 108 864 bytes, `SCAN_SIZE_LIMIT`) is not read: the scan is incomplete. Content
+is read as UTF-8, a leading byte order mark ignored. A **document** is a JSON object whose `format` is exactly
+`"laranex-schema"`, whose `version` is a string matching `^\d+\.\d+$` (any major and minor, `1.0` and `3.0`
+included) and whose `connections` is an array.
+
+**Legacy formats** (temporary; each rule is removed once its producer has migrated, with no compatibility code left):
+Laravel's envelope, `format` the number `2` with `document.connections` an array; the Python and Node.js v1 viewer
+format, `format` exactly `"laranex-schema-viewer"` with `tables` an array.
+
+A `.json` candidate is parsed as JSON:
+
+1. A document at the top level: kind `document`, reason `document`. A legacy snapshot at the top level: kind `legacy`,
+   reason `laravel_envelope` or `viewer_v1`.
+2. Else a document at depth 1 to 6 (the number of keys and array indexes from the top-level value to it, every array
+   item included): kind `embedded`, reason `nested_document`; else a legacy snapshot there: `nested_legacy`. A legacy
+   snapshot is not searched further. Depth 7 and beyond is not searched.
+3. JSON that does not parse is `uncertain` (`unparseable_json`) when the text holds the format pair (below), or a
+   `connections` key beside one of `"derivedLinks"`, `"comparisons"`, `"inferredAssociations"`, `"relationships"`,
+   `"models"` as a quoted key; otherwise it is clean.
+
+Any other candidate is text. The **format pair** is the key `format` with the value exactly `laranex-schema`, either
+quoted, `"format": "laranex-schema"` (each quote may be preceded by up to three backslashes, for JSON inside a
+JavaScript string or a source map), or as an object literal key, `{format: "laranex-schema",` or `,format:'laranex-schema'}`
+(single or double quotes, escaped likewise, followed by `,` or `}`). A pair inside an object that is the value of a
+`contract` key (the viewer manifest's `contract: { format, major }`) does not count.
+
+4. Text with a format pair and a `connections` key followed by `[` (quoted or not, escaped likewise), anywhere in the
+   file: kind `embedded`, reason `viewer_global` when the text assigns `window.__SCHEMA_VIEWER__ = {`, else
+   `embedded_json` for a quoted pair and `object_literal` for a literal one. This finds the shared viewer's offline
+   page (its `script#schema-viewer-data` JSON is plain), pages that inline a document or `ViewerConfig`, bundles that
+   inline one as `JSON.parse('…')` or as an object, and source maps whose `sourcesContent` holds one.
+5. Text with a format pair and no `connections`: `uncertain` (`missing_connections`), for example a fragment.
+6. Otherwise clean.
+
+Never a snapshot, by exact equality: `laranex-schema-gate` (gate reports are sensitive CI artifacts, kept with
+restricted access and short retention, but not snapshots), a nested `contract.format` (the viewer manifest), and a
+JSON Schema's `"format": { "const": "laranex-schema" }`. A `version` that is not a string, or JSON without
+`connections`, is no document.
+
+**Not detectable by content**, and so not scanned: SVG, PNG, DBML, Mermaid and Markdown exports; compressed or encoded
+payloads, such as base64+gzip offline HTML exports (Laravel's `id="schema-viewer-config"` page), which are neither
+decoded nor flagged; JavaScript and source maps in the repository tree; files with other extensions. These remain
+sensitive artifacts: users protect them and keep them out of version control (git-ignore them) themselves.
+
+### Allowlist
+
+An approved synthetic fixture, or a snapshot committed on purpose, is listed by exact path and digest in a
+`laranex-schema-allowlist` file (`contract/allowlist.schema.json`); nothing inside a document marks it as synthetic.
+Allowlisting is an explicit review decision, not proof that the content is harmless. The default file is
+`.laranex-schema-allowlist.json` at the scan root.
+
+```json
+{ "format": "laranex-schema-allowlist", "version": "1.0",
+  "entries": [{ "path": "tests/fixtures/blog.json", "sha256": "…" }],
+  "include": [{ "path": "node_modules/laranex-schema-viewer-ui/contract/synthetic.json", "root": "node_modules/laranex-schema-viewer-ui" }] }
+```
+
+- `entries[].path` is a relative POSIX path: no leading `/`, no `\`, no empty, `.` or `..` segment, no trailing `/`.
+  It names a repository-relative path, or `<artifact-dir>/<relative>`. One path may be listed with several digests
+  (versions in the history); a path and digest pair is listed once per file.
+- `sha256` is the lower-case hex SHA-256 of the file's bytes with every CRLF read as LF (`allowlistDigest()`), so a
+  Windows checkout matches.
+- `include[]` names another allowlist by a path relative to the including file's directory; its entries apply with
+  `root` (a relative path, or `.`) prepended, and nested roots compose. A cycle, an unreadable file or any invalid
+  allowlist fails the scan. Allowlists are always validated strictly: unknown properties and any other version are
+  errors.
+- `contract/synthetic.json` lists every synthetic document the package ships, by package-relative path; a producer
+  includes it with `root` set to where the package is installed.
+
+Each detected file is judged in this order:
+
+| Status | When | Counts as |
+|---|---|---|
+| `allowed` | An entry has its path and digest | clean |
+| `tampered` | Entries have its path, none its digest | confirmed |
+| `moved` | No entry has its path, one has its digest | confirmed |
+| `confirmed` / `uncertain` | Otherwise, by kind (`uncertain` for an uncertain kind) | confirmed / uncertain |
+
+An entry that matched no file is **stale** (a warning; the exit code ignores it) when the scan read a clean file at its
+path (`not_detected`), or when it names no file in what the scan covered (`not_found`): under a scanned artifact
+directory, or anywhere Git does not ignore when both `tracked` and `untracked` were scanned. Other entries are not
+judged. History scans never make an entry stale.
+
+### Report
+
+`scan.mjs --report FILE` (or `--json`) writes a `laranex-schema-scan` report in canonical form
+(`contract/scan-report.schema.json`, `validateScanReport()`):
+
+`{ format: "laranex-schema-scan", version: "1.0", exitCode, scopes, limit, counts, findings, errors }`
+
+- `scopes`: the scopes scanned, sorted. `limit`: the size limit in bytes.
+- `counts` `{ files, confirmed, tampered, moved, uncertain, allowed, incomplete, stale }`: `files` the candidates
+  considered, the others the findings of each status.
+- `findings` `{ scope, status, kind, path, commit, sha256, reason }`, sorted by path, commit (null as empty), scope,
+  status and reason in code point order. `scope` is a scan scope, or `allowlist` for a stale entry; `kind` is
+  `document`, `legacy`, `embedded`, `uncertain`, `too_large` or `unreadable` (status `incomplete`), or
+  `allowlist_entry` (status `stale`); `commit` is the full commit id for a history finding, else null; `sha256` the
+  file's digest, the stale entry's, or null when the file was not read. `reason` is one of `document`,
+  `laravel_envelope`, `viewer_v1`, `nested_document`, `nested_legacy`, `embedded_json`, `object_literal`,
+  `viewer_global`, `unparseable_json`, `missing_connections`, `size_limit`, `read_error`, `symlinked_directory`,
+  `not_detected`, `not_found`.
+- `errors` `{ kind, message }`, sorted, each listed once: `not_a_repository`, `git_failed`, `allowlist_invalid`,
+  `history_unavailable`, `artifact_missing`. A usage error exits 2 without a report.
+
+A report never holds file content: findings carry only paths, commits, digests and fixed codes. The command's own
+output is a one-line summary of the counts; locations are only in the report.
+
+### Exit code
+
+| Exit code | When |
+|---|---|
+| **2** | Scan failure or incomplete scan: any error (usage, not a Git work tree, Git failed, an invalid or unreadable allowlist, history requested but unavailable, a missing artifact directory) or any `incomplete` finding (unreadable, over the size limit, a symbolic link to a directory) |
+| **1** | Otherwise, any `confirmed`, `tampered` or `moved` finding |
+| **3** | Otherwise, any `uncertain` finding |
+| **0** | Otherwise (stale entries are warnings) |
+
+Precedence is 2 > 1 > 3 > 0: an incomplete scan cannot vouch for anything. CI fails on every non-zero exit.
+
+```bash
+npm install --no-save laranex-schema-viewer-ui@<version>
+node node_modules/laranex-schema-viewer-ui/contract/scan.mjs --tracked --untracked --artifacts dist
+```
+
 ## Extensions
 
 `extensions` is an object keyed by a lower-case namespace (`eloquent`, `laravel`, `sqlalchemy`, `django`, `prisma`,
@@ -729,5 +881,5 @@ node node_modules/laranex-schema-viewer-ui/contract/check.mjs path/to/snapshot.j
 `check.mjs` runs strict validation (which checks comparison ids, order and summaries and recomputes migration
 statuses), compares the stored links and inferred associations with the shared builders, and checks canonical form.
 Producers in other languages also run
-`contract/conformance/{graph,comparison,requests,coverage-gaps,overrides,comparison-diagnostics,store,migrations,inference,gate}/*.json`
+`contract/conformance/{graph,comparison,requests,coverage-gaps,overrides,comparison-diagnostics,store,migrations,inference,gate,scan}/*.json`
 through their own implementations and `contract/fixtures/invalid/*.json` through their own validators, where they have them.

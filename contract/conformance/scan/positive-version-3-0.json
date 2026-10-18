@@ -1,0 +1,50 @@
+{
+  "description": "Any major.minor version string matches: 3.0, four-space indented",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "document",
+        "path": "storage/schema-3.0.json",
+        "reason": "document",
+        "scope": "tracked",
+        "sha256": "d364d33777aa6618f2e03bedd92d33089ab12cf4b613c0eb90010653d7a18e31",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\n    \"format\": \"laranex-schema\",\n    \"version\": \"3.0\",\n    \"source\": \"database\",\n    \"generator\": {\n        \"name\": \"synthetic\",\n        \"orm\": null\n    },\n    \"note\": null,\n    \"connections\": []\n}\n",
+        "path": "storage/schema-3.0.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

@@ -1,4 +1,4 @@
-// SHA-256 of a UTF-8 string, as lowercase hex. Synchronous and dependency-free, so link ids and revisions are computed
+// SHA-256 of a UTF-8 string (or of bytes), as lowercase hex. Synchronous and dependency-free, so link ids and revisions are computed
 // the same way in browsers, Node.js and the build.
 
 const K = new Uint32Array([
@@ -10,7 +10,10 @@ const K = new Uint32Array([
 ]);
 
 export function sha256(text: string): string {
-    const data = new TextEncoder().encode(text);
+    return sha256Bytes(new TextEncoder().encode(text));
+}
+
+export function sha256Bytes(data: Uint8Array): string {
     const length = data.length;
     const blocks = Math.ceil((length + 9) / 64);
     const bytes = new Uint8Array(blocks * 64);

@@ -1,0 +1,61 @@
+{
+  "description": "The digest reads CRLF as LF, so a Windows checkout matches",
+  "expected": {
+    "counts": {
+      "allowed": 1,
+      "confirmed": 0,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 0,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "document",
+        "path": "tests/fixtures/windows.json",
+        "reason": "document",
+        "scope": "tracked",
+        "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f",
+        "status": "allowed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": ".laranex-schema-allowlist.json",
+    "allowlists": {
+      ".laranex-schema-allowlist.json": {
+        "entries": [
+          {
+            "path": "tests/fixtures/windows.json",
+            "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f"
+          }
+        ],
+        "format": "laranex-schema-allowlist",
+        "version": "1.0"
+      }
+    },
+    "files": [
+      {
+        "commit": null,
+        "content": "{\r\n  \"comparisons\": [],\r\n  \"connections\": [\r\n    {\r\n      \"coverage\": {\r\n        \"database\": {\r\n          \"complete\": false,\r\n          \"features\": {\r\n            \"checkConstraints\": \"partial\",\r\n            \"columnTypes\": \"complete\",\r\n            \"columns\": \"complete\",\r\n            \"comments\": \"not_applicable\",\r\n            \"defaults\": \"complete\",\r\n            \"foreignKeys\": \"complete\",\r\n            \"includedColumns\": \"not_applicable\",\r\n            \"indexExpressions\": \"complete\",\r\n            \"indexPredicates\": \"complete\",\r\n            \"indexes\": \"complete\",\r\n            \"models\": \"not_applicable\",\r\n            \"primaryKeys\": \"complete\",\r\n            \"referentialActions\": \"complete\",\r\n            \"relationships\": \"not_applicable\",\r\n            \"tables\": \"complete\",\r\n            \"uniqueConstraints\": \"complete\"\r\n          },\r\n          \"schemas\": null\r\n        },\r\n        \"declared\": null\r\n      },\r\n      \"defaultSchema\": null,\r\n      \"driver\": \"sqlite\",\r\n      \"id\": \"connection:main\",\r\n      \"name\": \"main\",\r\n      \"tables\": [\r\n        {\r\n          \"columns\": [\r\n            {\r\n              \"autoIncrement\": true,\r\n              \"collation\": null,\r\n              \"comment\": null,\r\n              \"default\": null,\r\n              \"enum\": null,\r\n              \"generated\": null,\r\n              \"name\": \"id\",\r\n              \"note\": null,\r\n              \"nullable\": false,\r\n              \"ormDefault\": null,\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"timezone\": null,\r\n              \"type\": \"INTEGER\",\r\n              \"typeName\": \"integer\"\r\n            },\r\n            {\r\n              \"autoIncrement\": false,\r\n              \"collation\": \"NOCASE\",\r\n              \"comment\": null,\r\n              \"default\": null,\r\n              \"enum\": null,\r\n              \"generated\": null,\r\n              \"name\": \"title\",\r\n              \"note\": null,\r\n              \"nullable\": false,\r\n              \"ormDefault\": null,\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"timezone\": null,\r\n              \"type\": \"TEXT\",\r\n              \"typeName\": \"text\"\r\n            },\r\n            {\r\n              \"autoIncrement\": false,\r\n              \"collation\": null,\r\n              \"comment\": null,\r\n              \"default\": null,\r\n              \"enum\": null,\r\n              \"generated\": null,\r\n              \"name\": \"slug\",\r\n              \"note\": null,\r\n              \"nullable\": false,\r\n              \"ormDefault\": null,\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"timezone\": null,\r\n              \"type\": \"TEXT\",\r\n              \"typeName\": \"text\"\r\n            },\r\n            {\r\n              \"autoIncrement\": false,\r\n              \"collation\": null,\r\n              \"comment\": null,\r\n              \"default\": {\r\n                \"kind\": \"literal\",\r\n                \"value\": \"0\"\r\n              },\r\n              \"enum\": null,\r\n              \"generated\": null,\r\n              \"name\": \"archived\",\r\n              \"note\": null,\r\n              \"nullable\": false,\r\n              \"ormDefault\": null,\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"timezone\": null,\r\n              \"type\": \"INTEGER\",\r\n              \"typeName\": \"integer\"\r\n            }\r\n          ],\r\n          \"comment\": null,\r\n          \"constraints\": [\r\n            {\r\n              \"columns\": [\r\n                \"slug\"\r\n              ],\r\n              \"expression\": null,\r\n              \"id\": \"sqlite:main.notes:constraint:notes_slug\",\r\n              \"kind\": \"unique\",\r\n              \"name\": \"notes_slug\",\r\n              \"provenance\": [\r\n                \"database\"\r\n              ]\r\n            },\r\n            {\r\n              \"columns\": [\r\n                \"archived\"\r\n              ],\r\n              \"expression\": \"archived IN (0, 1)\",\r\n              \"id\": \"sqlite:main.notes:constraint:notes_archived_flag\",\r\n              \"kind\": \"check\",\r\n              \"name\": \"notes_archived_flag\",\r\n              \"provenance\": [\r\n                \"database\"\r\n              ]\r\n            }\r\n          ],\r\n          \"foreignKeys\": [],\r\n          \"id\": \"sqlite:main.notes\",\r\n          \"indexes\": [\r\n            {\r\n              \"backs\": {\r\n                \"constraint\": \"sqlite:main.notes:constraint:notes_slug\",\r\n                \"kind\": \"unique_constraint\"\r\n              },\r\n              \"expression\": false,\r\n              \"id\": \"sqlite:main.notes:index:sqlite_autoindex_notes_1\",\r\n              \"included\": [],\r\n              \"method\": null,\r\n              \"name\": \"sqlite_autoindex_notes_1\",\r\n              \"partial\": false,\r\n              \"parts\": [\r\n                {\r\n                  \"collation\": null,\r\n                  \"column\": \"slug\",\r\n                  \"expression\": null,\r\n                  \"length\": null,\r\n                  \"nulls\": null,\r\n                  \"opclass\": null,\r\n                  \"order\": null\r\n                }\r\n              ],\r\n              \"predicate\": null,\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"unique\": true\r\n            },\r\n            {\r\n              \"backs\": null,\r\n              \"expression\": false,\r\n              \"id\": \"sqlite:main.notes:index:notes_active_title\",\r\n              \"included\": [],\r\n              \"method\": null,\r\n              \"name\": \"notes_active_title\",\r\n              \"partial\": true,\r\n              \"parts\": [\r\n                {\r\n                  \"collation\": null,\r\n                  \"column\": \"title\",\r\n                  \"expression\": null,\r\n                  \"length\": null,\r\n                  \"nulls\": null,\r\n                  \"opclass\": null,\r\n                  \"order\": null\r\n                }\r\n              ],\r\n              \"predicate\": \"archived = 0\",\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"unique\": false\r\n            },\r\n            {\r\n              \"backs\": null,\r\n              \"expression\": true,\r\n              \"id\": \"sqlite:main.notes:index:notes_lower_title\",\r\n              \"included\": [],\r\n              \"method\": null,\r\n              \"name\": \"notes_lower_title\",\r\n              \"partial\": false,\r\n              \"parts\": [\r\n                {\r\n                  \"collation\": null,\r\n                  \"column\": null,\r\n                  \"expression\": \"lower(title)\",\r\n                  \"length\": null,\r\n                  \"nulls\": null,\r\n                  \"opclass\": null,\r\n                  \"order\": null\r\n                }\r\n              ],\r\n              \"predicate\": null,\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"unique\": false\r\n            },\r\n            {\r\n              \"backs\": null,\r\n              \"expression\": false,\r\n              \"id\": \"sqlite:main.notes:index:notes_title_nocase\",\r\n              \"included\": [],\r\n              \"method\": null,\r\n              \"name\": \"notes_title_nocase\",\r\n              \"partial\": false,\r\n              \"parts\": [\r\n                {\r\n                  \"collation\": \"NOCASE\",\r\n                  \"column\": \"title\",\r\n                  \"expression\": null,\r\n                  \"length\": null,\r\n                  \"nulls\": null,\r\n                  \"opclass\": null,\r\n                  \"order\": \"desc\"\r\n                }\r\n              ],\r\n              \"predicate\": null,\r\n              \"provenance\": [\r\n                \"database\"\r\n              ],\r\n              \"unique\": false\r\n            }\r\n          ],\r\n          \"name\": \"notes\",\r\n          \"note\": null,\r\n          \"owner\": {\r\n            \"kind\": \"application\",\r\n            \"package\": null\r\n          },\r\n          \"primaryKey\": [\r\n            \"id\"\r\n          ],\r\n          \"provenance\": [\r\n            \"database\"\r\n          ],\r\n          \"schema\": null\r\n        }\r\n      ]\r\n    }\r\n  ],\r\n  \"derivedLinks\": [],\r\n  \"diagnostics\": [\r\n    {\r\n      \"category\": \"inspection\",\r\n      \"certainty\": \"certain\",\r\n      \"id\": \"necb2896ad42f5c2c\",\r\n      \"kind\": \"unsupported_metadata\",\r\n      \"message\": \"Check constraints were read from the table SQL; unnamed checks get generated names.\",\r\n      \"severity\": \"info\",\r\n      \"subject\": {\r\n        \"columns\": null,\r\n        \"id\": \"connection:main\",\r\n        \"label\": \"main\",\r\n        \"type\": \"connection\"\r\n      }\r\n    }\r\n  ],\r\n  \"format\": \"laranex-schema\",\r\n  \"generator\": {\r\n    \"name\": \"contract-fixtures\",\r\n    \"orm\": null\r\n  },\r\n  \"inferredAssociations\": [],\r\n  \"links\": [],\r\n  \"migrations\": [],\r\n  \"models\": [],\r\n  \"note\": null,\r\n  \"relationships\": [],\r\n  \"source\": \"database\",\r\n  \"version\": \"2.0\"\r\n}\r\n",
+        "path": "tests/fixtures/windows.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

@@ -1,0 +1,370 @@
+{
+  "entries": [
+    {
+      "path": "contract/conformance/gate/comparison-drift.json",
+      "sha256": "80306ce730705c594394e69545e3bd5d16a74b87e381f0dc322446328eb00287"
+    },
+    {
+      "path": "contract/conformance/gate/diagnostics-only.json",
+      "sha256": "1e6d50473879edc5222ae0137955488cd722e7f7e2067e510c13de434b168a99"
+    },
+    {
+      "path": "contract/conformance/gate/extraction-warning-only.json",
+      "sha256": "06a5f159fff524de0d76963cb77773b41948b3bac5c2f9d41dbe4dcba0b6628f"
+    },
+    {
+      "path": "contract/conformance/gate/failed-inspection.json",
+      "sha256": "757cd40b78907d4f4b019136c930d2e4e2ecbaac1fc3b12b5d9f28431bb4a52d"
+    },
+    {
+      "path": "contract/conformance/gate/incomplete-comparison.json",
+      "sha256": "cc5471e123a7a6ace07a0f4446d96ded021a26f618e35d17b185b7a7fcb0aeaa"
+    },
+    {
+      "path": "contract/conformance/gate/incomplete-coverage.json",
+      "sha256": "9a9eab62252e46c8403730be94c9942130e8e46fb0600bd1187c0dcbd0446a70"
+    },
+    {
+      "path": "contract/conformance/gate/incomplete-required-coverage.json",
+      "sha256": "b61d284683b1f0fe8835d40098d7652047dd8b3ced0b9ac271126236b3685d60"
+    },
+    {
+      "path": "contract/conformance/gate/migration-only.json",
+      "sha256": "4b2b0b80d07eb249950946c3bdc9b5571c04b5b1d9af7e1248261717a8409341"
+    },
+    {
+      "path": "contract/conformance/gate/migration-unknown.json",
+      "sha256": "35b364485cc12339ddbfb36aa43c9b8a66f7250df854a54fe06ba9ecfdad6303"
+    },
+    {
+      "path": "contract/conformance/gate/newer-minor.json",
+      "sha256": "4024800f3e2d09fb506f83cddd1802f5cff9598c4180466b7c0582a89941e1c0"
+    },
+    {
+      "path": "contract/conformance/gate/partial-coverage.json",
+      "sha256": "3ae968529f618cc22f04a007e866e38d517d3e61c645d4778523ea606a9d96fd"
+    },
+    {
+      "path": "contract/conformance/gate/precedence.json",
+      "sha256": "3f3de15c02a8452047aee10994580989877616c243edf69a3b146e23e3a7efa8"
+    },
+    {
+      "path": "contract/conformance/gate/requested-missing.json",
+      "sha256": "d58d29ad82a86e3cf711ddc83ed63ceb0c25b13eecedf76fd399918a78a869d4"
+    },
+    {
+      "path": "contract/conformance/gate/requested-none.json",
+      "sha256": "6b278ed31e5bb4fa8dc511ee2e4ffc4b7d53984a90aa55e0db6512f39a82109f"
+    },
+    {
+      "path": "contract/conformance/gate/requested-wildcard-empty.json",
+      "sha256": "52cb5df18e8136416cd4db877cb6faab86ab93e1aeca86e669ac3bef9788abfa"
+    },
+    {
+      "path": "contract/conformance/gate/requested-wildcard.json",
+      "sha256": "68d734363c87702a6f8c81ed603ff9ee9e699c4c41aa3125c933086c12ab55c1"
+    },
+    {
+      "path": "contract/conformance/gate/threshold-below-severity.json",
+      "sha256": "edb7ea6fbf7d27e15a39ca472a9c6bff28e3b2dc7159852be32b89d3f97aea59"
+    },
+    {
+      "path": "contract/conformance/gate/threshold-likely-at-certainty.json",
+      "sha256": "385471a078ab0206fd1426f302c46083c29d82f1afed39de5362ca375f518b71"
+    },
+    {
+      "path": "contract/conformance/gate/threshold-likely-below-certainty.json",
+      "sha256": "04006b4055ed4d67c54c0b49cb6c3c38f950e6d00d0dd813a9d260abc0384dde"
+    },
+    {
+      "path": "contract/conformance/gate/unsupported-version.json",
+      "sha256": "a022262098fb1388a552f9847f4bfa6869127b004474e228d8bc3a8f2d668c8f"
+    },
+    {
+      "path": "contract/conformance/gate/zero-comparisons.json",
+      "sha256": "8c4cb131203fe479589040a122599188da6a9feeff021347089702818320af03"
+    },
+    {
+      "path": "contract/conformance/store/add-to-empty.json",
+      "sha256": "0259523ab5189f0495cc1f001d1585b0e795800cec8ee57dbef0a89b19352690"
+    },
+    {
+      "path": "contract/conformance/store/complete-drops-diagnostic.json",
+      "sha256": "c5e40deaa96638a8f8ae4d339f2d45a4cebecccf91c441aa8b64fde3f98c92f3"
+    },
+    {
+      "path": "contract/conformance/store/idempotent.json",
+      "sha256": "42ca3aa3670b1081029830c9f40ba37afafe2edf7ab101c978c1c9cb37e14d54"
+    },
+    {
+      "path": "contract/conformance/store/replace.json",
+      "sha256": "3216e9c845b973e62e828d675cd8568024440a0ab939dfa21d380889517de9b9"
+    },
+    {
+      "path": "contract/fixtures/invalid/backs-check-constraint.json",
+      "sha256": "e83c0e84c3b6e27d70931f121c6d48e181b8227464df1397f719eef212d06b3b"
+    },
+    {
+      "path": "contract/fixtures/invalid/column-subject-without-columns.json",
+      "sha256": "ebfd2beae8d36e4e5267df6c5f9cff1a2ba2a36cd2e9d329c2c0aeda4e0745ac"
+    },
+    {
+      "path": "contract/fixtures/invalid/comparison-omitted-but-complete.json",
+      "sha256": "7a07f0a68d528b120f90e5767fc4b4dd9454eece1a26587dc874a44b0d175cdd"
+    },
+    {
+      "path": "contract/fixtures/invalid/comparison-same-scope.json",
+      "sha256": "eea8afe6fc84141bfa80c9621e6a3f21e625aab143323b43369db08b9b1690ac"
+    },
+    {
+      "path": "contract/fixtures/invalid/comparison-summary-mismatch.json",
+      "sha256": "3b32dd11df3094a8286b7bd9f923165d02b34e3c71627b0d48e570e3f00b4479"
+    },
+    {
+      "path": "contract/fixtures/invalid/comparison-unknown-connection.json",
+      "sha256": "91f5d4329a5076c4cd1f909bbef5b8fe0a8bb69d9eecff2087f44a555ab14162"
+    },
+    {
+      "path": "contract/fixtures/invalid/comparison-wrong-id.json",
+      "sha256": "2682fcb5a4f1a258d78b8c10b070a9714a631cb54833b4d642f6905bc79d22d1"
+    },
+    {
+      "path": "contract/fixtures/invalid/coverage-claims-complete.json",
+      "sha256": "2610a4f8f2831af772d2b96c6220e1c7f883d1d20e61df1881285abcfc58d731"
+    },
+    {
+      "path": "contract/fixtures/invalid/coverage-for-wrong-source.json",
+      "sha256": "29e0a13891f3f42e1afd0eb08897078fcd9a1a9b7ef135948ff80733b132f8d8"
+    },
+    {
+      "path": "contract/fixtures/invalid/diagnostic-unknown-subject.json",
+      "sha256": "b7b2a52de2a0f9dcc0c1b319c79cf61b487d9b3f03dda4868fd7fd1fc515b846"
+    },
+    {
+      "path": "contract/fixtures/invalid/diagnostic-wrong-id.json",
+      "sha256": "70d7b3ff9363d23747edf2519c14011ef54e786044e98d6b15252827e232b93e"
+    },
+    {
+      "path": "contract/fixtures/invalid/difference-changed-without-fields.json",
+      "sha256": "84a4cae365dc767d153fcb06b817f6ca67bbc57547413fab5979a724ca38a767"
+    },
+    {
+      "path": "contract/fixtures/invalid/difference-key-names-schema.json",
+      "sha256": "8ff41d2b127581ba943c3132fd46e41d98b813bb096a64f591029b3ff06de7b8"
+    },
+    {
+      "path": "contract/fixtures/invalid/difference-key-unknown-column.json",
+      "sha256": "294d9eac79d1ebf412863642e3583c62fbfee5f8a22d491b0c43fc27aeac64ec"
+    },
+    {
+      "path": "contract/fixtures/invalid/difference-missing-with-target.json",
+      "sha256": "5e4a65e5022411d248ab17523d70f9555e58993640dd967129d788c3b809b035"
+    },
+    {
+      "path": "contract/fixtures/invalid/difference-side-outside-scope.json",
+      "sha256": "98468c76d64337bb00e83f0ee6d831760a238d0579035228db2771803f7ad3dd"
+    },
+    {
+      "path": "contract/fixtures/invalid/difference-side-wrong-entity.json",
+      "sha256": "379aa3eadfa877102ac24163005ed6650aaf834cf103d75a45f62583aaff4c5c"
+    },
+    {
+      "path": "contract/fixtures/invalid/difference-wrong-id.json",
+      "sha256": "cf6f7f1d6fa5fc44307771da9c3f6e4003defdff25f8dd51b7f099c76175bc98"
+    },
+    {
+      "path": "contract/fixtures/invalid/differences-unsorted.json",
+      "sha256": "e7e98690a7a1894dc6f30fa29dc41fb0db0e970d30d207914b6171d60a5d9821"
+    },
+    {
+      "path": "contract/fixtures/invalid/drift-without-both-sources.json",
+      "sha256": "0427b1357a54aa5049bd93a29b6ed354f0f1663e6f0f9001dbf4ce27cd56dfc6"
+    },
+    {
+      "path": "contract/fixtures/invalid/driver-alias.json",
+      "sha256": "3dd2c9119d9fd1d099c172c73c9271b77b9fa0f0a967d59e0344e1e493ba32a2"
+    },
+    {
+      "path": "contract/fixtures/invalid/duplicate-ids.json",
+      "sha256": "81a4355b304e4f07923530db2d421f1ea69993ac237fb2a5f4fda6eec02bc8c9"
+    },
+    {
+      "path": "contract/fixtures/invalid/foreign-key-across-connections.json",
+      "sha256": "424aa87deae5718c187f6dc1f95a7cb8c6f2c1e5dbcc5690f0fed8197739b7f3"
+    },
+    {
+      "path": "contract/fixtures/invalid/foreign-key-column-counts.json",
+      "sha256": "e1c2577a4251f6603c0771d3c55a82df22ae0be121e80fb4431cf2fac4a6247c"
+    },
+    {
+      "path": "contract/fixtures/invalid/foreign-key-unknown-target.json",
+      "sha256": "e1ba82f860b6a06ff957ae18bff70f94ba8edf915565aa8dd22e69640ca82a00"
+    },
+    {
+      "path": "contract/fixtures/invalid/index-part-column-and-expression.json",
+      "sha256": "9436100aea600db5d858b1746254e4a3d0a8692178d89293bb7553c0eceb7b7c"
+    },
+    {
+      "path": "contract/fixtures/invalid/inferred-covered-foreign-key.json",
+      "sha256": "045a6e0496a9348c60315c18be5baaaf2246bad465a8ea0e983c09cc8cdfcb91"
+    },
+    {
+      "path": "contract/fixtures/invalid/inferred-kind-mismatch.json",
+      "sha256": "47d2a9c70fd7756162f51d614e1db0af1ae17548442a5c3b09c2747aca4f18f8"
+    },
+    {
+      "path": "contract/fixtures/invalid/inferred-model-not-mapping-table.json",
+      "sha256": "b8050eebb4f162c13164e9d3650355595f060a57b301f2e90ff06ae9e07c4aa9"
+    },
+    {
+      "path": "contract/fixtures/invalid/inferred-unknown-foreign-key.json",
+      "sha256": "401eef0ed307d58f8fa79a68534a58211cbe4c92b31ce6ddbcc795996c78896b"
+    },
+    {
+      "path": "contract/fixtures/invalid/inferred-wrong-id.json",
+      "sha256": "3fd7c4a1dc63927e97e61f1f7bc3e9c8180a7df95d25d8c97d3fa2edb4f86369"
+    },
+    {
+      "path": "contract/fixtures/invalid/inferred-wrong-links.json",
+      "sha256": "249cc71a8f357ea1f0804f082a1f14f6a71bece74c81b66f9360ca251c04e8ac"
+    },
+    {
+      "path": "contract/fixtures/invalid/link-state-mismatch.json",
+      "sha256": "072759a785356473ac1a7e3112dad361edfa81c3298389545d0a37c39eaed135"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-coverage-wrong-table.json",
+      "sha256": "9fe4fee8691b65a31a065f87019fcad1836cf272b9feaabf36af08572835ec10"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-revisions-without-version-table.json",
+      "sha256": "9bb0634376eb829047c1ffca7c02db115b18c374310187f64c727d18d1e1a3d6"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-unknown-coverage-certain.json",
+      "sha256": "8f14658a3f124092a575c43e57753cb34f7bab23af53d8dcbf0f75511ad5f4aa"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-unlisted-unknown-revision.json",
+      "sha256": "6b0843e6c806a2c5116f481d2919415a3e2397a984cfcd3c6054139263eab245"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-version-table-outside-scope.json",
+      "sha256": "b381b24aca399501f467310b4d10c0a7ef72bf78c4ad15bcf55474c019a7058a"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-wrong-heads.json",
+      "sha256": "9250a5f1cb30406d6c73decd21c9b545cc30b604549618e712931abb03f2d3cf"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-wrong-id.json",
+      "sha256": "c8a88d5aafe1f22847acb41e35a566799e587a8a3e2edc5fe7c00d97da74c6b4"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-wrong-missing.json",
+      "sha256": "952c4009430cb8acea0642456f6f931031f98f24a3114f4a0b1d2aeddfae6a34"
+    },
+    {
+      "path": "contract/fixtures/invalid/migration-wrong-status.json",
+      "sha256": "507d77d1941be3f4015afe99442158f9b5ff5d086f121ce90d9c3a8c7169c972"
+    },
+    {
+      "path": "contract/fixtures/invalid/missing-field.json",
+      "sha256": "57b3bb1cf339487af285d7135ff1625f9e740c552363a7037f78a7d289fd85fa"
+    },
+    {
+      "path": "contract/fixtures/invalid/pivot-unknown-column.json",
+      "sha256": "63ca06c4996b708579bcd6bfc986b37629350806b14dec904e5a0ef0f8653905"
+    },
+    {
+      "path": "contract/fixtures/invalid/predicate-without-partial.json",
+      "sha256": "8c323d69b6c25680ee53b785fbb74ad42a3caf80711afc19ce6ac6e236ed3afa"
+    },
+    {
+      "path": "contract/fixtures/invalid/primary-index-not-unique.json",
+      "sha256": "5a820f1bfd3761be53e3ee1ee6263602f39f4f6581ad63ff4075903c38c3e88e"
+    },
+    {
+      "path": "contract/fixtures/invalid/primary-index-other-columns.json",
+      "sha256": "1ebca5e2597f166eab49c0b0e9cbb08091dbf89c8c989a51455944b45d902cb0"
+    },
+    {
+      "path": "contract/fixtures/invalid/provenance-outside-source.json",
+      "sha256": "fa247fd50f6a9e9789a1fc05a4b4e736382ec139389864c570dcac3ce6c8b29f"
+    },
+    {
+      "path": "contract/fixtures/invalid/related-model-missing.json",
+      "sha256": "a7e1bba5cb5700d88cd6b1c997863a22cd547917a2cba9694c1d38e1d0928798"
+    },
+    {
+      "path": "contract/fixtures/invalid/strict-other-minor.json",
+      "sha256": "1173f7a2d1b92b0638ce40b9ea38fa6a5fda2922fc3475a0a38d0007026a9833"
+    },
+    {
+      "path": "contract/fixtures/invalid/unknown-property-strict.json",
+      "sha256": "3b30554bcdb170ab5cabb3f203f97cb5834ad08ac1b1cd554062811078efb30f"
+    },
+    {
+      "path": "contract/fixtures/invalid/unsupported-major.json",
+      "sha256": "2e876fb9766ef7061d21b1dd13d38e719dd261a37834058527e3cdded53eb159"
+    },
+    {
+      "path": "contract/fixtures/valid/combined-drift.json",
+      "sha256": "5b637cca733346b4f8b861e769cfe9e85c21b4d77ee5aab90977863cb9f6c328"
+    },
+    {
+      "path": "contract/fixtures/valid/combined-eloquent.json",
+      "sha256": "127ecd660d7f47dd56e351d0bdec70319250a9bfe59e665580fada196edb43fb"
+    },
+    {
+      "path": "contract/fixtures/valid/combined-multi-connection.json",
+      "sha256": "b15eb4f3ffb97ff5a85171382c39b185edaecd1fe38723dc137adc1a5dfbf098"
+    },
+    {
+      "path": "contract/fixtures/valid/comparison-incomplete.json",
+      "sha256": "6bd0fc6b6d30e3d47fad9d3ceca24ab20852ea024d9d8be678fbece682337ba1"
+    },
+    {
+      "path": "contract/fixtures/valid/comparison-multi-connection.json",
+      "sha256": "4838f6abce38788bc2485987a9840da28f61cf8fe3995b241ca3151705b3aea9"
+    },
+    {
+      "path": "contract/fixtures/valid/comparison-schema-named-tables.json",
+      "sha256": "2b47140c227a4b1674ad791e2cd78b4b323ed9d270ca54d78b5eeb6ed26a8f81"
+    },
+    {
+      "path": "contract/fixtures/valid/comparison-tenant-schemas.json",
+      "sha256": "8fc33266578cab25a66a52c5009d98d24dc325ebb25850f3f078d7ab14f45313"
+    },
+    {
+      "path": "contract/fixtures/valid/database-mysql-indexes.json",
+      "sha256": "79925527bfbad807213d015361e6d61e07405be6647520bfb23eed129246af5b"
+    },
+    {
+      "path": "contract/fixtures/valid/database-postgresql-indexes.json",
+      "sha256": "fb896a8aaeeb2059d4d22ffbb0b32e4b43435a04150a68d3fabe9e1a20dc9900"
+    },
+    {
+      "path": "contract/fixtures/valid/database-sqlite-indexes.json",
+      "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f"
+    },
+    {
+      "path": "contract/fixtures/valid/declared-multi-connection.json",
+      "sha256": "64d53ee58727c2eaef039a5d6a9d072559ed8d18386461170c133bc04a8eb059"
+    },
+    {
+      "path": "contract/fixtures/valid/declared-sqlalchemy.json",
+      "sha256": "6780b4881e30d4d0d9cff86164fab9c5b074c2cf3949e9216286f4a02ef71ce5"
+    },
+    {
+      "path": "contract/fixtures/valid/inferred-associations.json",
+      "sha256": "b50ede92432d9b4fdcaf8a86ea2adce6f86133cd7e17892336f2d7866f9e57d9"
+    },
+    {
+      "path": "contract/fixtures/valid/migrations-alembic.json",
+      "sha256": "fe00004a39f2a07f9841ccb5dea11cd53cfc07f2d9fe50db03a1a17cb25a603f"
+    }
+  ],
+  "format": "laranex-schema-allowlist",
+  "version": "1.0"
+}

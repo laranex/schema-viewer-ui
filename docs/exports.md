@@ -5,6 +5,19 @@ browser from the document it shows. No schema data is sent anywhere: the text fo
 `laranex-schema-viewer-ui/export`, the images from the diagram as it is drawn, and the offline page from the viewer's
 own files. The dialog follows Laranex Laravel Schema Viewer's.
 
+## Exports are sensitive files
+
+Every file exported from a private schema is as sensitive as the schema itself: the offline HTML page, the whole
+document and scoped JSON, DBML, Mermaid, Markdown, SVG and PNG. "No schema data is sent anywhere" describes the
+network, not the file you save; keep exports out of version control, build output and public places.
+
+Once you download or export a file, storing, sharing and distributing it is your responsibility as the owner of the
+repository or the file, not the package's. The package's own part is safe defaults, protecting the snapshots its hosts
+generate, the [snapshot scanner](./contract.md#snapshot-scanning) for the formats it can recognise, and serving the
+viewer securely. It does not track or scan downloaded files outside your repository and build workflow. The scanner
+recognises JSON documents, including those inside the offline HTML page, but not DBML, Mermaid, Markdown, SVG or PNG,
+and not compressed or encoded payloads.
+
 ## The dialog
 
 1. **Connection** (only with several connections): the connection the schema files describe. It opens on the
@@ -152,7 +165,7 @@ The file carries its own policy:
 `default-src 'none'; script-src 'sha256-…'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:;
 connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`. The one script is allowed by its SHA-256
 hash, not by `'unsafe-inline'`; styles use `'unsafe-inline'` as the hosts' policies do. Text that could end an element
-early is escaped (`</script`, `<!--` and `<script` as `\x3C…` in the script, `<` as `<` in the JSON, `</style` as
+early is escaped (`</script`, `<!--` and `<script` as `\x3C…` in the script, `<` as `\u003c` in the JSON, `</style` as
 `<\/style`). The page opens from `file://` with no network access; its Download dialog still makes every file, and it
 can save itself again byte for byte. A file for the 3-connection demo document is ≈2.3 MB.
 

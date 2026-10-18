@@ -1,0 +1,72 @@
+{
+  "description": "An included allowlist's entries apply under its root",
+  "expected": {
+    "counts": {
+      "allowed": 1,
+      "confirmed": 0,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 0,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "document",
+        "path": "vendor/pkg/contract/fixtures/valid/schema.json",
+        "reason": "document",
+        "scope": "tracked",
+        "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f",
+        "status": "allowed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": ".laranex-schema-allowlist.json",
+    "allowlists": {
+      ".laranex-schema-allowlist.json": {
+        "entries": [],
+        "format": "laranex-schema-allowlist",
+        "include": [
+          {
+            "path": "vendor/pkg/contract/synthetic.json",
+            "root": "vendor/pkg"
+          }
+        ],
+        "version": "1.0"
+      },
+      "vendor/pkg/contract/synthetic.json": {
+        "entries": [
+          {
+            "path": "contract/fixtures/valid/schema.json",
+            "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f"
+          }
+        ],
+        "format": "laranex-schema-allowlist",
+        "version": "1.0"
+      }
+    },
+    "files": [
+      {
+        "commit": null,
+        "content": "{\n  \"comparisons\": [],\n  \"connections\": [\n    {\n      \"coverage\": {\n        \"database\": {\n          \"complete\": false,\n          \"features\": {\n            \"checkConstraints\": \"partial\",\n            \"columnTypes\": \"complete\",\n            \"columns\": \"complete\",\n            \"comments\": \"not_applicable\",\n            \"defaults\": \"complete\",\n            \"foreignKeys\": \"complete\",\n            \"includedColumns\": \"not_applicable\",\n            \"indexExpressions\": \"complete\",\n            \"indexPredicates\": \"complete\",\n            \"indexes\": \"complete\",\n            \"models\": \"not_applicable\",\n            \"primaryKeys\": \"complete\",\n            \"referentialActions\": \"complete\",\n            \"relationships\": \"not_applicable\",\n            \"tables\": \"complete\",\n            \"uniqueConstraints\": \"complete\"\n          },\n          \"schemas\": null\n        },\n        \"declared\": null\n      },\n      \"defaultSchema\": null,\n      \"driver\": \"sqlite\",\n      \"id\": \"connection:main\",\n      \"name\": \"main\",\n      \"tables\": [\n        {\n          \"columns\": [\n            {\n              \"autoIncrement\": true,\n              \"collation\": null,\n              \"comment\": null,\n              \"default\": null,\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"id\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"INTEGER\",\n              \"typeName\": \"integer\"\n            },\n            {\n              \"autoIncrement\": false,\n              \"collation\": \"NOCASE\",\n              \"comment\": null,\n              \"default\": null,\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"title\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"TEXT\",\n              \"typeName\": \"text\"\n            },\n            {\n              \"autoIncrement\": false,\n              \"collation\": null,\n              \"comment\": null,\n              \"default\": null,\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"slug\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"TEXT\",\n              \"typeName\": \"text\"\n            },\n            {\n              \"autoIncrement\": false,\n              \"collation\": null,\n              \"comment\": null,\n              \"default\": {\n                \"kind\": \"literal\",\n                \"value\": \"0\"\n              },\n              \"enum\": null,\n              \"generated\": null,\n              \"name\": \"archived\",\n              \"note\": null,\n              \"nullable\": false,\n              \"ormDefault\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"timezone\": null,\n              \"type\": \"INTEGER\",\n              \"typeName\": \"integer\"\n            }\n          ],\n          \"comment\": null,\n          \"constraints\": [\n            {\n              \"columns\": [\n                \"slug\"\n              ],\n              \"expression\": null,\n              \"id\": \"sqlite:main.notes:constraint:notes_slug\",\n              \"kind\": \"unique\",\n              \"name\": \"notes_slug\",\n              \"provenance\": [\n                \"database\"\n              ]\n            },\n            {\n              \"columns\": [\n                \"archived\"\n              ],\n              \"expression\": \"archived IN (0, 1)\",\n              \"id\": \"sqlite:main.notes:constraint:notes_archived_flag\",\n              \"kind\": \"check\",\n              \"name\": \"notes_archived_flag\",\n              \"provenance\": [\n                \"database\"\n              ]\n            }\n          ],\n          \"foreignKeys\": [],\n          \"id\": \"sqlite:main.notes\",\n          \"indexes\": [\n            {\n              \"backs\": {\n                \"constraint\": \"sqlite:main.notes:constraint:notes_slug\",\n                \"kind\": \"unique_constraint\"\n              },\n              \"expression\": false,\n              \"id\": \"sqlite:main.notes:index:sqlite_autoindex_notes_1\",\n              \"included\": [],\n              \"method\": null,\n              \"name\": \"sqlite_autoindex_notes_1\",\n              \"partial\": false,\n              \"parts\": [\n                {\n                  \"collation\": null,\n                  \"column\": \"slug\",\n                  \"expression\": null,\n                  \"length\": null,\n                  \"nulls\": null,\n                  \"opclass\": null,\n                  \"order\": null\n                }\n              ],\n              \"predicate\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"unique\": true\n            },\n            {\n              \"backs\": null,\n              \"expression\": false,\n              \"id\": \"sqlite:main.notes:index:notes_active_title\",\n              \"included\": [],\n              \"method\": null,\n              \"name\": \"notes_active_title\",\n              \"partial\": true,\n              \"parts\": [\n                {\n                  \"collation\": null,\n                  \"column\": \"title\",\n                  \"expression\": null,\n                  \"length\": null,\n                  \"nulls\": null,\n                  \"opclass\": null,\n                  \"order\": null\n                }\n              ],\n              \"predicate\": \"archived = 0\",\n              \"provenance\": [\n                \"database\"\n              ],\n              \"unique\": false\n            },\n            {\n              \"backs\": null,\n              \"expression\": true,\n              \"id\": \"sqlite:main.notes:index:notes_lower_title\",\n              \"included\": [],\n              \"method\": null,\n              \"name\": \"notes_lower_title\",\n              \"partial\": false,\n              \"parts\": [\n                {\n                  \"collation\": null,\n                  \"column\": null,\n                  \"expression\": \"lower(title)\",\n                  \"length\": null,\n                  \"nulls\": null,\n                  \"opclass\": null,\n                  \"order\": null\n                }\n              ],\n              \"predicate\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"unique\": false\n            },\n            {\n              \"backs\": null,\n              \"expression\": false,\n              \"id\": \"sqlite:main.notes:index:notes_title_nocase\",\n              \"included\": [],\n              \"method\": null,\n              \"name\": \"notes_title_nocase\",\n              \"partial\": false,\n              \"parts\": [\n                {\n                  \"collation\": \"NOCASE\",\n                  \"column\": \"title\",\n                  \"expression\": null,\n                  \"length\": null,\n                  \"nulls\": null,\n                  \"opclass\": null,\n                  \"order\": \"desc\"\n                }\n              ],\n              \"predicate\": null,\n              \"provenance\": [\n                \"database\"\n              ],\n              \"unique\": false\n            }\n          ],\n          \"name\": \"notes\",\n          \"note\": null,\n          \"owner\": {\n            \"kind\": \"application\",\n            \"package\": null\n          },\n          \"primaryKey\": [\n            \"id\"\n          ],\n          \"provenance\": [\n            \"database\"\n          ],\n          \"schema\": null\n        }\n      ]\n    }\n  ],\n  \"derivedLinks\": [],\n  \"diagnostics\": [\n    {\n      \"category\": \"inspection\",\n      \"certainty\": \"certain\",\n      \"id\": \"necb2896ad42f5c2c\",\n      \"kind\": \"unsupported_metadata\",\n      \"message\": \"Check constraints were read from the table SQL; unnamed checks get generated names.\",\n      \"severity\": \"info\",\n      \"subject\": {\n        \"columns\": null,\n        \"id\": \"connection:main\",\n        \"label\": \"main\",\n        \"type\": \"connection\"\n      }\n    }\n  ],\n  \"format\": \"laranex-schema\",\n  \"generator\": {\n    \"name\": \"contract-fixtures\",\n    \"orm\": null\n  },\n  \"inferredAssociations\": [],\n  \"links\": [],\n  \"migrations\": [],\n  \"models\": [],\n  \"note\": null,\n  \"relationships\": [],\n  \"source\": \"database\",\n  \"version\": \"2.0\"\n}\n",
+        "path": "vendor/pkg/contract/fixtures/valid/schema.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "description": "Laravel's envelope, format 2 with document.connections (legacy, temporary)",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "legacy",
+        "path": "storage/app/schema-viewer.json",
+        "reason": "laravel_envelope",
+        "scope": "tracked",
+        "sha256": "23c8ab2603e41da2888fb82e7f86e8f30c1c6efc1d21cd497aa1d2caf24ac69e",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"format\":2,\"document\":{\"version\":2,\"connections\":[{\"name\":\"mysql\",\"tables\":[]}]}}",
+        "path": "storage/app/schema-viewer.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

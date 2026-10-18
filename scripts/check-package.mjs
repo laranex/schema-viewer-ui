@@ -1,7 +1,8 @@
 // Packs the package, installs the tarball into a temporary project, and checks what consumers get: the exports resolve,
-// the contract runs in Node.js, the standalone viewer and contract artifacts are present and match the manifest, and
-// publint finds no problems. Run after npm run build.
-import { execFileSync } from 'node:child_process';
+// the contract runs in Node.js, the standalone viewer and contract artifacts are present and match the manifest, the
+// installed package holds no schema document but the synthetic ones contract/synthetic.json lists (the shipped
+// scanner, run on every packed file), and publint finds no problems. Run after npm run build.
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -81,7 +82,7 @@ try {
     if (!page.includes('<link rel="icon" href="favicon.svg" type="image/svg+xml">') || !page.includes('<link rel="icon" href="favicon.ico" sizes="16x16 32x32">')) {
         fail('index.html does not link the favicon by relative URLs');
     }
-    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/check.mjs', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'contract/conformance/gate', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
+    for (const required of ['dist/viewer/index.html', 'dist/viewer/app.js', 'dist/viewer/app.css', 'contract/schema.json', 'contract/gate-report.schema.json', 'contract/scan-report.schema.json', 'contract/allowlist.schema.json', 'contract/synthetic.json', 'contract/check.mjs', 'contract/scan.mjs', 'contract/conformance/scan', 'contract/conformance/graph', 'contract/conformance/comparison', 'contract/conformance/migrations', 'contract/conformance/inference', 'contract/conformance/gate', 'docs/contract.md', 'LICENSE', 'NOTICE']) {
         if (!existsSync(join(installed, required))) {
             fail(`missing ${required}`);
         }
@@ -90,9 +91,22 @@ try {
         fail('sources or tests were packed');
     }
 
+    // Every packed file, read as a build artifact: only the allowlisted synthetic documents, unchanged.
+    const scan = spawnSync('node', ['contract/scan.mjs', '--artifacts', '.', '--allowlist', 'contract/synthetic.json', '--json'], { cwd: installed, encoding: 'utf8' });
+    const synthetic = JSON.parse(readFileSync(join(installed, 'contract/synthetic.json'), 'utf8'));
+    let scanned;
+    try {
+        scanned = JSON.parse(scan.stdout);
+    } catch {
+        scanned = null;
+    }
+    if (scan.status !== 0 || !scanned || scanned.counts.allowed !== synthetic.entries.length || scanned.counts.files === 0) {
+        fail(`the packed files hold schema documents synthetic.json does not list (scan exit ${scan.status}): ${scanned ? JSON.stringify(scanned.counts) : scan.stderr}`);
+    }
+
     run('npx', ['--no-install', 'publint', '--strict', root], root);
     if (!process.exitCode) {
-        console.log(`✓ ${filename}: exports, contract, ${manifest.files.length} viewer files and artifacts check out`);
+        console.log(`✓ ${filename}: exports, contract, ${manifest.files.length} viewer files, artifacts and the snapshot scan check out`);
     }
 } finally {
     rmSync(work, { recursive: true, force: true });

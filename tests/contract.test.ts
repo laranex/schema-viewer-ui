@@ -17,7 +17,9 @@ import {
     expandComparisonRequests,
     gateDocument,
     gateReportJsonSchema,
+    allowlistJsonSchema,
     inferAssociations,
+    scanReportJsonSchema,
     InvalidDocumentError,
     jsonSchema,
     migrationHistory,
@@ -39,6 +41,8 @@ import { INFERENCE_CASES } from './fixtures/inference-cases';
 import { MIGRATION_CASES } from './fixtures/migration-cases';
 import { COMPARISON_DIAGNOSTIC_CASES, COVERAGE_CASES, OVERRIDE_CASES, REQUEST_CASES, STORE_CASES } from './fixtures/producer-cases';
 import { INVALID } from './fixtures/invalid';
+import { repositoryAllowlist, syntheticAllowlist } from './fixtures/allowlists';
+import { SCAN_CASES } from './fixtures/scan-cases';
 import { root } from './helpers';
 
 // The contract artifacts in contract/ are generated from the TypeScript definitions above; `npm run contract` rewrites
@@ -80,6 +84,20 @@ describe('contract artifacts', () => {
         expect(readFileSync(file, 'utf8')).toBe(generated);
     });
 
+    for (const [name, generate] of [
+        ['scan-report.schema.json', scanReportJsonSchema],
+        ['allowlist.schema.json', allowlistJsonSchema],
+    ] as const) {
+        it(`${name} is generated from its shape`, () => {
+            const file = root('contract', name);
+            const generated = `${JSON.stringify(generate(), null, 2)}\n`;
+            if (update) {
+                writeFileSync(file, generated);
+            }
+            expect(readFileSync(file, 'utf8')).toBe(generated);
+        });
+    }
+
     it('gate report fixtures are current', () => {
         artifacts('fixtures/gate/valid', GATE_VALID);
         artifacts('fixtures/gate/invalid', GATE_INVALID);
@@ -97,6 +115,25 @@ describe('contract artifacts', () => {
     it('override conformance cases are current', () => artifacts('conformance/overrides', OVERRIDE_CASES));
     it('comparison diagnostic conformance cases are current', () => artifacts('conformance/comparison-diagnostics', COMPARISON_DIAGNOSTIC_CASES));
     it('store conformance cases are current', () => artifacts('conformance/store', STORE_CASES));
+    it('scan conformance cases are current', () => artifacts('conformance/scan', SCAN_CASES));
+
+    // Last: they list the documents the artifacts above hold, by digest.
+    it('contract/synthetic.json lists every synthetic document the package ships', () => {
+        const file = root('contract/synthetic.json');
+        if (update) {
+            writeFileSync(file, canonicalJson(syntheticAllowlist()));
+        }
+        expect(readFileSync(file, 'utf8'), 'contract/synthetic.json is stale; run npm run contract').toBe(canonicalJson(syntheticAllowlist()));
+    });
+
+    it('.laranex-schema-allowlist.json lists the repository\'s synthetic documents', async () => {
+        const file = root('.laranex-schema-allowlist.json');
+        const expected = canonicalJson(await repositoryAllowlist());
+        if (update) {
+            writeFileSync(file, expected);
+        }
+        expect(readFileSync(file, 'utf8'), '.laranex-schema-allowlist.json is stale; run npm run contract').toBe(expected);
+    });
 });
 
 describe('valid fixtures', () => {

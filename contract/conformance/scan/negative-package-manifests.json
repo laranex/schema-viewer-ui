@@ -1,0 +1,64 @@
+{
+  "description": "package.json, composer.json, their lock files and tsconfig.json that name the packages (composer.lock is not read: not .json)",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 4,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 0,
+    "findings": [],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\n  \"name\": \"app\",\n  \"version\": \"1.0.0\",\n  \"scripts\": {\n    \"schema\": \"laranex-schema-viewer build\"\n  },\n  \"devDependencies\": {\n    \"laranex-schema-viewer-ui\": \"0.4.0\"\n  }\n}\n",
+        "path": "package.json",
+        "scope": "tracked"
+      },
+      {
+        "commit": null,
+        "content": "{\n    \"name\": \"acme/app\",\n    \"require\": {\n        \"laranex/laravel-schema-viewer\": \"^1.0\"\n    },\n    \"extra\": {\n        \"laravel\": {\n            \"providers\": []\n        }\n    }\n}\n",
+        "path": "composer.json",
+        "scope": "tracked"
+      },
+      {
+        "commit": null,
+        "content": "{\n  \"name\": \"app\",\n  \"lockfileVersion\": 3,\n  \"packages\": {\n    \"node_modules/laranex-schema-viewer-ui\": {\n      \"version\": \"0.4.0\",\n      \"resolved\": \"https://registry.npmjs.org/laranex-schema-viewer-ui/-/laranex-schema-viewer-ui-0.4.0.tgz\"\n    }\n  }\n}\n",
+        "path": "package-lock.json",
+        "scope": "tracked"
+      },
+      {
+        "commit": null,
+        "content": "{\n    \"packages\": [\n        {\n            \"name\": \"laranex/laravel-schema-viewer\",\n            \"version\": \"1.0.0\",\n            \"type\": \"library\"\n        }\n    ]\n}\n",
+        "path": "composer.lock",
+        "scope": "tracked"
+      },
+      {
+        "commit": null,
+        "content": "{\n  \"compilerOptions\": {\n    \"strict\": true,\n    \"module\": \"ESNext\"\n  },\n  \"include\": [\n    \"src\"\n  ]\n}\n",
+        "path": "tsconfig.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

@@ -4,6 +4,7 @@
 //   /inline/<fixture>/     the viewer, with the document inline in script#schema-viewer-data
 //   /element/<fixture>/    <laranex-schema-viewer src="snapshot.json">
 //   /page/<fixture>/       dist/viewer/index.html exactly as shipped, with its favicon links
+//   /cross/<fixture>/      the viewer, naming a snapshot URL on another origin (localhost), which it must refuse
 //   /f/invalid/            a document the viewer must refuse
 import { readFileSync, existsSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -35,7 +36,7 @@ createServer((request, response) => {
     };
     const [, mode, name, ...rest] = new URL(request.url, 'http://x').pathname.split('/');
     const file = rest.join('/');
-    if (!['f', 'inline', 'element', 'page'].includes(mode) || !name) {
+    if (!['f', 'inline', 'element', 'page', 'cross'].includes(mode) || !name) {
         return send(404, 'text/plain', 'not found');
     }
     const json = fixture(name);
@@ -52,7 +53,9 @@ createServer((request, response) => {
                 ? `<div id="schema-viewer"></div><script type="application/json" id="schema-viewer-data">${escaped}</script>`
                 : mode === 'element'
                   ? '<laranex-schema-viewer src="snapshot.json" style="height:100vh"></laranex-schema-viewer>'
-                  : '<div id="schema-viewer" data-snapshot-url="snapshot.json"></div>';
+                  : mode === 'cross'
+                    ? `<div id="schema-viewer" data-snapshot-url="http://localhost:${port}/f/${name}/snapshot.json"></div>`
+                    : '<div id="schema-viewer" data-snapshot-url="snapshot.json"></div>';
         return send(200, 'text/html', page(body));
     }
     if (file === 'snapshot.json') {

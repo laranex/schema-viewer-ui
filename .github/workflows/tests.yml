@@ -27,7 +27,18 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run contract:check
+      # The repository and its build output hold no schema document but the allowlisted synthetic ones; any non-zero
+      # exit (exposure, uncertain or incomplete scan) fails. test:package scans the packed tarball the same way.
+      - name: Scan for schema snapshots
+        run: node contract/scan.mjs --tracked --untracked --artifacts dist --report "$RUNNER_TEMP/scan-report.json"
       - run: npm run test:package
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: scan-report-${{ matrix.os }}-${{ matrix.node }}
+          path: ${{ runner.temp }}/scan-report.json
+          if-no-files-found: ignore
+          retention-days: 7
   browser:
     runs-on: ubuntu-latest
     steps:

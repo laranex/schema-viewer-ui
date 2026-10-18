@@ -1,0 +1,74 @@
+{
+  "description": "Entries that name a clean file or no file are stale: a warning, not a failure",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 2,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 0,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "allowlist_entry",
+        "path": "tests/fixtures/gone.json",
+        "reason": "not_found",
+        "scope": "allowlist",
+        "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f",
+        "status": "stale"
+      },
+      {
+        "commit": null,
+        "kind": "allowlist_entry",
+        "path": "tests/fixtures/schema.json",
+        "reason": "not_detected",
+        "scope": "allowlist",
+        "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f",
+        "status": "stale"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": ".laranex-schema-allowlist.json",
+    "allowlists": {
+      ".laranex-schema-allowlist.json": {
+        "entries": [
+          {
+            "path": "tests/fixtures/schema.json",
+            "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f"
+          },
+          {
+            "path": "tests/fixtures/gone.json",
+            "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f"
+          }
+        ],
+        "format": "laranex-schema-allowlist",
+        "version": "1.0"
+      }
+    },
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"cleaned\":true}\n",
+        "path": "tests/fixtures/schema.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

@@ -16,3 +16,7 @@ playwright-report/
 .gh-page/.vitepress/dist/
 .gh-page/public/demo/
 .gh-page/public/logo.svg
+
+# Schema snapshots and offline pages saved at the repository root (fixtures live elsewhere and stay tracked)
+/schema-viewer.json
+/schema-viewer.html
