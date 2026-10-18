@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking for hosts that load a snapshot from another origin:** the standalone viewer resolves `data-snapshot-url`
+  (and `<laranex-schema-viewer src>`) against the page and loads it only from the page's own origin, as its
+  documentation always said. A URL on another origin is refused with an on-page error and never requested, and a
+  response redirected to another origin is not used. The request sends credentials only to the same origin and
+  bypasses the HTTP cache (`cache: 'no-store'`). Serve the snapshot beside the viewer, or inline it.
+
+### Documentation
+
+- `docs/exports.md`: every export of a private schema is a sensitive file, and storing and sharing a downloaded file is
+  the owner's responsibility; fixed the offline page's JSON escape (`<` is written as `\u003c`).
+
 ## [0.3.0] - 2026-10-18
 
 ### Upgrading from 0.2.0

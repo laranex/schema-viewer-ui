@@ -24,6 +24,15 @@ test.describe('standalone viewer under a strict CSP', () => {
         await expect(page.getByRole('combobox', { name: 'Search the schema' })).toBeVisible();
     });
 
+    test('refuses a snapshot URL on another origin without requesting it', async ({ page }) => {
+        const requested: string[] = [];
+        page.on('request', (r) => requested.push(r.url()));
+        await page.goto('/cross/database-sqlite-indexes/');
+        await expect(page.getByText('Snapshot unavailable')).toBeVisible();
+        await expect(page.getByText(/The snapshot URL is on another origin \(http:\/\/localhost:\d+\)/)).toBeVisible();
+        expect(requested.filter((u) => u.includes('snapshot.json'))).toEqual([]);
+    });
+
     test('serves the favicon the page links to', async ({ page, request }) => {
         await page.goto('/page/database-sqlite-indexes/');
         await loaded(page);

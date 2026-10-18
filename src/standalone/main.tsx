@@ -13,12 +13,14 @@ import type { ViewerConfig } from '../contract/viewer-config';
 import { validateDocument } from '../contract/validate';
 import { SchemaViewer } from '../viewer/SchemaViewer';
 import { bundleFromPage, fetchOfflineBundle } from '../viewer/offline';
+import { fetchSnapshot } from './snapshot';
 
 // The standalone viewer: Laravel, Python and Node.js hosts serve dist/viewer/ as static files and hand it a
 // laranex-schema document in one of three ways, tried in this order:
 //   1. <script type="application/json" id="schema-viewer-data">{…}</script>, a document or a ViewerConfig;
 //   2. window.__SCHEMA_VIEWER__, a ViewerConfig;
-//   3. data-snapshot-url on the mount element (or src on <laranex-schema-viewer>), fetched from the same origin.
+//   3. data-snapshot-url on the mount element (or src on <laranex-schema-viewer>), fetched from the page's own origin
+//      only (snapshot.ts): a URL on another origin is refused with an error and never requested.
 // It needs no inline script, eval or worker, so it runs under script-src 'self'.
 
 declare global {
@@ -42,11 +44,11 @@ async function load(url: string | null): Promise<Source> {
         } else if (window.__SCHEMA_VIEWER__) {
             config = window.__SCHEMA_VIEWER__;
         } else if (url) {
-            const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            const response = await fetchSnapshot(url);
             if (!response.ok) {
-                return { error: `The snapshot request failed (${response.status}).` };
+                return { error: response.error };
             }
-            config = asConfig(await response.json());
+            config = asConfig(response.value);
             downloadHref = url;
         }
     } catch (error) {
