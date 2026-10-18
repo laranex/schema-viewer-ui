@@ -131,8 +131,11 @@ server-side protection as the page:
   inlined in the page (`script#schema-viewer-data`, `window.__SCHEMA_VIEWER__`);
 - downloads the host offers (`downloadHref`, `ViewerConfig.downloads`) and the offline HTML the viewer builds;
 - every page that shows the viewer in an `<iframe>`, and the framed viewer itself;
-- caches and CDNs: send `Cache-Control: no-store` on every sensitive response, errors included, and make sure no static,
-  CDN or object-storage path (a bucket, a Pages site, an artifact store) serves the same files without the check.
+- caches and CDNs: send `Cache-Control: no-store` on the viewer page, the schema document, downloads and every error
+  response. Fingerprinted static assets that hold no schema data (the viewer's content-hashed `assets/*`, or a host's
+  fingerprinted asset path) may use `Cache-Control: private, max-age=31536000, immutable`. Never `public` for any
+  protected viewer resource, and authentication still applies to every request. Make sure no static, CDN or
+  object-storage path (a bucket, a Pages site, an artifact store) serves the same files without the check.
 
 Use HTTPS for anything but loopback.
 

@@ -16,8 +16,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
-- `docs/integration.md`: serve every viewer file with `Cache-Control: no-store` behind the host's check, as the
-  security policy requires, instead of long cache lifetimes for `assets/*`. `docs/exports.md` links the security
+- `docs/integration.md`: every viewer file is served behind the host's check; the page, the snapshot, downloads, errors
+  and the fixed-name files with `Cache-Control: no-store`, and only the content-hashed `assets/*` (no schema data) with
+  `private, max-age=31536000, immutable`, never `public`, instead of public long cache lifetimes for `assets/*`. `docs/exports.md` links the security
   page's responsibility boundary instead of repeating it.
 
 ## [0.4.0] - 2026-10-18

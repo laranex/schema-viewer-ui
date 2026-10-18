@@ -8,20 +8,17 @@ vulnerability.
 
 ## Supported versions
 
-| Version | Supported |
-| --- | --- |
-| 0.4.x (latest on npm) | Yes |
-| < 0.4 | No |
-
-The package is pre-1.0. Fixes are released as a new version of the latest line; earlier lines get no backports.
+During the 0.x development phase only the latest released version on npm receives security fixes (currently 0.4.0).
+Fixes ship in a new release; there are no backports to older 0.x releases or to prereleases.
 
 ## Reporting a vulnerability
 
 Do not put vulnerability details, exploit code or any schema snapshot in a public issue, pull request or discussion.
 
-Private vulnerability reporting is not enabled for this repository. Open an
-[issue](https://github.com/laranex/schema-viewer-ui/issues) that only asks a maintainer for a private contact, with no
-details, and send the report through the channel they give you.
+Report it privately through
+[GitHub private vulnerability reporting](https://github.com/laranex/schema-viewer-ui/security/advisories/new), with
+the affected version, reproduction steps using synthetic data, and the impact you observed. Please allow time for a fix
+before public disclosure.
 
 ## Security model
 
@@ -48,7 +45,8 @@ Markdown, SVG and PNG, and `laranex-schema-gate` reports kept as CI artifacts (r
 
 The schema document and every delivery path need the same server-side protection as the page: viewer assets,
 `snapshot.json` or an inline document, downloads, `<iframe>` embedding, caches and CDNs, object storage. Send
-`Cache-Control: no-store` on every sensitive response, errors included, and use HTTPS beyond localhost. See
+`Cache-Control: no-store` on the viewer page, the schema document, downloads and error responses; fingerprinted static
+assets without schema data may use `private, max-age=31536000, immutable`, never `public`. Use HTTPS beyond localhost. See
 [Every delivery path](https://laranex.github.io/schema-viewer-ui/security.html#every-delivery-path).
 
 ## Development-only viewer

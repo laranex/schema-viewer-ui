@@ -75,8 +75,11 @@ Flow's positioning styles.
 `app.js` (≈145 kB gzipped) loads `assets/elk.bundled-*.js` (≈440 kB gzipped) when it first lays out. Fonts are IBM
 Plex Sans and Mono, latin subset, in `assets/`. `offline.js` (≈2 MB, ≈620 kB gzipped) is the viewer as one script
 with ELK inlined; it is only fetched when someone saves the page as offline HTML. `assets/*` names carry content hashes; `app.js`,
-`app.css` and `index.html` keep fixed names. Serve every file behind the host's check with `Cache-Control: no-store`,
-as [Security](./security.md#every-delivery-path) requires, so no shared cache keeps a copy.
+`app.css`, `index.html` and `offline.js` keep fixed names. Serve every file behind the host's check: `index.html` (and any
+page that shows the viewer), the snapshot, downloads and error responses with `Cache-Control: no-store`; the fixed-name
+files with `Cache-Control: no-store` as well; and only `assets/*`, whose names are content hashes and which hold no
+schema data, may use `Cache-Control: private, max-age=31536000, immutable`. Never `public`: no shared cache or CDN may
+keep a protected viewer resource. See [Security](./security.md#every-delivery-path).
 
 ## Versions
 
