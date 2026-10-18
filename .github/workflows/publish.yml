@@ -45,6 +45,8 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run contract:check
+      - name: Scan for schema snapshots
+        run: node contract/scan.mjs --tracked --untracked --artifacts dist
       - run: npm run test:package
       # Trusted Publishing needs npm 11.5.1 or later.
       - run: npm install -g npm@11

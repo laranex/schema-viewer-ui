@@ -8,6 +8,7 @@ on:
       - '.gh-page/**'
       - 'src/**'
       - 'contract/**'
+      - '.laranex-schema-allowlist.json'
       - 'package.json'
       - 'package-lock.json'
       - 'vite.viewer.config.ts'
@@ -16,6 +17,9 @@ on:
     paths:
       - 'docs/**'
       - '.gh-page/**'
+      - 'contract/scan.mjs'
+      - 'src/contract/scan.ts'
+      - '.laranex-schema-allowlist.json'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 
@@ -45,9 +49,12 @@ jobs:
       - name: Install documentation dependencies
         working-directory: .gh-page
         run: npm ci
-      - name: Test, build, and verify production links
+      # check-build.mjs also runs the snapshot scanner over the whole site: only the allowlisted demo snapshots.
+      - name: Test, build, verify production links, and scan for schema snapshots
         working-directory: .gh-page
         run: npm run check
+      - name: Scan the Pages artifact for schema snapshots
+        run: node contract/scan.mjs --artifacts .gh-page/.vitepress/dist
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
