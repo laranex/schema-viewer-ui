@@ -1,0 +1,50 @@
+{
+  "description": "The shared viewer's offline page holds the document as plain JSON",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "embedded",
+        "path": "docs/schema-viewer.html",
+        "reason": "embedded_json",
+        "scope": "tracked",
+        "sha256": "8a0e76ea13d6dbc22b36a11be9a0211a092b0eeacac18630590f35d6818fc85c",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "<!doctype html><html><head><meta charset=\"utf-8\"><script type=\"module\">console.log(1)</script></head><body><div id=\"schema-viewer\"></div><script type=\"application/json\" id=\"schema-viewer-data\">{\"document\":{\"format\":\"laranex-schema\",\"version\":\"2.0\",\"source\":\"database\",\"generator\":{\"name\":\"contract-fixtures\",\"orm\":null},\"note\":null,\"models\":[],\"relationships\":[],\"links\":[],\"derivedLinks\":[],\"diagnostics\":[{\"id\":\"necb2896ad42f5c2c\",\"kind\":\"unsupported_metadata\",\"category\":\"inspection\",\"severity\":\"info\",\"certainty\":\"certain\",\"subject\":{\"id\":\"connection:main\",\"columns\":null,\"label\":\"main\",\"type\":\"connection\"},\"message\":\"Check constraints were read from the table SQL; unnamed checks get generated names.\"}],\"comparisons\":[],\"migrations\":[],\"inferredAssociations\":[],\"connections\":[{\"id\":\"connection:main\",\"name\":\"main\",\"driver\":\"sqlite\",\"defaultSchema\":null,\"coverage\":{\"database\":{\"complete\":false,\"schemas\":null,\"features\":{\"tables\":\"complete\",\"columns\":\"complete\",\"columnTypes\":\"complete\",\"defaults\":\"complete\",\"comments\":\"not_applicable\",\"primaryKeys\":\"complete\",\"foreignKeys\":\"complete\",\"referentialActions\":\"complete\",\"indexes\":\"complete\",\"indexExpressions\":\"complete\",\"indexPredicates\":\"complete\",\"includedColumns\":\"not_applicable\",\"uniqueConstraints\":\"complete\",\"checkConstraints\":\"partial\",\"models\":\"not_applicable\",\"relationships\":\"not_applicable\"}},\"declared\":null},\"tables\":[{\"id\":\"sqlite:main.notes\",\"name\":\"notes\",\"schema\":null,\"comment\":null,\"note\":null,\"owner\":{\"kind\":\"application\",\"package\":null},\"primaryKey\":[\"id\"],\"columns\":[{\"name\":\"id\",\"type\":\"INTEGER\",\"typeName\":\"integer\",\"nullable\":false,\"autoIncrement\":true,\"timezone\":null,\"collation\":null,\"enum\":null,\"default\":null,\"ormDefault\":null,\"generated\":null,\"comment\":null,\"note\":null,\"provenance\":[\"database\"]},{\"name\":\"title\",\"type\":\"TEXT\",\"typeName\":\"text\",\"nullable\":false,\"autoIncrement\":false,\"timezone\":null,\"collation\":\"NOCASE\",\"enum\":null,\"default\":null,\"ormDefault\":null,\"generated\":null,\"comment\":null,\"note\":null,\"provenance\":[\"database\"]},{\"name\":\"slug\",\"type\":\"TEXT\",\"typeName\":\"text\",\"nullable\":false,\"autoIncrement\":false,\"timezone\":null,\"collation\":null,\"enum\":null,\"default\":null,\"ormDefault\":null,\"generated\":null,\"comment\":null,\"note\":null,\"provenance\":[\"database\"]},{\"name\":\"archived\",\"type\":\"INTEGER\",\"typeName\":\"integer\",\"nullable\":false,\"autoIncrement\":false,\"timezone\":null,\"collation\":null,\"enum\":null,\"default\":{\"kind\":\"literal\",\"value\":\"0\"},\"ormDefault\":null,\"generated\":null,\"comment\":null,\"note\":null,\"provenance\":[\"database\"]}],\"indexes\":[{\"id\":\"sqlite:main.notes:index:sqlite_autoindex_notes_1\",\"name\":\"sqlite_autoindex_notes_1\",\"parts\":[{\"column\":\"slug\",\"expression\":null,\"order\":null,\"nulls\":null,\"length\":null,\"collation\":null,\"opclass\":null}],\"expression\":false,\"unique\":true,\"backs\":{\"kind\":\"unique_constraint\",\"constraint\":\"sqlite:main.notes:constraint:notes_slug\"},\"method\":null,\"partial\":false,\"predicate\":null,\"included\":[],\"provenance\":[\"database\"]},{\"id\":\"sqlite:main.notes:index:notes_active_title\",\"name\":\"notes_active_title\",\"parts\":[{\"column\":\"title\",\"expression\":null,\"order\":null,\"nulls\":null,\"length\":null,\"collation\":null,\"opclass\":null}],\"expression\":false,\"unique\":false,\"backs\":null,\"method\":null,\"partial\":true,\"predicate\":\"archived = 0\",\"included\":[],\"provenance\":[\"database\"]},{\"id\":\"sqlite:main.notes:index:notes_lower_title\",\"name\":\"notes_lower_title\",\"parts\":[{\"column\":null,\"expression\":\"lower(title)\",\"order\":null,\"nulls\":null,\"length\":null,\"collation\":null,\"opclass\":null}],\"expression\":true,\"unique\":false,\"backs\":null,\"method\":null,\"partial\":false,\"predicate\":null,\"included\":[],\"provenance\":[\"database\"]},{\"id\":\"sqlite:main.notes:index:notes_title_nocase\",\"name\":\"notes_title_nocase\",\"parts\":[{\"column\":\"title\",\"expression\":null,\"order\":\"desc\",\"nulls\":null,\"length\":null,\"collation\":\"NOCASE\",\"opclass\":null}],\"expression\":false,\"unique\":false,\"backs\":null,\"method\":null,\"partial\":false,\"predicate\":null,\"included\":[],\"provenance\":[\"database\"]}],\"foreignKeys\":[],\"constraints\":[{\"id\":\"sqlite:main.notes:constraint:notes_slug\",\"kind\":\"unique\",\"name\":\"notes_slug\",\"columns\":[\"slug\"],\"expression\":null,\"provenance\":[\"database\"]},{\"id\":\"sqlite:main.notes:constraint:notes_archived_flag\",\"kind\":\"check\",\"name\":\"notes_archived_flag\",\"columns\":[\"archived\"],\"expression\":\"archived IN (0, 1)\",\"provenance\":[\"database\"]}],\"provenance\":[\"database\"]}]}]},\"changes\":null,\"defaultConnection\":null}</script></body></html>\n",
+        "path": "docs/schema-viewer.html",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

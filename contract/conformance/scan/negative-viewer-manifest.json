@@ -1,0 +1,46 @@
+{
+  "description": "The viewer's manifest.json names the format under contract, as JSON and inside a script",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 2,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 0,
+    "findings": [],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "artifacts"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\n  \"name\": \"laranex-schema-viewer-ui\",\n  \"version\": \"0.4.0\",\n  \"contract\": {\n    \"format\": \"laranex-schema\",\n    \"major\": 2\n  },\n  \"entry\": {\n    \"script\": \"app.js\"\n  },\n  \"files\": [\n    {\n      \"path\": \"app.js\",\n      \"size\": 1,\n      \"sha256\": \"0000000000000000000000000000000000000000000000000000000000000000\"\n    }\n  ]\n}\n",
+        "path": "public/schema-viewer/manifest.json",
+        "scope": "artifacts"
+      },
+      {
+        "commit": null,
+        "content": "const m={name:\"laranex-schema-viewer-ui\",contract:{format:\"laranex-schema\",major:2},files:[]};const connections=[];export{m,connections};\n",
+        "path": "public/schema-viewer/boot.js",
+        "scope": "artifacts"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "artifacts"
+    ]
+  }
+}

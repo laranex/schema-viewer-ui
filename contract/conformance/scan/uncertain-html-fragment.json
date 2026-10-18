@@ -1,0 +1,65 @@
+{
+  "description": "In HTML, the format pair without connections",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 2,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 2
+    },
+    "errors": [],
+    "exitCode": 3,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "uncertain",
+        "path": "docs/fragment.html",
+        "reason": "missing_connections",
+        "scope": "tracked",
+        "sha256": "9e078b96a73efac483618f71ae9a1fbf87dd3d6dce72e4ded4500ec09a6fa6a4",
+        "status": "uncertain"
+      },
+      {
+        "commit": null,
+        "kind": "uncertain",
+        "path": "docs/meta.html",
+        "reason": "missing_connections",
+        "scope": "tracked",
+        "sha256": "31550b5b56e1a9df55233f286d80823831d5e47552479e1288a97f094d8068be",
+        "status": "uncertain"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "<pre>{\"format\":\"laranex-schema\",\"version\":\"2.0\"}</pre>\n",
+        "path": "docs/meta.html",
+        "scope": "tracked"
+      },
+      {
+        "commit": null,
+        "content": "<pre>{\"format\": \"laranex-schema\", \"version\": \"2.0\"}</pre>\n",
+        "path": "docs/fragment.html",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

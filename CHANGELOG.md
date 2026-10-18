@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Snapshot scanning, specified in `docs/contract.md` ("Snapshot scanning"): `contract/scan.mjs`, a dependency-free
+  command line (Node.js 20 or later, Git) that finds `laranex-schema` documents by content in the Git index (staged
+  bytes, also files tracked before they were ignored), untracked files, build artifact directories and, on request,
+  the history, judges them against a path and SHA-256 allowlist, and exits 0 (clean), 1 (confirmed exposure),
+  2 (scan failure or incomplete scan) or 3 (uncertain exposure). The classifier is `scanContent()` in
+  `laranex-schema-viewer-ui/contract`, with `scanFiles()`, `resolveAllowlist()`, `allowlistDigest()`,
+  `validateAllowlist()` and `validateScanReport()`; the command line uses the same module.
+- `contract/scan-report.schema.json` (`laranex-schema-scan` 1.0) and `contract/allowlist.schema.json`
+  (`laranex-schema-allowlist` 1.0), generated from their shapes.
+- `contract/conformance/scan/`: positive, negative, near-miss, embedded, uncertain, allowlist, history and exit-code
+  precedence cases, all synthetic.
+- `contract/synthetic.json`: the allowlist of every synthetic document the package ships, for producers to include.
+- The repository's own `.laranex-schema-allowlist.json`, and CI scans of the tree, `dist`, the packed tarball and the
+  documentation site.
+
 ### Changed
 
 - **Breaking for hosts that load a snapshot from another origin:** the standalone viewer resolves `data-snapshot-url`

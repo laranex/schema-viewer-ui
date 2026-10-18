@@ -1,0 +1,46 @@
+{
+  "description": "A nested contract.format (a manifest's) is not a document, in JSON and in HTML",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 2,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 0,
+    "findings": [],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"contract\":{\"format\":\"laranex-schema\",\"version\":\"2.0\"},\"connections\":[]}",
+        "path": "contract.json",
+        "scope": "tracked"
+      },
+      {
+        "commit": null,
+        "content": "<script>window.config = {\"contract\":{\"format\":\"laranex-schema\",\"major\":2},\"connections\":[]};</script>\n",
+        "path": "contract.html",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://laranex.github.io/schema-viewer-ui/laranex-schema-scan/1.0.json",
+  "title": "laranex-schema-scan 1.x report",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "laranex-schema-scan"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^1\\.(0|[1-9][0-9]*)$"
+    },
+    "exitCode": {
+      "enum": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "artifacts",
+          "history",
+          "tracked",
+          "untracked"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "confirmed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tampered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "moved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncertain": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "incomplete": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "files",
+        "confirmed",
+        "tampered",
+        "moved",
+        "uncertain",
+        "allowed",
+        "incomplete",
+        "stale"
+      ],
+      "additionalProperties": false
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "enum": [
+              "artifacts",
+              "history",
+              "tracked",
+              "untracked",
+              "allowlist"
+            ]
+          },
+          "status": {
+            "enum": [
+              "allowed",
+              "confirmed",
+              "incomplete",
+              "moved",
+              "stale",
+              "tampered",
+              "uncertain"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "allowlist_entry",
+              "document",
+              "embedded",
+              "legacy",
+              "too_large",
+              "uncertain",
+              "unreadable"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}([0-9a-f]{24})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "enum": [
+              "document",
+              "embedded_json",
+              "laravel_envelope",
+              "missing_connections",
+              "nested_document",
+              "nested_legacy",
+              "not_detected",
+              "not_found",
+              "object_literal",
+              "read_error",
+              "size_limit",
+              "symlinked_directory",
+              "unparseable_json",
+              "viewer_global",
+              "viewer_v1"
+            ]
+          }
+        },
+        "required": [
+          "scope",
+          "status",
+          "kind",
+          "path",
+          "commit",
+          "sha256",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "enum": [
+              "allowlist_invalid",
+              "artifact_missing",
+              "git_failed",
+              "history_unavailable",
+              "not_a_repository"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "version",
+    "exitCode",
+    "scopes",
+    "limit",
+    "counts",
+    "findings",
+    "errors"
+  ],
+  "additionalProperties": false
+}

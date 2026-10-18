@@ -1,0 +1,50 @@
+{
+  "description": "A document six keys deep, the deepest looked at",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "embedded",
+        "path": "deep6.json",
+        "reason": "nested_document",
+        "scope": "tracked",
+        "sha256": "ca6abdf822bd3fbab6653f27f6a7895d05ed2f8fc75719a8df1c749fd465b04d",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"format\":\"laranex-schema\",\"version\":\"2.0\",\"source\":\"database\",\"generator\":{\"name\":\"synthetic\",\"orm\":null},\"note\":null,\"connections\":[]}}}}}}}",
+        "path": "deep6.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

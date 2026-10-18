@@ -1,0 +1,50 @@
+{
+  "description": "A document three keys deep",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "embedded",
+        "path": "tests/data/wrapped.json",
+        "reason": "nested_document",
+        "scope": "tracked",
+        "sha256": "5f8d95c982291b7d0b91ff1c419979e6cbc1e43bb49828759d19917ae6bf32a4",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"a\":{\"b\":{\"c\":{\"format\":\"laranex-schema\",\"version\":\"2.0\",\"source\":\"database\",\"generator\":{\"name\":\"synthetic\",\"orm\":null},\"note\":null,\"connections\":[]}}}}",
+        "path": "tests/data/wrapped.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

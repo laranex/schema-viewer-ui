@@ -1,0 +1,50 @@
+{
+  "description": "A bundle with the document inlined as an object literal",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "embedded",
+        "path": "dist/assets/index-9c1b.mjs",
+        "reason": "object_literal",
+        "scope": "artifacts",
+        "sha256": "ddce9a2761c1f2e726e69066d7d8e2fbead4dbf343cdfadabfba0cd30dadf491",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "artifacts"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "const d={format:\"laranex-schema\",version:\"2.0\",source:\"database\",connections:[{id:\"connection:app\",tables:[]}]};export{d};\n",
+        "path": "dist/assets/index-9c1b.mjs",
+        "scope": "artifacts"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "artifacts"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "description": "The viewer's minified validator compares the format and builds a JSON Schema, in a build artifact",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 0,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 0,
+    "findings": [],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "artifacts"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "function v(n){if(n.format!==\"laranex-schema\")return{ok:!1,errors:[\"This is not a laranex-schema 2.x document\"]};if(!Array.isArray(n.connections))throw new Error(\"connections\");return{ok:!0}}const G={format:\"laranex-schema-gate\",version:\"1.0\"};const s={\"format\":{\"const\":\"laranex-schema\"},\"connections\":{\"type\":\"array\"}};\n",
+        "path": "dist/viewer/app.js",
+        "scope": "artifacts"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "artifacts"
+    ]
+  }
+}

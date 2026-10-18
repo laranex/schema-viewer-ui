@@ -1,0 +1,100 @@
+{
+  "entries": [
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/combined-drift.json",
+      "sha256": "5b637cca733346b4f8b861e769cfe9e85c21b4d77ee5aab90977863cb9f6c328"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/combined-eloquent.json",
+      "sha256": "127ecd660d7f47dd56e351d0bdec70319250a9bfe59e665580fada196edb43fb"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/combined-multi-connection.json",
+      "sha256": "b15eb4f3ffb97ff5a85171382c39b185edaecd1fe38723dc137adc1a5dfbf098"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/comparison-incomplete.json",
+      "sha256": "6bd0fc6b6d30e3d47fad9d3ceca24ab20852ea024d9d8be678fbece682337ba1"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/comparison-tenant-schemas.json",
+      "sha256": "8fc33266578cab25a66a52c5009d98d24dc325ebb25850f3f078d7ab14f45313"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/database-mysql-indexes.json",
+      "sha256": "79925527bfbad807213d015361e6d61e07405be6647520bfb23eed129246af5b"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/database-postgresql-indexes.json",
+      "sha256": "fb896a8aaeeb2059d4d22ffbb0b32e4b43435a04150a68d3fabe9e1a20dc9900"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/database-sqlite-indexes.json",
+      "sha256": "f61a153f159990f0f067b0ba2fd86447c6b31e9d4866af2997686a56cfa9904f"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/declared-sqlalchemy.json",
+      "sha256": "6780b4881e30d4d0d9cff86164fab9c5b074c2cf3949e9216286f4a02ef71ce5"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/inferred-associations.json",
+      "sha256": "b50ede92432d9b4fdcaf8a86ea2adce6f86133cd7e17892336f2d7866f9e57d9"
+    },
+    {
+      "path": ".gh-page/.vitepress/dist/demo/snapshots/migrations-alembic.json",
+      "sha256": "fe00004a39f2a07f9841ccb5dea11cd53cfc07f2d9fe50db03a1a17cb25a603f"
+    },
+    {
+      "path": "tests/fixtures/export/combined-multi-connection@analytics.json",
+      "sha256": "fe950d6d46cc01434562fde716400cceac48b827ebb934c8431f15a89df61c52"
+    },
+    {
+      "path": "tests/fixtures/export/combined-multi-connection@app.json",
+      "sha256": "fa7399d8bb75ea2f56a16219f33907f2ead3c7b2f23cc7e302ae7bbc71ee8a21"
+    },
+    {
+      "path": "tests/fixtures/export/combined-multi-connection@cache.json",
+      "sha256": "17bf11912522330180b28f40b257b7ff4684647085e2a3ebb30423d6400ef693"
+    },
+    {
+      "path": "tests/fixtures/export/comparison-multi-connection@primary.json",
+      "sha256": "e7e90b9867690347cd6f2feb64431b652a7f9a7bd5e53604a47187702fc54504"
+    },
+    {
+      "path": "tests/fixtures/export/comparison-multi-connection@replica.json",
+      "sha256": "ff29c27a71c81b1c63ead5e4887117b94d3e651ab375759d06b23abb40084110"
+    },
+    {
+      "path": "tests/fixtures/export/declared-multi-connection@default.json",
+      "sha256": "bcb065f13ba9d50bad52f83078a05c5815ea2bbf2003942d9c0f4cb5e194e96b"
+    },
+    {
+      "path": "tests/fixtures/export/declared-multi-connection@reporting.json",
+      "sha256": "bc1ef775365882ec28b7700aad91c6968d890fc3cc36afd82b577b0489a8cc8c"
+    },
+    {
+      "path": "tests/viewer-documents/viewer-cardinality.json",
+      "sha256": "48741b15e760d442441822d3fcf5731576608c678b86ca7cb5c63e43625f6f83"
+    },
+    {
+      "path": "tests/viewer-documents/viewer-clean-comparison.json",
+      "sha256": "ff5c0c0c2f424b4de97654a95d6e934d492fa7dd008db82600831a7cef379583"
+    },
+    {
+      "path": "tests/viewer-documents/viewer-cross-connection-through.json",
+      "sha256": "60d0a279394ff918b55d52305451c58778052de49a0cbf8e5bfa34aece99f0f8"
+    },
+    {
+      "path": "tests/viewer-documents/viewer-two-way-comparison.json",
+      "sha256": "f0ff94e3f4545d514e3427b8cca6ecb6630293c5ec6e1f961336efa3b2d703de"
+    }
+  ],
+  "format": "laranex-schema-allowlist",
+  "include": [
+    {
+      "path": "contract/synthetic.json",
+      "root": "."
+    }
+  ],
+  "version": "1.0"
+}

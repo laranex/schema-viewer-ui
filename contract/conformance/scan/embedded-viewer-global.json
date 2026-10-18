@@ -1,0 +1,50 @@
+{
+  "description": "A page that assigns window.__SCHEMA_VIEWER__ a config with the document",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "embedded",
+        "path": "public/schema.html",
+        "reason": "viewer_global",
+        "scope": "tracked",
+        "sha256": "cfb985f789d001a5536cb6fa7d56eab5c207e2912780ef89682ad05140377c1a",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "<!doctype html><script>window.__SCHEMA_VIEWER__ = {\"document\":{\"format\":\"laranex-schema\",\"version\":\"2.0\",\"source\":\"database\",\"generator\":{\"name\":\"synthetic\",\"orm\":null},\"note\":null,\"connections\":[]},\"editor\":null};</script>\n",
+        "path": "public/schema.html",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

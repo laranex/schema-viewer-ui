@@ -1,0 +1,50 @@
+{
+  "description": "The Node.js v1 viewer format (legacy, temporary)",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "legacy",
+        "path": "snapshots/node.json",
+        "reason": "viewer_v1",
+        "scope": "untracked",
+        "sha256": "ba2763496e04283c1350c30f0ab0a539f114baf0b84a87702e837ddbc046e3eb",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "untracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\n  \"format\": \"laranex-schema-viewer\",\n  \"version\": 1,\n  \"tables\": []\n}\n",
+        "path": "snapshots/node.json",
+        "scope": "untracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "untracked"
+    ]
+  }
+}

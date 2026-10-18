@@ -1,0 +1,50 @@
+{
+  "description": "A document inside an array, past its first items",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "embedded",
+        "path": "tests/data/list.json",
+        "reason": "nested_document",
+        "scope": "tracked",
+        "sha256": "084f3279168aa081ba59797f767f46644cb0a03bdf2412a745beec9f7891dd95",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "tracked"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"cases\":[{},{\"name\":\"x\"},{\"document\":{\"format\":\"laranex-schema\",\"version\":\"2.0\",\"source\":\"database\",\"generator\":{\"name\":\"synthetic\",\"orm\":null},\"note\":null,\"connections\":[]}}]}",
+        "path": "tests/data/list.json",
+        "scope": "tracked"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "tracked"
+    ]
+  }
+}

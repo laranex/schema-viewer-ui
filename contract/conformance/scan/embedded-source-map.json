@@ -1,0 +1,50 @@
+{
+  "description": "A source map's sourcesContent holds the document, escaped",
+  "expected": {
+    "counts": {
+      "allowed": 0,
+      "confirmed": 1,
+      "files": 1,
+      "incomplete": 0,
+      "moved": 0,
+      "stale": 0,
+      "tampered": 0,
+      "uncertain": 0
+    },
+    "errors": [],
+    "exitCode": 1,
+    "findings": [
+      {
+        "commit": null,
+        "kind": "embedded",
+        "path": "dist/assets/index-9c1b.js.map",
+        "reason": "embedded_json",
+        "scope": "artifacts",
+        "sha256": "32a210226595d8e9704fa73498b208e719a63c4acf5bcbf400974a7edfead524",
+        "status": "confirmed"
+      }
+    ],
+    "format": "laranex-schema-scan",
+    "limit": 67108864,
+    "scopes": [
+      "artifacts"
+    ],
+    "version": "1.0"
+  },
+  "input": {
+    "allowlist": null,
+    "allowlists": {},
+    "files": [
+      {
+        "commit": null,
+        "content": "{\"version\":3,\"sources\":[\"../src/data.ts\"],\"sourcesContent\":[\"export const doc = {\\\"format\\\":\\\"laranex-schema\\\",\\\"version\\\":\\\"2.0\\\",\\\"source\\\":\\\"database\\\",\\\"generator\\\":{\\\"name\\\":\\\"synthetic\\\",\\\"orm\\\":null},\\\"note\\\":null,\\\"connections\\\":[]};\\n\"],\"mappings\":\"AAAA\"}",
+        "path": "dist/assets/index-9c1b.js.map",
+        "scope": "artifacts"
+      }
+    ],
+    "limit": null,
+    "scopes": [
+      "artifacts"
+    ]
+  }
+}
