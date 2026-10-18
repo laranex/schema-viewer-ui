@@ -16,7 +16,10 @@ how to follow it in React, Next.js, Vue, Angular, FastAPI and Node.js applicatio
 
 1. **Never in production.** Never enable, bundle, serve or publicly expose the Schema Viewer or its schema snapshots in
    production.
-2. **Authenticate everywhere.** Require authentication even for local development.
+2. **Authenticate everywhere.** Require authentication even for local development. The one exception is the
+   standalone `serve` command of the Python and Node.js packages: a loopback-only viewer with no authentication, for a
+   single developer on their own machine. Never share it; anything beyond that machine goes through an authenticated
+   HTTPS reverse proxy or an access-controlled tunnel, with `serve` still on loopback.
 3. **Basic Auth is the minimum.** HTTP Basic Auth is the minimum acceptable protection. Your application's existing
    developer or admin authentication and authorization are preferred.
 4. **Protect everything on the server.** Protect the viewer page, its static assets (`app.js`, `app.css`, `offline.js`,
